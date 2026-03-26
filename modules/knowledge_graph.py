@@ -7,7 +7,7 @@ from typing import Dict, List, Any
 import networkx as nx
 from pyvis.network import Network
 
-from config import ENTITY_COLORS, GRAPH_OUTPUT_PATH
+from config import DEFAULT_ENTITY_COLORS, GRAPH_OUTPUT_PATH
 
 
 class KnowledgeGraph:
@@ -59,10 +59,17 @@ class KnowledgeGraph:
 
         return True
 
-    def render_html(self) -> str:
-        """pyvis HTML을 생성하고 파일 경로를 반환합니다."""
+    def render_html(self, entity_colors: Dict[str, str] = None) -> str:
+        """pyvis HTML을 생성하고 파일 경로를 반환합니다.
+
+        Args:
+            entity_colors: 엔티티 유형별 색상 딕셔너리. None이면 DEFAULT_ENTITY_COLORS 사용.
+        """
         if len(self.graph.nodes) == 0:
             return ""
+
+        colors = entity_colors or DEFAULT_ENTITY_COLORS
+        fallback_color = colors.get("default", "#9E9E9E")
 
         net = Network(
             height="580px",
@@ -96,7 +103,7 @@ class KnowledgeGraph:
 
         for node_id, attrs in self.graph.nodes(data=True):
             node_type = attrs.get("type", "default")
-            color = ENTITY_COLORS.get(node_type, ENTITY_COLORS["default"])
+            color = colors.get(node_type, fallback_color)
             net.add_node(
                 node_id,
                 label=attrs.get("label", node_id),
@@ -130,30 +137,25 @@ class KnowledgeGraph:
         self.graph.clear()
 
 
-ENTITY_EXTRACTION_PROMPT = """당신은 뷰티 회사의 문서에서 지식 그래프를 구축하는 전문가입니다.
+def build_entity_extraction_prompt(entity_types_description: str) -> str:
+    """도메인 엔티티 유형을 반영한 추출 프롬프트를 생성합니다."""
+    return f"""당신은 문서에서 지식 그래프를 구축하는 전문가입니다.
 아래 문서에서 엔티티(노드)와 관계(엣지)를 추출하세요.
 
 엔티티 유형:
-- person: 사람, 담당자, 직책
-- product: 제품, 브랜드
-- department: 부서, 팀
-- campaign: 캠페인, 마케팅 활동
-- issue: 문제, 이슈, 리스크
-- decision: 결정 사항, 의사결정
-- ingredient: 원료, 성분
-- metric: 지표, KPI, 수치
+{entity_types_description}
 
 반드시 아래 JSON 형식으로만 답변하세요 (다른 텍스트 없이):
-{
+{{
   "nodes": [
-    {"id": "고유ID", "label": "표시명", "type": "엔티티유형"}
+    {{"id": "고유ID", "label": "표시명", "type": "엔티티유형"}}
   ],
   "edges": [
-    {"source": "노드ID1", "target": "노드ID2", "relation": "관계설명"}
+    {{"source": "노드ID1", "target": "노드ID2", "relation": "관계설명"}}
   ]
-}
+}}
 
 ---
 문서 내용:
-{document}
+{{document}}
 """

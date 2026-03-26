@@ -5,18 +5,19 @@ from typing import List, Dict, Any
 import chromadb
 from chromadb.utils import embedding_functions
 
-from config import VECTOR_DB_PATH, COLLECTION_NAME, EMBEDDING_MODEL, TOP_K_RESULTS
+from config import VECTOR_DB_PATH, DEFAULT_COLLECTION_NAME, EMBEDDING_MODEL, TOP_K_RESULTS
 from modules.document_parser import chunk_text
 
 
 class RAGEngine:
-    def __init__(self):
+    def __init__(self, collection_name: str = DEFAULT_COLLECTION_NAME):
+        self.collection_name = collection_name
         self.client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
         self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name=EMBEDDING_MODEL
         )
         self.collection = self.client.get_or_create_collection(
-            name=COLLECTION_NAME,
+            name=self.collection_name,
             embedding_function=self.ef,
             metadata={"hnsw:space": "cosine"},
         )
@@ -75,9 +76,9 @@ class RAGEngine:
 
     def delete_collection(self):
         """컬렉션을 초기화합니다."""
-        self.client.delete_collection(COLLECTION_NAME)
+        self.client.delete_collection(self.collection_name)
         self.collection = self.client.get_or_create_collection(
-            name=COLLECTION_NAME,
+            name=self.collection_name,
             embedding_function=self.ef,
             metadata={"hnsw:space": "cosine"},
         )

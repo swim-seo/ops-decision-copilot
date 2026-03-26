@@ -18,28 +18,26 @@ SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"]
 VECTOR_DB_PATH = "./data/vector_store"
 UPLOAD_PATH = "./data/uploads"
 EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"  # 한국어 지원
-COLLECTION_NAME = "beauty_docs"
+DEFAULT_COLLECTION_NAME = "domain_docs"
 TOP_K_RESULTS = 5
 
-# ── App UI ────────────────────────────────────────────────────────────────────
-APP_TITLE = "뷰티 AI 운영 코파일럿"
-APP_ICON = "💄"
-COMPANY_NAME = "Beauty Co."
+# ── App UI (도메인 설정 전 기본값) ────────────────────────────────────────────
+APP_TITLE = "AI 운영 코파일럿"
+APP_ICON = "🤖"
 
 # ── Knowledge Graph ───────────────────────────────────────────────────────────
 GRAPH_OUTPUT_PATH = "./data/graph.html"
 
-ENTITY_COLORS = {
-    "person":     "#E91E8C",  # 핑크
-    "product":    "#FF5722",  # 오렌지레드
-    "brand":      "#9C27B0",  # 퍼플
-    "department": "#3F51B5",  # 인디고
-    "campaign":   "#FF9800",  # 앰버
-    "issue":      "#F44336",  # 레드
-    "decision":   "#4CAF50",  # 그린
-    "ingredient": "#00BCD4",  # 시안
-    "metric":     "#607D8B",  # 블루그레이
-    "default":    "#9E9E9E",  # 그레이
+# 기본 엔티티 색상 (도메인 설정 전 fallback)
+DEFAULT_ENTITY_COLORS = {
+    "person":       "#2196F3",
+    "organization": "#9C27B0",
+    "process":      "#FF9800",
+    "resource":     "#00BCD4",
+    "issue":        "#F44336",
+    "decision":     "#4CAF50",
+    "metric":       "#607D8B",
+    "default":      "#9E9E9E",
 }
 
 # ── Directories ───────────────────────────────────────────────────────────────

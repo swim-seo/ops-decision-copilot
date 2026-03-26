@@ -1,6 +1,7 @@
 """
-뷰티 AI 운영 코파일럿
+도메인 적응형 AI 운영 코파일럿
 회의록·운영문서 → RAG 검색 + 지식그래프 + AI 분석 (요약/액션/원인/보고서)
+어떤 도메인이든 Claude가 자동으로 적응합니다.
 """
 import os
 from datetime import datetime
@@ -8,7 +9,7 @@ from datetime import datetime
 import streamlit as st
 import streamlit.components.v1 as components
 
-from config import APP_TITLE, APP_ICON, COMPANY_NAME, ENTITY_COLORS
+from config import APP_TITLE, APP_ICON, DEFAULT_ENTITY_COLORS
 
 # ── 페이지 설정 (반드시 최상단) ─────────────────────────────────────────────────
 st.set_page_config(
@@ -18,108 +19,164 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── CSS 테마 (뷰티 핑크) ──────────────────────────────────────────────────────
-st.markdown(
-    """
-<style>
-    /* 배경 */
-    .main { background-color: #fff5f8; }
-    [data-testid="stSidebar"] { background: linear-gradient(180deg,#fce4ec,#f8bbd0); }
 
-    /* 버튼 */
-    .stButton>button {
-        background: linear-gradient(135deg,#e91e8c,#c2185b);
+# ── 동적 CSS 테마 ─────────────────────────────────────────────────────────────
+def _apply_theme(primary: str = "#2196F3"):
+    """도메인 테마 컬러를 기반으로 CSS를 동적으로 주입합니다."""
+    st.markdown(
+        f"""
+<style>
+    .stButton>button {{
+        background: linear-gradient(135deg, {primary}, {primary}cc);
         color: white; border: none; border-radius: 24px;
         padding: 0.5rem 1.4rem; font-weight: 600;
         transition: all .2s;
-    }
-    .stButton>button:hover { opacity:.88; transform:translateY(-1px); }
+    }}
+    .stButton>button:hover {{ opacity:.88; transform:translateY(-1px); }}
 
-    /* 헤더 */
-    h1,h2,h3 { color: #880e4f !important; }
-
-    /* 메트릭 카드 */
-    div[data-testid="metric-container"] {
+    div[data-testid="metric-container"] {{
         background: white;
-        border: 1px solid #f8bbd0;
-        border-left: 4px solid #e91e8c;
+        border: 1px solid {primary}44;
+        border-left: 4px solid {primary};
         border-radius: 12px;
         padding: 1rem;
-        box-shadow: 0 2px 8px rgba(233,30,140,.1);
-    }
+        box-shadow: 0 2px 8px {primary}22;
+    }}
 
-    /* 탭 */
-    .stTabs [data-baseweb="tab"] { color: #c2185b; font-weight: 600; }
-    .stTabs [aria-selected="true"] { border-bottom: 3px solid #e91e8c; }
+    .stTabs [data-baseweb="tab"] {{ color: {primary}; font-weight: 600; }}
+    .stTabs [aria-selected="true"] {{ border-bottom: 3px solid {primary}; }}
 
-    /* 업로드 박스 */
-    [data-testid="stFileUploader"] {
-        border: 2px dashed #f48fb1;
+    [data-testid="stFileUploader"] {{
+        border: 2px dashed {primary}88;
         border-radius: 12px;
         padding: .5rem;
         background: #fff;
-    }
+    }}
 
-    /* 범례 뱃지 */
-    .badge {
+    .badge {{
         display:inline-block; padding:3px 10px;
         border-radius:20px; font-size:.78em; font-weight:700;
         margin:2px;
-    }
+    }}
+
+    .domain-card {{
+        background: linear-gradient(135deg, {primary}11, {primary}22);
+        border: 1px solid {primary}44;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 0.5rem;
+    }}
 </style>
 """,
-    unsafe_allow_html=True,
-)
+        unsafe_allow_html=True,
+    )
 
 
 # ── 세션 스테이트 초기화 ──────────────────────────────────────────────────────
 def _init_session():
-    if "documents" not in st.session_state:
-        st.session_state.documents = {}  # {filename: text}
-    if "rag_ready" not in st.session_state:
-        st.session_state.rag_ready = False
-    if "rag" not in st.session_state:
-        st.session_state.rag = None
-    if "claude" not in st.session_state:
-        st.session_state.claude = None
-    if "kg" not in st.session_state:
-        st.session_state.kg = None
-    if "api_ok" not in st.session_state:
-        st.session_state.api_ok = False
+    defaults = {
+        "documents": {},        # {filename: text}
+        "rag": None,
+        "claude": None,
+        "kg": None,
+        "api_ok": False,
+        "domain_config": None,  # DomainConfig.to_dict() 저장
+    }
+    for key, val in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = val
 
 
 _init_session()
 
+# 현재 도메인 컨텍스트 (없으면 기본값)
+_DEFAULT_DOMAIN_CONTEXT = (
+    "도메인: 일반 비즈니스\n"
+    "도메인 설명: 다양한 비즈니스 운영 문서 분석\n"
+    "핵심 용어/개념: 전략, 목표, 성과, 리스크, 의사결정\n"
+    "주요 문서 유형: 회의록, 보고서, 정책 문서\n"
+    "분석 포커스: 핵심 의사결정, 리스크, 실행 과제, 성과 지표\n"
+    "주요 엔티티 유형: person, organization, issue, decision, metric"
+)
 
-# ── 모듈 지연 로딩 (API 키 확인 후) ──────────────────────────────────────────
-def _load_modules():
-    """모듈을 처음 필요할 때 한 번만 초기화합니다."""
-    if st.session_state.claude is not None:
-        return True
+
+def _get_domain_context() -> str:
+    if st.session_state.domain_config:
+        from modules.domain_adapter import DomainConfig
+        return DomainConfig.from_dict(st.session_state.domain_config).to_context_string()
+    return _DEFAULT_DOMAIN_CONTEXT
+
+
+def _get_entity_colors() -> dict:
+    if st.session_state.domain_config:
+        return st.session_state.domain_config.get("entity_types", DEFAULT_ENTITY_COLORS)
+    return DEFAULT_ENTITY_COLORS
+
+
+def _get_theme_color() -> str:
+    if st.session_state.domain_config:
+        return st.session_state.domain_config.get("theme_color", "#2196F3")
+    return "#2196F3"
+
+
+def _get_collection_name() -> str:
+    if st.session_state.domain_config:
+        from modules.domain_adapter import DomainConfig
+        return DomainConfig.from_dict(st.session_state.domain_config).collection_name
+    from config import DEFAULT_COLLECTION_NAME
+    return DEFAULT_COLLECTION_NAME
+
+
+# ── 모듈 지연 로딩 ────────────────────────────────────────────────────────────
+def _load_modules() -> bool:
+    """Claude / RAG / KG 모듈을 초기화합니다. 도메인이 바뀌면 RAG를 재초기화합니다."""
     try:
         from modules.claude_client import ClaudeClient
         from modules.rag_engine import RAGEngine
         from modules.knowledge_graph import KnowledgeGraph
 
-        st.session_state.claude = ClaudeClient()
-        st.session_state.rag = RAGEngine()
-        st.session_state.kg = KnowledgeGraph()
-        st.session_state.api_ok = True
+        # Claude 초기화 (한 번만)
+        if st.session_state.claude is None:
+            st.session_state.claude = ClaudeClient()
+            st.session_state.api_ok = True
+
+        # RAG: 컬렉션명이 바뀌면 재초기화
+        desired_col = _get_collection_name()
+        current_col = getattr(st.session_state.rag, "collection_name", None)
+        if st.session_state.rag is None or current_col != desired_col:
+            st.session_state.rag = RAGEngine(collection_name=desired_col)
+
+        # KG 초기화 (한 번만)
+        if st.session_state.kg is None:
+            st.session_state.kg = KnowledgeGraph()
+
         return True
     except Exception as e:
         st.error(f"❌ 초기화 실패: {e}")
         return False
 
 
+# ── CSS 적용 ──────────────────────────────────────────────────────────────────
+_apply_theme(_get_theme_color())
+
+
 # ── 사이드바 ──────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown(f"# {APP_ICON} {APP_TITLE}")
-    st.caption(f"*{COMPANY_NAME} 운영 지원 AI*")
+    # 도메인 정보 표시
+    if st.session_state.domain_config:
+        dc = st.session_state.domain_config
+        st.markdown(f"# {dc['app_icon']} {dc['app_title']}")
+        st.caption(f"*도메인: {dc['name']}*")
+    else:
+        st.markdown(f"# {APP_ICON} {APP_TITLE}")
+        st.caption("*도메인 미설정*")
+
     st.divider()
 
     page = st.radio(
         "메뉴",
         [
+            "⚙️ 도메인 설정",
             "🏠 홈",
             "📄 문서 업로드",
             "🤖 AI 분석",
@@ -159,11 +216,149 @@ with st.sidebar:
 
 
 # ════════════════════════════════════════════════════════════════════════════════
+# 페이지: 도메인 설정
+# ════════════════════════════════════════════════════════════════════════════════
+if page == "⚙️ 도메인 설정":
+    st.title("⚙️ 도메인 설정")
+    st.markdown(
+        "사용할 도메인을 설명하면 Claude가 해당 도메인의 언어·용어·맥락을 파악하여 "
+        "이후 모든 분석을 그 도메인에 맞게 조정합니다."
+    )
+    st.divider()
+
+    # 현재 설정된 도메인 표시
+    if st.session_state.domain_config:
+        dc = st.session_state.domain_config
+        st.success(f"**현재 도메인:** {dc['app_icon']} {dc['name']}")
+        with st.expander("현재 도메인 설정 상세 보기"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"**앱 제목:** {dc['app_title']}")
+                st.markdown(f"**테마 색상:** `{dc['theme_color']}`")
+                st.markdown("**핵심 용어:**")
+                st.write(", ".join(dc.get("terminology", [])))
+                st.markdown("**주요 문서 유형:**")
+                st.write(", ".join(dc.get("document_patterns", [])))
+            with col2:
+                st.markdown("**분석 포커스:**")
+                for focus in dc.get("analysis_focus", []):
+                    st.write(f"• {focus}")
+                st.markdown("**엔티티 유형:**")
+                entity_html = "".join(
+                    f'<span class="badge" style="background:{color};color:white">{etype}</span>'
+                    for etype, color in dc.get("entity_types", {}).items()
+                )
+                st.markdown(entity_html, unsafe_allow_html=True)
+        st.divider()
+
+    # 도메인 입력 폼
+    st.markdown("### 새 도메인 설정")
+
+    # 예시 도메인 빠른 선택
+    st.markdown("**예시 도메인 (클릭하면 자동 입력):**")
+    example_cols = st.columns(5)
+    examples = [
+        ("🏥 의료", "병원 운영, 환자 관리, 의료 기기, 임상 시험"),
+        ("🏭 제조", "공장 운영, 생산 관리, 품질 관리, 공급망"),
+        ("💰 금융", "투자 관리, 리스크 분석, 규제 준수, 포트폴리오"),
+        ("🛒 이커머스", "온라인 쇼핑몰 운영, 물류, 고객 서비스, 마케팅"),
+        ("🎓 교육", "학교 운영, 커리큘럼, 학생 관리, 교육 성과"),
+    ]
+    example_domain_name = ""
+    example_domain_desc = ""
+    for i, (label, desc) in enumerate(examples):
+        with example_cols[i]:
+            if st.button(label, use_container_width=True, key=f"ex_{i}"):
+                example_domain_name = label.split(" ", 1)[1]
+                example_domain_desc = desc
+                st.session_state["_ex_name"] = example_domain_name
+                st.session_state["_ex_desc"] = example_domain_desc
+
+    st.divider()
+
+    domain_name = st.text_input(
+        "도메인명 *",
+        value=st.session_state.get("_ex_name", ""),
+        placeholder="예: 의료, 제조, 금융, 물류, 법률...",
+    )
+    domain_description = st.text_area(
+        "도메인 설명 *",
+        value=st.session_state.get("_ex_desc", ""),
+        placeholder=(
+            "이 도메인에서 다루는 업무, 핵심 용어, 문서 유형 등을 자유롭게 설명해주세요.\n"
+            "예: 병원 운영 부서로 환자 입퇴원 관리, 의료진 스케줄링, 의약품 재고 관리, "
+            "의료기기 유지보수, 보험 청구 업무를 다룹니다."
+        ),
+        height=120,
+    )
+
+    if st.button("🚀 도메인 분석 시작", use_container_width=True, type="primary"):
+        if not domain_name.strip():
+            st.error("도메인명을 입력해주세요.")
+        elif not domain_description.strip():
+            st.error("도메인 설명을 입력해주세요.")
+        else:
+            if not _load_modules():
+                st.stop()
+
+            with st.spinner(f"Claude가 '{domain_name}' 도메인을 분석 중입니다..."):
+                from modules.domain_adapter import DomainAdapter
+                adapter = DomainAdapter(st.session_state.claude)
+                domain_config = adapter.analyze_domain(domain_name.strip(), domain_description.strip())
+
+            st.success("✅ 도메인 분석 완료!")
+
+            # 결과 미리보기
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"**{domain_config.app_icon} {domain_config.app_title}**")
+                st.markdown(f"테마 색상: `{domain_config.theme_color}`")
+                st.markdown("**핵심 용어:**")
+                st.write(", ".join(domain_config.terminology))
+                st.markdown("**주요 문서 유형:**")
+                st.write(", ".join(domain_config.document_patterns))
+            with col2:
+                st.markdown("**분석 포커스:**")
+                for focus in domain_config.analysis_focus:
+                    st.write(f"• {focus}")
+                st.markdown("**엔티티 유형:**")
+                entity_html = "".join(
+                    f'<span class="badge" style="background:{color};color:white">{etype}</span>'
+                    for etype, color in domain_config.entity_types.items()
+                )
+                st.markdown(entity_html, unsafe_allow_html=True)
+
+            # 도메인 설정 저장
+            st.session_state.domain_config = domain_config.to_dict()
+
+            # RAG 컬렉션 초기화 (도메인 변경)
+            from modules.rag_engine import RAGEngine
+            st.session_state.rag = RAGEngine(collection_name=domain_config.collection_name)
+            st.session_state.documents = {}
+            if st.session_state.kg:
+                st.session_state.kg.clear()
+
+            # 임시 예시 입력 초기화
+            for k in ["_ex_name", "_ex_desc"]:
+                st.session_state.pop(k, None)
+
+            st.info("도메인이 설정되었습니다. 이제 문서를 업로드하세요.")
+            _apply_theme(domain_config.theme_color)
+            st.rerun()
+
+
+# ════════════════════════════════════════════════════════════════════════════════
 # 페이지: 홈
 # ════════════════════════════════════════════════════════════════════════════════
-if page == "🏠 홈":
-    st.title(f"{APP_ICON} {APP_TITLE}")
-    st.markdown("#### 회의록·운영문서를 AI가 분석해 인사이트를 제공합니다")
+elif page == "🏠 홈":
+    dc = st.session_state.domain_config
+    title = f"{dc['app_icon']} {dc['app_title']}" if dc else f"{APP_ICON} {APP_TITLE}"
+    st.title(title)
+    st.markdown("#### 회의록·운영문서를 AI가 분석해 도메인 맞춤 인사이트를 제공합니다")
+
+    if not dc:
+        st.warning("⚙️ 먼저 **도메인 설정** 메뉴에서 도메인을 설정하면 더 정확한 분석이 가능합니다.")
+
     st.divider()
 
     col1, col2, col3, col4 = st.columns(4)
@@ -176,14 +371,26 @@ if page == "🏠 홈":
     col4.metric("↔️ 그래프 엣지", kg_edges)
 
     st.divider()
+
+    if dc:
+        st.markdown(f"### 현재 도메인: {dc['app_icon']} {dc['name']}")
+        st.markdown(
+            f'<div class="domain-card">'
+            f"<b>분석 포커스:</b> {' · '.join(dc.get('analysis_focus', []))}<br>"
+            f"<b>핵심 용어:</b> {', '.join(dc.get('terminology', [])[:8])}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        st.divider()
+
     st.markdown("### 주요 기능")
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("""
-**📄 문서 업로드**
-- PDF, DOCX, TXT/MD 지원
-- 자동 청킹 & 벡터 인덱싱
-- 멀티 문서 동시 처리
+**⚙️ 도메인 설정**
+- 도메인 설명 입력 한 번으로 완전 적응
+- Claude가 용어·엔티티·분석 포커스 자동 추출
+- 언제든 도메인 전환 가능
 
 **🤖 AI 분석**
 - 📋 핵심 요약
@@ -193,19 +400,21 @@ if page == "🏠 홈":
 """)
     with c2:
         st.markdown("""
-**🔍 문서 검색 (RAG)**
-- 의미 기반 시맨틱 검색
-- 멀티 문서 교차 검색
-- 출처 근거 표시
+**📄 문서 업로드**
+- PDF, DOCX, TXT/MD 지원
+- 자동 청킹 & 벡터 인덱싱
+- 멀티 문서 동시 처리
 
-**🕸️ 지식 그래프**
-- 엔티티 자동 추출
-- 관계 시각화
-- 인터랙티브 네트워크 뷰
+**🔍 문서 검색 (RAG) + 🕸️ 지식 그래프**
+- 의미 기반 시맨틱 검색 & 출처 근거 표시
+- 도메인 맞춤 엔티티 자동 추출 & 관계 시각화
 """)
 
     st.divider()
-    st.info("👈 왼쪽 메뉴에서 **📄 문서 업로드**를 선택해 시작하세요.")
+    if not dc:
+        st.info("👈 먼저 **⚙️ 도메인 설정**을 완료한 뒤 **📄 문서 업로드**를 시작하세요.")
+    else:
+        st.info("👈 **📄 문서 업로드**를 선택해 분석을 시작하세요.")
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -253,15 +462,31 @@ elif page == "📄 문서 업로드":
                     prog.progress((i + 1) / len(new_files))
                     st.write(f"  ✅ `{fname}` → {n}개 청크 인덱싱 완료")
 
-                # 지식 그래프 업데이트
+                # 지식 그래프 엔티티 추출
                 st.markdown("#### 지식 그래프 엔티티 추출")
-                from modules.knowledge_graph import ENTITY_EXTRACTION_PROMPT
+                from modules.knowledge_graph import build_entity_extraction_prompt
+
+                # 도메인 엔티티 유형 설명 가져오기
+                if st.session_state.domain_config:
+                    from modules.domain_adapter import DomainConfig
+                    dc_obj = DomainConfig.from_dict(st.session_state.domain_config)
+                    entity_types_desc = dc_obj.get_entity_types_description()
+                else:
+                    entity_types_desc = (
+                        "- person: 사람, 담당자\n"
+                        "- organization: 조직, 팀\n"
+                        "- issue: 문제, 이슈\n"
+                        "- decision: 결정 사항\n"
+                        "- metric: 지표, 수치"
+                    )
+
+                extraction_prompt_template = build_entity_extraction_prompt(entity_types_desc)
 
                 for fname in new_files:
                     text = st.session_state.documents[fname]
-                    excerpt = text[:3000]  # 첫 3000자만 사용
+                    excerpt = text[:3000]
                     with st.spinner(f"  `{fname}` 엔티티 추출 중..."):
-                        prompt = ENTITY_EXTRACTION_PROMPT.replace("{document}", excerpt)
+                        prompt = extraction_prompt_template.replace("{document}", excerpt)
                         response = st.session_state.claude.generate(prompt, max_tokens=4096)
                         ok = st.session_state.kg.build_from_claude_json(response)
                         if ok:
@@ -304,12 +529,11 @@ elif page == "🤖 AI 분석":
         st.warning("📂 먼저 문서를 업로드해주세요.")
         st.stop()
 
+    domain_context = _get_domain_context()
+
     # 분석할 문서 선택
-    col_sel, col_btn = st.columns([3, 1])
-    with col_sel:
-        doc_names = list(st.session_state.documents.keys())
-        options = ["📚 전체 문서 합치기"] + doc_names
-        selected = st.selectbox("분석할 문서 선택", options)
+    doc_names = list(st.session_state.documents.keys())
+    selected = st.selectbox("분석할 문서 선택", ["📚 전체 문서 합치기"] + doc_names)
 
     if selected == "📚 전체 문서 합치기":
         analysis_text = "\n\n---\n\n".join(
@@ -318,7 +542,6 @@ elif page == "🤖 AI 분석":
     else:
         analysis_text = st.session_state.documents[selected]
 
-    # 텍스트 길이 제한 (API 토큰 제한 대비)
     MAX_ANALYSIS_CHARS = 8000
     if len(analysis_text) > MAX_ANALYSIS_CHARS:
         st.info(f"ℹ️ 문서가 길어 처음 {MAX_ANALYSIS_CHARS:,}자만 분석합니다.")
@@ -338,7 +561,11 @@ elif page == "🤖 AI 분석":
         st.caption("회의록/운영문서의 핵심을 구조화된 형태로 요약합니다.")
         if st.button("📋 요약 생성", key="btn_summary"):
             with st.spinner("Claude가 요약 중..."):
-                prompt = load_prompt("summarize", document=analysis_text)
+                prompt = load_prompt(
+                    "summarize",
+                    document=analysis_text,
+                    domain_context=domain_context,
+                )
                 result = st.session_state.claude.generate(prompt)
             st.markdown(result)
             st.download_button(
@@ -354,7 +581,11 @@ elif page == "🤖 AI 분석":
         st.caption("문서에서 실행해야 할 작업들을 담당자·기한·우선순위와 함께 추출합니다.")
         if st.button("✅ 액션 아이템 추출", key="btn_action"):
             with st.spinner("Claude가 액션 아이템을 추출 중..."):
-                prompt = load_prompt("action_items", document=analysis_text)
+                prompt = load_prompt(
+                    "action_items",
+                    document=analysis_text,
+                    domain_context=domain_context,
+                )
                 result = st.session_state.claude.generate(prompt)
             st.markdown(result)
             st.download_button(
@@ -370,14 +601,18 @@ elif page == "🤖 AI 분석":
         st.caption("문서에서 언급된 문제점의 근본 원인을 5-Why 방법론으로 분석합니다.")
         issue_hint = st.text_input(
             "특정 문제 입력 (선택사항)",
-            placeholder="예: 신제품 출시 지연 원인 분석",
+            placeholder="예: 시스템 장애 원인 분석 / 납기 지연 원인",
         )
         if st.button("🔬 원인 분석 실행", key="btn_root"):
             text_for_analysis = analysis_text
             if issue_hint:
                 text_for_analysis = f"[분석 초점: {issue_hint}]\n\n{analysis_text}"
             with st.spinner("Claude가 원인을 분석 중..."):
-                prompt = load_prompt("root_cause", document=text_for_analysis)
+                prompt = load_prompt(
+                    "root_cause",
+                    document=text_for_analysis,
+                    domain_context=domain_context,
+                )
                 result = st.session_state.claude.generate(prompt)
             st.markdown(result)
             st.download_button(
@@ -398,6 +633,7 @@ elif page == "🤖 AI 분석":
                     "report_draft",
                     document=analysis_text,
                     date=report_date.strftime("%Y년 %m월 %d일"),
+                    domain_context=domain_context,
                 )
                 result = st.session_state.claude.generate(prompt)
             st.markdown(result)
@@ -426,9 +662,11 @@ elif page == "🔍 문서 검색 (RAG)":
 
     from modules.prompt_loader import load_prompt
 
+    domain_context = _get_domain_context()
+
     question = st.text_area(
         "질문을 입력하세요",
-        placeholder="예: 3월 캠페인 예산이 얼마인가요? / 신제품 출시 일정은? / 주요 이슈가 뭔가요?",
+        placeholder="업로드한 문서에 대해 자유롭게 질문하세요.",
         height=100,
     )
 
@@ -445,21 +683,23 @@ elif page == "🔍 문서 검색 (RAG)":
         if not hits:
             st.warning("검색 결과가 없습니다. 문서를 먼저 업로드해주세요.")
         else:
-            # 컨텍스트 조합
             context_parts = []
             for i, h in enumerate(hits, 1):
                 context_parts.append(f"[출처 {i}: {h['filename']}]\n{h['text']}")
             context = "\n\n---\n\n".join(context_parts)
 
-            # Claude 답변
             with st.spinner("Claude가 답변 생성 중..."):
-                prompt = load_prompt("rag_query", question=question, context=context)
+                prompt = load_prompt(
+                    "rag_query",
+                    question=question,
+                    context=context,
+                    domain_context=domain_context,
+                )
                 answer = st.session_state.claude.generate(prompt)
 
             st.markdown("### 💬 AI 답변")
             st.markdown(answer)
 
-            # 검색된 청크 표시
             if show_sources:
                 st.divider()
                 st.markdown("### 📎 검색된 문서 청크")
@@ -481,6 +721,7 @@ elif page == "🕸️ 지식 그래프":
     if not _load_modules():
         st.stop()
 
+    entity_colors = _get_entity_colors()
     kg = st.session_state.kg
     stats = kg.get_stats()
 
@@ -490,32 +731,22 @@ elif page == "🕸️ 지식 그래프":
     c2.metric("↔️ 엣지 (관계)", stats["edges"])
     c3.metric("📄 분석 문서", len(st.session_state.documents))
 
-    # 엔티티 유형 분포
+    # 엔티티 유형 분포 (도메인 동적 레이블)
     if stats["entity_types"]:
         st.markdown("**엔티티 유형 분포**")
         type_cols = st.columns(min(len(stats["entity_types"]), 4))
-        type_labels = {
-            "person": "👤 사람",
-            "product": "🧴 제품",
-            "brand": "🏷️ 브랜드",
-            "department": "🏢 부서",
-            "campaign": "📣 캠페인",
-            "issue": "⚠️ 이슈",
-            "decision": "✅ 결정",
-            "ingredient": "🌿 성분",
-            "metric": "📊 지표",
-            "default": "❓ 기타",
-        }
         for i, (t, cnt) in enumerate(stats["entity_types"].items()):
-            type_cols[i % 4].metric(type_labels.get(t, t), cnt)
+            color = entity_colors.get(t, "#9E9E9E")
+            label = f"● {t}"
+            type_cols[i % 4].metric(label, cnt)
 
     st.divider()
 
     if stats["nodes"] == 0:
         st.info("📂 문서를 업로드하면 자동으로 지식 그래프가 생성됩니다.")
     else:
-        # 그래프 렌더링
-        html_path = kg.render_html()
+        # 도메인 컬러로 그래프 렌더링
+        html_path = kg.render_html(entity_colors=entity_colors)
         if html_path and os.path.exists(html_path):
             with open(html_path, "r", encoding="utf-8") as f:
                 html_content = f.read()
@@ -523,7 +754,7 @@ elif page == "🕸️ 지식 그래프":
         else:
             st.error("그래프 렌더링 실패")
 
-        # 개별 문서 재분석
+        # 특정 문서 재분석
         st.divider()
         st.markdown("### 🔄 특정 문서 그래프 재추출")
         if st.session_state.documents:
@@ -533,11 +764,25 @@ elif page == "🕸️ 지식 그래프":
                 key="kg_doc_sel",
             )
             if st.button("🔄 엔티티 재추출", key="btn_reextract"):
-                from modules.knowledge_graph import ENTITY_EXTRACTION_PROMPT
+                from modules.knowledge_graph import build_entity_extraction_prompt
+
+                if st.session_state.domain_config:
+                    from modules.domain_adapter import DomainConfig
+                    dc_obj = DomainConfig.from_dict(st.session_state.domain_config)
+                    entity_types_desc = dc_obj.get_entity_types_description()
+                else:
+                    entity_types_desc = (
+                        "- person: 사람, 담당자\n"
+                        "- organization: 조직, 팀\n"
+                        "- issue: 문제, 이슈\n"
+                        "- decision: 결정 사항\n"
+                        "- metric: 지표, 수치"
+                    )
 
                 text = st.session_state.documents[sel_doc][:3000]
                 with st.spinner(f"`{sel_doc}` 엔티티 추출 중..."):
-                    prompt = ENTITY_EXTRACTION_PROMPT.replace("{document}", text)
+                    prompt_template = build_entity_extraction_prompt(entity_types_desc)
+                    prompt = prompt_template.replace("{document}", text)
                     response = st.session_state.claude.generate(prompt, max_tokens=4096)
                     ok = kg.build_from_claude_json(response)
                 if ok:
@@ -548,23 +793,12 @@ elif page == "🕸️ 지식 그래프":
                     with st.expander("Claude 원본 응답"):
                         st.text(response)
 
-    # 색상 범례
+    # 색상 범례 (도메인 동적)
     st.divider()
     st.markdown("**노드 색상 범례**")
-    legend_items = {
-        "person": "👤 사람/담당자",
-        "product": "🧴 제품",
-        "brand": "🏷️ 브랜드",
-        "department": "🏢 부서/팀",
-        "campaign": "📣 캠페인",
-        "issue": "⚠️ 이슈/문제",
-        "decision": "✅ 결정사항",
-        "ingredient": "🌿 원료/성분",
-        "metric": "📊 지표/KPI",
-    }
     legend_html = "".join(
-        f'<span class="badge" style="background:{ENTITY_COLORS[k]};color:white">'
-        f"{v}</span>"
-        for k, v in legend_items.items()
+        f'<span class="badge" style="background:{color};color:white">{etype}</span>'
+        for etype, color in entity_colors.items()
+        if etype != "default"
     )
     st.markdown(legend_html, unsafe_allow_html=True)
