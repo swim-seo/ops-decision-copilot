@@ -127,6 +127,104 @@ def _get_collection_name() -> str:
     return DEFAULT_COLLECTION_NAME
 
 
+# ── 업종별 기본 프리셋 ────────────────────────────────────────────────────────
+_INDUSTRY_PRESETS = {
+    "뷰티": {
+        "entity_types": {
+            "person": "#2196F3", "product": "#E91E63", "supplier": "#9C27B0",
+            "process": "#FF9800", "issue": "#F44336", "decision": "#4CAF50",
+            "metric": "#607D8B", "default": "#9E9E9E",
+        },
+        "base_terminology": ["SKU", "OEM", "ODM", "성분", "포뮬레이션", "충전량", "용기", "안전성시험"],
+        "document_patterns": ["회의록", "품질보고서", "원가분석", "VOC 리포트", "출하검사보고서"],
+        "analysis_focus": ["제품 품질", "원가 관리", "공급망 리스크", "규제 준수", "고객 만족"],
+        "theme_color": "#E91E63",
+        "app_icon": "💄",
+    },
+    "에너지": {
+        "entity_types": {
+            "person": "#2196F3", "facility": "#FF9800", "resource": "#00BCD4",
+            "process": "#795548", "issue": "#F44336", "decision": "#4CAF50",
+            "metric": "#607D8B", "default": "#9E9E9E",
+        },
+        "base_terminology": ["발전량", "수요예측", "그리드", "ESS", "탄소중립", "PPA", "설비이용률"],
+        "document_patterns": ["운영보고서", "설비점검보고서", "안전보고서", "에너지진단서"],
+        "analysis_focus": ["에너지 효율", "설비 안전", "비용 최적화", "환경 규제", "공급 안정성"],
+        "theme_color": "#FF9800",
+        "app_icon": "⚡",
+    },
+    "제조": {
+        "entity_types": {
+            "person": "#2196F3", "product": "#795548", "process": "#FF9800",
+            "resource": "#00BCD4", "issue": "#F44336", "decision": "#4CAF50",
+            "metric": "#607D8B", "default": "#9E9E9E",
+        },
+        "base_terminology": ["생산계획", "불량률", "공정개선", "납기", "재고", "설비가동률", "품질관리"],
+        "document_patterns": ["생산일보", "품질보고서", "불량분석보고서", "설비점검일지"],
+        "analysis_focus": ["생산 효율", "품질 관리", "설비 유지보수", "공급망", "원가 절감"],
+        "theme_color": "#607D8B",
+        "app_icon": "🏭",
+    },
+    "물류": {
+        "entity_types": {
+            "person": "#2196F3", "location": "#4CAF50", "process": "#FF9800",
+            "resource": "#00BCD4", "issue": "#F44336", "decision": "#795548",
+            "metric": "#607D8B", "default": "#9E9E9E",
+        },
+        "base_terminology": ["배송", "재고", "창고", "운송비", "적재율", "납기", "반품", "라스트마일"],
+        "document_patterns": ["배송보고서", "재고현황", "운영회의록", "사고보고서", "비용분석"],
+        "analysis_focus": ["배송 효율", "재고 관리", "비용 최적화", "고객 서비스", "안전 관리"],
+        "theme_color": "#2196F3",
+        "app_icon": "🚚",
+    },
+    "금융": {
+        "entity_types": {
+            "person": "#2196F3", "organization": "#9C27B0", "product": "#795548",
+            "process": "#FF9800", "issue": "#F44336", "decision": "#4CAF50",
+            "metric": "#607D8B", "default": "#9E9E9E",
+        },
+        "base_terminology": ["포트폴리오", "리스크", "수익률", "규제준수", "AUM", "신용등급", "유동성"],
+        "document_patterns": ["투자보고서", "리스크보고서", "규제보고", "이사회회의록", "실적보고"],
+        "analysis_focus": ["리스크 관리", "수익 극대화", "규제 준수", "고객 자산 보호", "운영 효율"],
+        "theme_color": "#4CAF50",
+        "app_icon": "💰",
+    },
+    "기타": {
+        "entity_types": {
+            "person": "#2196F3", "organization": "#9C27B0", "process": "#FF9800",
+            "resource": "#00BCD4", "issue": "#F44336", "decision": "#4CAF50",
+            "metric": "#607D8B", "default": "#9E9E9E",
+        },
+        "base_terminology": ["전략", "목표", "성과", "리스크", "의사결정", "KPI", "예산"],
+        "document_patterns": ["회의록", "보고서", "기획서", "정책문서", "분석자료"],
+        "analysis_focus": ["핵심 의사결정", "리스크 관리", "성과 측정", "실행 과제", "자원 배분"],
+        "theme_color": "#2196F3",
+        "app_icon": "🤖",
+    },
+}
+
+_INDUSTRY_OPTIONS = ["뷰티", "에너지", "제조", "물류", "금융", "기타"]
+
+
+def _build_domain_config_simple(company_name: str, industry: str, key_terms_str: str):
+    """사이드바 간단 입력으로 DomainConfig를 생성합니다 (Claude 호출 없이)."""
+    from modules.domain_adapter import DomainConfig
+    preset = _INDUSTRY_PRESETS.get(industry, _INDUSTRY_PRESETS["기타"])
+    user_terms = [t.strip() for t in key_terms_str.split(",") if t.strip()]
+    combined_terms = user_terms + [t for t in preset["base_terminology"] if t not in user_terms]
+    return DomainConfig(
+        name=f"{company_name} ({industry})",
+        description=f"{company_name}의 {industry} 업종 운영 문서 분석",
+        entity_types=preset["entity_types"],
+        terminology=combined_terms[:15],
+        document_patterns=preset["document_patterns"],
+        analysis_focus=preset["analysis_focus"],
+        theme_color=preset["theme_color"],
+        app_title=f"{company_name} AI 운영 코파일럿",
+        app_icon=preset["app_icon"],
+    )
+
+
 # ── 모듈 지연 로딩 ────────────────────────────────────────────────────────────
 def _load_modules() -> bool:
     """Claude / RAG / KG 모듈을 초기화합니다. 도메인이 바뀌면 RAG를 재초기화합니다."""
@@ -173,10 +271,44 @@ with st.sidebar:
 
     st.divider()
 
+    # ── 도메인 설정 (빠른 설정) ──────────────────────────────────────────────
+    _domain_set = bool(st.session_state.domain_config)
+    with st.expander("⚙️ 도메인 설정", expanded=not _domain_set):
+        _sb_company = st.text_input(
+            "회사명",
+            placeholder="예: 아모레퍼시픽, 한화에너지",
+            key="sb_company_name",
+        )
+        _sb_industry = st.selectbox(
+            "업종",
+            _INDUSTRY_OPTIONS,
+            key="sb_industry",
+        )
+        _sb_terms = st.text_input(
+            "주요 용어 (쉼표로 구분)",
+            placeholder="예: SKU, 성분, 충전량",
+            key="sb_key_terms",
+        )
+        if st.button("✅ 도메인 설정 완료", use_container_width=True, key="sb_domain_btn"):
+            if not _sb_company.strip():
+                st.error("회사명을 입력해주세요.")
+            else:
+                _new_cfg = _build_domain_config_simple(
+                    _sb_company.strip(), _sb_industry, _sb_terms
+                )
+                st.session_state.domain_config = _new_cfg.to_dict()
+                st.session_state.documents = {}
+                if st.session_state.kg:
+                    st.session_state.kg.clear()
+                st.session_state.rag = None  # 재초기화 트리거
+                st.rerun()
+
+    st.divider()
+
     page = st.radio(
         "메뉴",
         [
-            "⚙️ 도메인 설정",
+            "⚙️ 도메인 설정 (고급)",
             "🏠 홈",
             "📄 문서 업로드",
             "🤖 AI 분석",
@@ -218,7 +350,7 @@ with st.sidebar:
 # ════════════════════════════════════════════════════════════════════════════════
 # 페이지: 도메인 설정
 # ════════════════════════════════════════════════════════════════════════════════
-if page == "⚙️ 도메인 설정":
+if page == "⚙️ 도메인 설정 (고급)":
     st.title("⚙️ 도메인 설정")
     st.markdown(
         "사용할 도메인을 설명하면 Claude가 해당 도메인의 언어·용어·맥락을 파악하여 "
@@ -256,18 +388,19 @@ if page == "⚙️ 도메인 설정":
 
     # 예시 도메인 빠른 선택
     st.markdown("**예시 도메인 (클릭하면 자동 입력):**")
-    example_cols = st.columns(5)
+    example_cols = st.columns(6)
     examples = [
-        ("🏥 의료", "병원 운영, 환자 관리, 의료 기기, 임상 시험"),
-        ("🏭 제조", "공장 운영, 생산 관리, 품질 관리, 공급망"),
-        ("💰 금융", "투자 관리, 리스크 분석, 규제 준수, 포트폴리오"),
-        ("🛒 이커머스", "온라인 쇼핑몰 운영, 물류, 고객 서비스, 마케팅"),
-        ("🎓 교육", "학교 운영, 커리큘럼, 학생 관리, 교육 성과"),
+        ("💄 뷰티", "화장품 제조·판매, 원료 소싱, 품질 관리, 트렌드 분석, OEM/ODM 운영"),
+        ("⚡ 에너지", "발전소 운영, 설비 점검, 에너지 수급 관리, 탄소중립, 안전 관리"),
+        ("🏭 제조", "공장 운영, 생산 계획, 불량률 관리, 공급망, 설비 유지보수"),
+        ("🚚 물류", "배송 관리, 창고 운영, 재고 최적화, 라스트마일, 반품 처리"),
+        ("💰 금융", "투자 관리, 리스크 분석, 규제 준수, 포트폴리오, 고객 자산"),
+        ("🤖 기타", "비즈니스 운영, 전략 기획, 성과 관리, 리스크 관리, 의사결정"),
     ]
     example_domain_name = ""
     example_domain_desc = ""
     for i, (label, desc) in enumerate(examples):
-        with example_cols[i]:
+        with example_cols[i % 6]:
             if st.button(label, use_container_width=True, key=f"ex_{i}"):
                 example_domain_name = label.split(" ", 1)[1]
                 example_domain_desc = desc

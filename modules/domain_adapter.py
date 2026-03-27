@@ -19,10 +19,13 @@ class DomainConfig:
 
     def to_context_string(self) -> str:
         """모든 Claude 프롬프트에 주입할 도메인 컨텍스트 문자열"""
+        terms_str = ', '.join(self.terminology) if self.terminology else "없음"
         return (
+            f"당신은 {self.name} 전문 AI입니다. "
+            f"주요 용어: {terms_str}을 이해하고 답변하세요.\n\n"
             f"도메인: {self.name}\n"
             f"도메인 설명: {self.description}\n"
-            f"핵심 용어/개념: {', '.join(self.terminology)}\n"
+            f"핵심 용어/개념: {terms_str}\n"
             f"주요 문서 유형: {', '.join(self.document_patterns)}\n"
             f"분석 포커스: {', '.join(self.analysis_focus)}\n"
             f"주요 엔티티 유형: {', '.join(self.entity_types.keys())}"
