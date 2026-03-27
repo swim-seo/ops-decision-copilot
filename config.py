@@ -30,6 +30,7 @@ GRAPH_OUTPUT_PATH = "./data/graph.html"
 
 # 기본 엔티티 색상 (도메인 설정 전 fallback)
 DEFAULT_ENTITY_COLORS = {
+    # 일반 엔티티
     "person":       "#2196F3",
     "organization": "#9C27B0",
     "process":      "#FF9800",
@@ -37,6 +38,9 @@ DEFAULT_ENTITY_COLORS = {
     "issue":        "#F44336",
     "decision":     "#4CAF50",
     "metric":       "#607D8B",
+    # 스키마 테이블 유형
+    "master_table": "#1565C0",  # 진한 파랑 — 마스터 테이블
+    "fact_table":   "#E65100",  # 진한 주황 — 팩트 테이블
     "default":      "#9E9E9E",
 }
 

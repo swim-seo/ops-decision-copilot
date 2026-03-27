@@ -562,31 +562,71 @@ elif page == "📄 문서 업로드":
         st.stop()
 
     uploaded = st.file_uploader(
-        "파일을 드래그하거나 클릭하여 업로드 (PDF, DOCX, TXT, MD)",
-        type=["pdf", "docx", "txt", "md"],
+        "파일을 드래그하거나 클릭하여 업로드 (PDF, DOCX, TXT, MD, JSON)",
+        type=["pdf", "docx", "txt", "md", "json"],
         accept_multiple_files=True,
         label_visibility="collapsed",
     )
 
+    def _schema_to_text(schema: dict) -> str:
+        """스키마 JSON을 RAG 인덱싱용 가독성 텍스트로 변환합니다."""
+        lines = []
+        for t in schema.get("tables", []):
+            lines.append(f"[테이블] {t['table_name']} — {t.get('description', '')}")
+            for c in t.get("columns", []):
+                pk = " (PK)" if c.get("pk") else ""
+                lines.append(
+                    f"  컬럼: {c['name']} ({c.get('type', '')}){pk} — {c.get('description', '')}"
+                )
+        lines.append("")
+        for r in schema.get("relationships", []):
+            lines.append(
+                f"[JOIN] {r['from']} → {r['to']}  키: {r.get('join_key', '')}  ({r.get('relation', 'JOIN')})"
+            )
+        return "\n".join(lines)
+
     if uploaded:
+        import json as _json
         from modules.document_parser import parse_file
 
         with st.spinner("문서를 처리 중입니다..."):
             new_files = []
+            schema_files = set()  # 스키마 JSON은 Claude 엔티티 추출 생략
             for uf in uploaded:
                 if uf.name not in st.session_state.documents:
                     try:
-                        text = parse_file(uf)
-                        if text.strip():
-                            st.session_state.documents[uf.name] = text
-                            new_files.append(uf.name)
+                        if uf.name.lower().endswith(".json"):
+                            raw = uf.read().decode("utf-8")
+                            data = _json.loads(raw)
+                            if "tables" in data and "relationships" in data:
+                                # ── 스키마 JSON: 그래프 직접 구성 ────────
+                                ok = st.session_state.kg.build_from_schema_json(data)
+                                if ok:
+                                    stats = st.session_state.kg.get_stats()
+                                    st.write(
+                                        f"  ✅ `{uf.name}` 스키마 파싱 완료 "
+                                        f"→ 노드 {stats['nodes']}개, 엣지 {stats['edges']}개"
+                                    )
+                                text = _schema_to_text(data)
+                                st.session_state.documents[uf.name] = text
+                                new_files.append(uf.name)
+                                schema_files.add(uf.name)
+                            else:
+                                st.warning(
+                                    f"⚠️ `{uf.name}` — tables/relationships 키가 없는 JSON입니다."
+                                )
                         else:
-                            st.warning(f"⚠️ `{uf.name}` 에서 텍스트를 추출할 수 없습니다.")
+                            text = parse_file(uf)
+                            if text.strip():
+                                st.session_state.documents[uf.name] = text
+                                new_files.append(uf.name)
+                            else:
+                                st.warning(f"⚠️ `{uf.name}` 에서 텍스트를 추출할 수 없습니다.")
                     except Exception as e:
                         st.error(f"❌ `{uf.name}` 파싱 오류: {e}")
 
             if new_files:
-                # RAG 인덱싱
+                # RAG 인덱싱 (스키마 포함 전체)
                 st.markdown("#### RAG 인덱싱")
                 prog = st.progress(0)
                 for i, fname in enumerate(new_files):
@@ -595,41 +635,42 @@ elif page == "📄 문서 업로드":
                     prog.progress((i + 1) / len(new_files))
                     st.write(f"  ✅ `{fname}` → {n}개 청크 인덱싱 완료")
 
-                # 지식 그래프 엔티티 추출
-                st.markdown("#### 지식 그래프 엔티티 추출")
-                from modules.knowledge_graph import build_entity_extraction_prompt
+                # 지식 그래프 엔티티 추출 (스키마 JSON은 건너뜀)
+                non_schema = [f for f in new_files if f not in schema_files]
+                if non_schema:
+                    st.markdown("#### 지식 그래프 엔티티 추출")
+                    from modules.knowledge_graph import build_entity_extraction_prompt
 
-                # 도메인 엔티티 유형 설명 가져오기
-                if st.session_state.domain_config:
-                    from modules.domain_adapter import DomainConfig
-                    dc_obj = DomainConfig.from_dict(st.session_state.domain_config)
-                    entity_types_desc = dc_obj.get_entity_types_description()
-                else:
-                    entity_types_desc = (
-                        "- person: 사람, 담당자\n"
-                        "- organization: 조직, 팀\n"
-                        "- issue: 문제, 이슈\n"
-                        "- decision: 결정 사항\n"
-                        "- metric: 지표, 수치"
-                    )
+                    if st.session_state.domain_config:
+                        from modules.domain_adapter import DomainConfig
+                        dc_obj = DomainConfig.from_dict(st.session_state.domain_config)
+                        entity_types_desc = dc_obj.get_entity_types_description()
+                    else:
+                        entity_types_desc = (
+                            "- person: 사람, 담당자\n"
+                            "- organization: 조직, 팀\n"
+                            "- issue: 문제, 이슈\n"
+                            "- decision: 결정 사항\n"
+                            "- metric: 지표, 수치"
+                        )
 
-                extraction_prompt_template = build_entity_extraction_prompt(entity_types_desc)
+                    extraction_prompt_template = build_entity_extraction_prompt(entity_types_desc)
 
-                for fname in new_files:
-                    text = st.session_state.documents[fname]
-                    excerpt = text[:3000]
-                    with st.spinner(f"  `{fname}` 엔티티 추출 중..."):
-                        prompt = extraction_prompt_template.replace("{document}", excerpt)
-                        response = st.session_state.claude.generate(prompt, max_tokens=4096)
-                        ok = st.session_state.kg.build_from_claude_json(response)
-                        if ok:
-                            stats = st.session_state.kg.get_stats()
-                            st.write(
-                                f"  ✅ `{fname}` → 노드 {stats['nodes']}개, "
-                                f"엣지 {stats['edges']}개"
-                            )
-                        else:
-                            st.write(f"  ⚠️ `{fname}` 엔티티 추출 결과 파싱 실패")
+                    for fname in non_schema:
+                        text = st.session_state.documents[fname]
+                        excerpt = text[:3000]
+                        with st.spinner(f"  `{fname}` 엔티티 추출 중..."):
+                            prompt = extraction_prompt_template.replace("{document}", excerpt)
+                            response = st.session_state.claude.generate(prompt, max_tokens=4096)
+                            ok = st.session_state.kg.build_from_claude_json(response)
+                            if ok:
+                                stats = st.session_state.kg.get_stats()
+                                st.write(
+                                    f"  ✅ `{fname}` → 노드 {stats['nodes']}개, "
+                                    f"엣지 {stats['edges']}개"
+                                )
+                            else:
+                                st.write(f"  ⚠️ `{fname}` 엔티티 추출 결과 파싱 실패")
 
                 st.success(f"🎉 {len(new_files)}개 문서 처리 완료!")
 

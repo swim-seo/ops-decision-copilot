@@ -14,6 +14,55 @@ class KnowledgeGraph:
     def __init__(self):
         self.graph = nx.DiGraph()
 
+    def build_from_schema_json(self, schema: dict) -> bool:
+        """
+        SCHEMA_DEFINITION.json 구조를 지식 그래프로 변환합니다.
+
+        - tables   → 노드 (table_name, table_type, description, PK 컬럼)
+        - relationships → 엣지 (join_key를 label로 표시)
+
+        schema 형식:
+        {
+          "tables": [{"table_name": "...", "table_type": "...", "description": "...", "columns": [...]}],
+          "relationships": [{"from": "...", "to": "...", "join_key": "...", "relation": "JOIN"}]
+        }
+        """
+        tables = schema.get("tables", [])
+        relationships = schema.get("relationships", [])
+
+        if not tables and not relationships:
+            return False
+
+        for table in tables:
+            table_name = table.get("table_name", "")
+            if not table_name:
+                continue
+            table_type = table.get("table_type", "default")
+            description = table.get("description", "")
+            columns = table.get("columns", [])
+            pk_cols = [c["name"] for c in columns if c.get("pk")]
+            tooltip = (
+                f"[{table_type}]\n"
+                f"{description}\n"
+                f"PK: {', '.join(pk_cols) if pk_cols else '없음'}\n"
+                f"컬럼 수: {len(columns)}"
+            )
+            self.graph.add_node(
+                table_name,
+                label=table_name,
+                type=table_type,
+                title=tooltip,
+            )
+
+        for rel in relationships:
+            src = rel.get("from", "")
+            tgt = rel.get("to", "")
+            join_key = rel.get("join_key", "")
+            if src and tgt:
+                self.graph.add_edge(src, tgt, relation=join_key)
+
+        return True
+
     def build_from_claude_json(self, json_str: str) -> bool:
         """
         Claude가 추출한 JSON 형식의 엔티티/관계를 그래프에 추가합니다.
@@ -101,15 +150,19 @@ class KnowledgeGraph:
         }
         """)
 
+        _type_size = {"fact_table": 45, "master_table": 35}
+
         for node_id, attrs in self.graph.nodes(data=True):
             node_type = attrs.get("type", "default")
             color = colors.get(node_type, fallback_color)
+            title = attrs.get("title") or f"유형: {node_type}"
+            size = _type_size.get(node_type, 25)
             net.add_node(
                 node_id,
                 label=attrs.get("label", node_id),
-                title=f"유형: {node_type}",
+                title=title,
                 color=color,
-                size=25,
+                size=size,
             )
 
         for src, tgt, attrs in self.graph.edges(data=True):
