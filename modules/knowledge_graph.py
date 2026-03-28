@@ -49,6 +49,7 @@ class KnowledgeGraph:
             table_type = table.get("table_type", "default")
             description = table.get("description", "")
             columns = table.get("columns", [])
+            col_names = [c["name"] for c in columns if c.get("name")]
             pk_cols = [c["name"] for c in columns if c.get("pk")]
             tooltip = (
                 f"[{table_type}]\n"
@@ -61,6 +62,7 @@ class KnowledgeGraph:
                 label=table_name,
                 type=table_type,
                 title=tooltip,
+                columns=col_names,
             )
 
         for rel in relationships:
@@ -127,7 +129,19 @@ class KnowledgeGraph:
             return ""
 
         colors = entity_colors or DEFAULT_ENTITY_COLORS
-        fallback_color = colors.get("default", "#9E9E9E")
+        fallback_color = colors.get("default", "#6B7280")
+
+        # 타입별 시각 설정 (color는 entity_colors보다 우선)
+        _NODE_VISUAL: Dict[str, dict] = {
+            "master_table": {"shape": "diamond", "color": "#7C3AED", "size": 52},
+            "fact_table":   {"shape": "ellipse",  "color": "#2563EB", "size": 46},
+            "csv_table":    {"shape": "dot",      "color": "#0D9488", "size": 36},
+            "file":         {"shape": "box",      "size": 32},
+            "class":        {"shape": "ellipse",  "size": 28},
+            "function":     {"shape": "dot",      "size": 22},
+            "method":       {"shape": "dot",      "size": 18},
+            "module":       {"shape": "triangle", "size": 20},
+        }
 
         net = Network(
             height="580px",
@@ -140,78 +154,138 @@ class KnowledgeGraph:
         {
           "physics": {
             "forceAtlas2Based": {
-              "gravitationalConstant": -50,
-              "centralGravity": 0.01,
-              "springLength": 120
+              "gravitationalConstant": -80,
+              "centralGravity": 0.008,
+              "springLength": 200,
+              "springConstant": 0.05
             },
             "solver": "forceAtlas2Based",
-            "stabilization": {"iterations": 150}
+            "stabilization": {"iterations": 200}
           },
           "edges": {
             "arrows": {"to": {"enabled": true, "scaleFactor": 0.8}},
-            "color": {"color": "#aaaaaa"},
-            "font": {"size": 11, "color": "#dddddd"}
+            "color": {"color": "#888888"},
+            "smooth": {"type": "curvedCW", "roundness": 0.1}
           },
           "nodes": {
-            "font": {"size": 13},
+            "font": {"size": 14, "strokeWidth": 3, "strokeColor": "#1a1a2e"},
             "borderWidth": 2
           },
           "interaction": {
-            "zoomSpeed": 0.3
+            "zoomSpeed": 0.3,
+            "hover": true
           }
         }
         """)
 
-        _type_size = {"fact_table": 45, "master_table": 35}
+        # JS에 넘길 노드 메타데이터
+        node_meta: Dict[str, Any] = {}
 
         for node_id, attrs in self.graph.nodes(data=True):
             node_type = attrs.get("type", "default")
-            color = colors.get(node_type, fallback_color)
+            vis_cfg = _NODE_VISUAL.get(node_type, {})
+
+            color = vis_cfg.get("color") or colors.get(node_type, fallback_color)
+            size  = vis_cfg.get("size", 26)
+            shape = vis_cfg.get("shape", "dot")
             title = attrs.get("title") or f"유형: {node_type}"
-            size = _type_size.get(node_type, 25)
+
             net.add_node(
                 node_id,
                 label=attrs.get("label", node_id),
                 title=title,
                 color=color,
                 size=size,
+                shape=shape,
             )
 
+            # 노드 정보 패널용 메타데이터 수집
+            node_meta[node_id] = {
+                "type": node_type,
+                "columns":   attrs.get("columns", []),
+                "col_types": attrs.get("col_types", {}),
+                "fk_cols":   attrs.get("fk_cols", []),
+                "out_edges": [
+                    {"to": t,  "rel": self.graph[node_id][t].get("relation", "")}
+                    for t in self.graph.successors(node_id)
+                ],
+                "in_edges": [
+                    {"from": s, "rel": self.graph[s][node_id].get("relation", "")}
+                    for s in self.graph.predecessors(node_id)
+                ],
+            }
+
         for src, tgt, attrs in self.graph.edges(data=True):
-            net.add_edge(src, tgt, label=attrs.get("relation", ""))
+            relation = attrs.get("relation", "")
+            # label은 비워두고 title(hover 툴팁)에만 관계명 표시 → 글씨 겹침 방지
+            net.add_edge(src, tgt, label="", title=relation)
 
         os.makedirs(os.path.dirname(GRAPH_OUTPUT_PATH), exist_ok=True)
         net.save_graph(GRAPH_OUTPUT_PATH)
-        self._inject_zoom_controls(GRAPH_OUTPUT_PATH)
+        self._inject_ui(GRAPH_OUTPUT_PATH, node_meta)
         return GRAPH_OUTPUT_PATH
 
     @staticmethod
-    def _inject_zoom_controls(html_path: str) -> None:
-        """생성된 pyvis HTML에 +/- 줌 버튼과 마우스 휠 라벨 동기화 스크립트를 주입합니다."""
+    def _inject_ui(html_path: str, node_meta: Dict[str, Any]) -> None:
+        """줌 컨트롤 + 노드 클릭 정보 패널을 pyvis HTML에 주입합니다."""
         try:
             with open(html_path, "r", encoding="utf-8") as f:
                 html = f.read()
         except OSError:
             return
 
-        zoom_html = """
+        node_meta_json = json.dumps(node_meta, ensure_ascii=False)
+
+        css_html = """
 <style>
+/* ── 줌 컨트롤 ── */
 #kg-zoom{position:fixed;top:10px;right:10px;z-index:9999;display:flex;
-  align-items:center;gap:5px;background:rgba(15,15,35,.88);
-  border:1px solid #555;border-radius:8px;padding:5px 10px;
-  font-family:sans-serif;}
+  align-items:center;gap:5px;background:rgba(15,15,35,.9);
+  border:1px solid #555;border-radius:8px;padding:5px 10px;font-family:sans-serif;}
 #kg-zoom button{background:#2a2a4a;color:#eee;border:1px solid #666;
   border-radius:5px;width:28px;height:28px;font-size:16px;cursor:pointer;
   line-height:1;transition:background .15s;}
 #kg-zoom button:hover:not(:disabled){background:#3a3a6a;}
 #kg-zoom button:disabled{opacity:.3;cursor:default;}
 #kg-zoom span{color:#ccc;font-size:12px;min-width:38px;text-align:center;}
+/* ── 노드 정보 패널 ── */
+#np{position:fixed;top:55px;right:10px;width:255px;max-height:78%;
+  overflow-y:auto;background:rgba(8,8,28,.95);border:1px solid #4a5568;
+  border-radius:10px;padding:13px;z-index:9990;display:none;
+  font-family:sans-serif;color:#e2e8f0;font-size:12px;}
+#np h3{color:#fff;font-size:13px;margin:0 0 5px;word-break:break-all;padding-right:18px;}
+#np .tag{display:inline-block;padding:2px 8px;border-radius:4px;
+  font-size:10px;margin-bottom:8px;color:#fff;font-weight:700;}
+#np .sec{color:#64748b;font-size:10px;text-transform:uppercase;
+  letter-spacing:.06em;margin:9px 0 3px;font-weight:700;border-top:1px solid #1e293b;padding-top:7px;}
+#np .col{padding:1px 0;font-size:11px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#np .col.fk{color:#fbbf24;}
+#np .edg{padding:2px 0;font-size:11px;}
+#np .out{color:#6ee7b7;}
+#np .inp{color:#93c5fd;}
+#np .rel{color:#475569;font-size:10px;}
+#np .none{color:#475569;font-size:11px;font-style:italic;}
+#np-x{position:absolute;top:7px;right:9px;background:none;border:none;
+  color:#64748b;cursor:pointer;font-size:17px;line-height:1;padding:0;}
+#np-x:hover{color:#e2e8f0;}
 </style>
 <div id="kg-zoom">
   <button id="kg-zi" onclick="kgZoom(1)" title="확대">+</button>
   <span id="kg-lbl">100%</span>
-  <button id="kg-zo" onclick="kgZoom(-1)" title="축소">−</button>
+  <button id="kg-zo" onclick="kgZoom(-1)" title="축소">\u2212</button>
 </div>
+<div id="np">
+  <button id="np-x" onclick="document.getElementById('np').style.display='none'">\u00d7</button>
+  <h3 id="np-name"></h3>
+  <span id="np-tag" class="tag"></span>
+  <div class="sec">컬럼</div>
+  <div id="np-cols"></div>
+  <div class="sec">연결된 테이블</div>
+  <div id="np-edges"></div>
+</div>
+"""
+
+        js_template = """
 <script>
 var _KZL=[.7,.8,.9,1.0],_KZI=3;
 function kgZoom(d){
@@ -223,19 +297,49 @@ function kgZoom(d){
   document.getElementById('kg-zi').disabled=(_KZI>=_KZL.length-1);
   document.getElementById('kg-zo').disabled=(_KZI<=0);
 }
+var NM=__NODE_META__;
+var TC={'master_table':'#7C3AED','fact_table':'#2563EB','csv_table':'#0D9488'};
+var TL={'master_table':'MASTER','fact_table':'FACT','csv_table':'CSV'};
+function showNode(id){
+  var m=NM[id]||{};
+  document.getElementById('np-name').textContent=id;
+  var tg=document.getElementById('np-tag');
+  tg.style.background=TC[m.type]||'#6B7280';
+  tg.textContent=TL[m.type]||m.type||'NODE';
+  var cols=m.columns||[],fks=m.fk_cols||[],ct=m.col_types||{};
+  var ch='';
+  if(!cols.length){ch='<div class="none">정보 없음</div>';}
+  else{
+    cols.slice(0,25).forEach(function(c){
+      var f=fks.indexOf(c)>=0;
+      var t=ct[c]?'<span class="rel"> ('+ct[c]+')</span>':'';
+      ch+='<div class="col'+(f?' fk':'')+'">'+c+t+(f?' \uD83D\uDD11':'')+'</div>';
+    });
+    if(cols.length>25)ch+='<div class="none">\u2026 외 '+(cols.length-25)+'개</div>';
+  }
+  document.getElementById('np-cols').innerHTML=ch;
+  var oe=m.out_edges||[],ie=m.in_edges||[],eh='';
+  oe.forEach(function(e){eh+='<div class="edg out">\u2192 '+e.to+(e.rel?'<span class="rel"> ('+e.rel+')</span>':'')+'</div>';});
+  ie.forEach(function(e){eh+='<div class="edg inp">\u2190 '+e.from+(e.rel?'<span class="rel"> ('+e.rel+')</span>':'')+'</div>';});
+  if(!eh)eh='<div class="none">없음</div>';
+  document.getElementById('np-edges').innerHTML=eh;
+  document.getElementById('np').style.display='block';
+}
 (function poll(){
   if(typeof network!=='undefined'){
-    network.on('zoom',function(e){
-      document.getElementById('kg-lbl').textContent=Math.round(e.scale*100)+'%';
-    });
+    network.on('zoom',function(e){document.getElementById('kg-lbl').textContent=Math.round(e.scale*100)+'%';});
+    network.on('click',function(p){if(p.nodes.length>0)showNode(p.nodes[0]);});
   }else{setTimeout(poll,150);}
 })();
 </script>
 """
+        js = js_template.replace("__NODE_META__", node_meta_json)
+        inject = css_html + js
+
         if "</body>" in html:
-            html = html.replace("</body>", zoom_html + "\n</body>")
+            html = html.replace("</body>", inject + "\n</body>")
         else:
-            html += zoom_html
+            html += inject
 
         with open(html_path, "w", encoding="utf-8") as f:
             f.write(html)
@@ -288,9 +392,17 @@ function kgZoom(d){
         fk_candidates = schema.get("fk_candidates", [])
         col_types = schema.get("col_types", {})
 
-        pk_cols = [c for c in columns if c.lower() in ("id", f"{table_name.lower()}_id")]
+        # 테이블 이름 접두사로 타입 자동 감지
+        tn_upper = table_name.upper()
+        if tn_upper.startswith("MST_"):
+            node_type = "master_table"
+        elif tn_upper.startswith("FACT_"):
+            node_type = "fact_table"
+        else:
+            node_type = "csv_table"
+
         tooltip = (
-            f"[CSV 테이블]\n"
+            f"[{node_type}]\n"
             f"컬럼 수: {len(columns)}\n"
             f"컬럼: {', '.join(columns[:10])}{'...' if len(columns) > 10 else ''}\n"
             f"FK 후보: {', '.join(fk_candidates) if fk_candidates else '없음'}"
@@ -298,8 +410,11 @@ function kgZoom(d){
         self.graph.add_node(
             table_name,
             label=table_name,
-            type="csv_table",
+            type=node_type,
             title=tooltip,
+            columns=columns,
+            col_types=col_types,
+            fk_cols=fk_candidates,
         )
 
         # FK 후보 컬럼을 다른 테이블과 연결
