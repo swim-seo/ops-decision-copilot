@@ -92,6 +92,7 @@ def _init_session():
         "chat_history": [],
         "chat_api_calls": 0,
         "chat_preset_input": None,
+        "pending_chat_message": None,
         "qp_input": "",
         "qp_result": None,
         "briefing_cards": None,
@@ -954,7 +955,7 @@ elif step == 3:
                                  f"{ds.table_name} 데이터 분석해줘. {qp.raw_input[:40]}"
                         if st.button("채팅으로 보내기", key=f"qp_chat_{i}",
                                      use_container_width=True):
-                            st.session_state.chat_preset_input = chat_q
+                            st.session_state.pending_chat_message = chat_q
                             st.rerun()
 
                     # 미리보기 패널
@@ -1025,37 +1026,47 @@ elif step == 3:
                 "replenishment": "#d97706",
                 "anomaly":       "#7c3aed",
             }
-            card_cols = st.columns(4)
-            for i, card in enumerate(cards):
-                clr = _CARD_COLORS.get(card["id"], "#64748b")
-                with card_cols[i]:
-                    # 카드 헤더
-                    st.markdown(
-                        f'<div style="border-top:3px solid {clr};border-radius:8px 8px 0 0;'
-                        f'background:{clr}0d;padding:.5rem .8rem;font-weight:700;font-size:.95rem">'
-                        f'{card["icon"]} {card["title"]}</div>',
-                        unsafe_allow_html=True,
-                    )
-                    # 한 줄 요약
-                    st.caption(card["summary"])
-                    # 핵심 수치
-                    if card["metrics"]:
-                        m_cols = st.columns(len(card["metrics"]))
-                        for mi, met in enumerate(card["metrics"]):
-                            m_cols[mi].metric(met["label"], met["value"])
-                    # 차트
-                    if card.get("chart"):
-                        st.plotly_chart(card["chart"], use_container_width=True)
-                    # 지금 해야 할 일
-                    st.markdown("**지금 해야 할 일**")
-                    for act in card["actions"]:
-                        st.markdown(f"• {act}")
-                    # 채팅으로 이어서 질문 버튼
-                    if st.button("채팅으로 이어서 질문",
-                                 key=f"brief_chat_{card['id']}",
-                                 use_container_width=True):
-                        st.session_state.chat_preset_input = card["chat_prompt"]
-                        st.rerun()
+            # 2×2 그리드 — 첫 줄(0,1), 둘째 줄(2,3)
+            for row in range(2):
+                row_cols = st.columns(2, gap="large")
+                for col in range(2):
+                    i = row * 2 + col
+                    if i >= len(cards):
+                        break
+                    card = cards[i]
+                    clr = _CARD_COLORS.get(card["id"], "#64748b")
+                    with row_cols[col]:
+                        # 카드 헤더
+                        st.markdown(
+                            f'<div style="border-top:3px solid {clr};border-radius:8px 8px 0 0;'
+                            f'background:{clr}0d;padding:.6rem 1rem;font-weight:700;font-size:1rem;'
+                            f'margin-bottom:.4rem">'
+                            f'{card["icon"]} {card["title"]}</div>',
+                            unsafe_allow_html=True,
+                        )
+                        # 한 줄 요약
+                        st.caption(card["summary"])
+                        # 핵심 수치
+                        if card["metrics"]:
+                            m_cols = st.columns(len(card["metrics"]))
+                            for mi, met in enumerate(card["metrics"]):
+                                m_cols[mi].metric(met["label"], met["value"])
+                        # 차트 — 2열이므로 높이 여유 확보
+                        if card.get("chart"):
+                            st.plotly_chart(card["chart"], use_container_width=True,
+                                            key=f"brief_chart_{card['id']}")
+                        # 지금 해야 할 일
+                        st.markdown("**지금 해야 할 일**")
+                        for act in card["actions"]:
+                            st.markdown(f"• {act}")
+                        # 채팅으로 이어서 질문 버튼
+                        if st.button("채팅으로 이어서 질문",
+                                     key=f"brief_chat_{card['id']}",
+                                     use_container_width=True):
+                            st.session_state.pending_chat_message = card["chat_prompt"]
+                            st.rerun()
+                if row == 0 and len(cards) > 2:
+                    st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -1408,7 +1419,11 @@ elif step == 3:
             )
 
         # ── 채팅 입력 ────────────────────────────────────────
-        preset     = st.session_state.pop("chat_preset_input", None)
+        # pending_chat_message: 브리핑/추천 버튼에서 자동 전송할 메시지
+        preset = (
+            st.session_state.pop("pending_chat_message", None)
+            or st.session_state.pop("chat_preset_input", None)
+        )
         user_input = st.chat_input(
             "예: FG-002 선크림 수요 그래프 그려줘",
             key="chat_in",
