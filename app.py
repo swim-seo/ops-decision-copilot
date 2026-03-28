@@ -826,7 +826,7 @@ elif step == 3:
                     r = st.session_state.claude.generate(
                         load_prompt("report_draft", document=atxt,
                             date=rdate.strftime("%Y년 %m월 %d일"), domain_context=domain_context))
-                st.markdown(r)
+                st.markdown(r, unsafe_allow_html=True)
                 st.download_button("💾 다운로드", r,
                     f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
 
