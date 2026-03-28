@@ -38,7 +38,7 @@ def parse_file(uploaded_file) -> str:
 
 # ── CSV 파싱 ──────────────────────────────────────────────────────────────────
 
-_FK_SUFFIXES = ("_id", "_no", "_code", "_num", "_key", "_seq", "_pk", "번호", "코드")
+_FK_SUFFIXES = ("_id", "_no", "_code", "_cd", "_num", "_key", "_seq", "_pk", "번호", "코드")
 
 
 def extract_csv_schema(filename: str, raw_text: str) -> Dict[str, Any]:

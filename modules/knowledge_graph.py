@@ -155,6 +155,9 @@ class KnowledgeGraph:
           "nodes": {
             "font": {"size": 13},
             "borderWidth": 2
+          },
+          "interaction": {
+            "zoomSpeed": 0.3
           }
         }
         """)
@@ -179,7 +182,63 @@ class KnowledgeGraph:
 
         os.makedirs(os.path.dirname(GRAPH_OUTPUT_PATH), exist_ok=True)
         net.save_graph(GRAPH_OUTPUT_PATH)
+        self._inject_zoom_controls(GRAPH_OUTPUT_PATH)
         return GRAPH_OUTPUT_PATH
+
+    @staticmethod
+    def _inject_zoom_controls(html_path: str) -> None:
+        """생성된 pyvis HTML에 +/- 줌 버튼과 마우스 휠 라벨 동기화 스크립트를 주입합니다."""
+        try:
+            with open(html_path, "r", encoding="utf-8") as f:
+                html = f.read()
+        except OSError:
+            return
+
+        zoom_html = """
+<style>
+#kg-zoom{position:fixed;top:10px;right:10px;z-index:9999;display:flex;
+  align-items:center;gap:5px;background:rgba(15,15,35,.88);
+  border:1px solid #555;border-radius:8px;padding:5px 10px;
+  font-family:sans-serif;}
+#kg-zoom button{background:#2a2a4a;color:#eee;border:1px solid #666;
+  border-radius:5px;width:28px;height:28px;font-size:16px;cursor:pointer;
+  line-height:1;transition:background .15s;}
+#kg-zoom button:hover:not(:disabled){background:#3a3a6a;}
+#kg-zoom button:disabled{opacity:.3;cursor:default;}
+#kg-zoom span{color:#ccc;font-size:12px;min-width:38px;text-align:center;}
+</style>
+<div id="kg-zoom">
+  <button id="kg-zi" onclick="kgZoom(1)" title="확대">+</button>
+  <span id="kg-lbl">100%</span>
+  <button id="kg-zo" onclick="kgZoom(-1)" title="축소">−</button>
+</div>
+<script>
+var _KZL=[.7,.8,.9,1.0],_KZI=3;
+function kgZoom(d){
+  _KZI=Math.max(0,Math.min(_KZL.length-1,_KZI+d));
+  var s=_KZL[_KZI];
+  if(typeof network!=='undefined')
+    network.moveTo({scale:s,animation:{duration:200,easingFunction:'easeInOutQuad'}});
+  document.getElementById('kg-lbl').textContent=Math.round(s*100)+'%';
+  document.getElementById('kg-zi').disabled=(_KZI>=_KZL.length-1);
+  document.getElementById('kg-zo').disabled=(_KZI<=0);
+}
+(function poll(){
+  if(typeof network!=='undefined'){
+    network.on('zoom',function(e){
+      document.getElementById('kg-lbl').textContent=Math.round(e.scale*100)+'%';
+    });
+  }else{setTimeout(poll,150);}
+})();
+</script>
+"""
+        if "</body>" in html:
+            html = html.replace("</body>", zoom_html + "\n</body>")
+        else:
+            html += zoom_html
+
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html)
 
     def get_stats(self) -> Dict[str, Any]:
         return {
@@ -246,12 +305,16 @@ class KnowledgeGraph:
         # FK 후보 컬럼을 다른 테이블과 연결
         all_names = {n.lower(): n for n in (all_table_names or list(self.graph.nodes))}
         for fk_col in fk_candidates:
-            # fk_col 이름에서 참조 테이블 추론: order_id → order/orders, product_no → product/products
-            for suffix in ("_id", "_no", "_code", "_num", "_key", "_seq", "_pk",
+            # fk_col 이름에서 참조 테이블 추론: PRODUCT_ID → product → MST_PRODUCT
+            for suffix in ("_id", "_no", "_code", "_cd", "_num", "_key", "_seq", "_pk",
                            "번호", "코드"):
                 if fk_col.lower().endswith(suffix):
                     ref_candidate = fk_col[: -len(suffix)].lower()
-                    # 정확 매칭 → 복수형(s) → 접두 매칭
+                    if not ref_candidate:
+                        break
+                    # 1) 정확 매칭
+                    # 2) 복수형(s)
+                    # 3) 테이블명이 후보를 포함하거나(MST_PRODUCT ⊃ product) 역방향
                     matched_ref = None
                     if ref_candidate in all_names:
                         matched_ref = all_names[ref_candidate]
@@ -259,7 +322,9 @@ class KnowledgeGraph:
                         matched_ref = all_names[ref_candidate + "s"]
                     else:
                         for tname_lower, tname in all_names.items():
-                            if tname_lower.startswith(ref_candidate) or ref_candidate.startswith(tname_lower):
+                            if (ref_candidate in tname_lower
+                                    or tname_lower.startswith(ref_candidate)
+                                    or ref_candidate.startswith(tname_lower)):
                                 matched_ref = tname
                                 break
                     if matched_ref and matched_ref != table_name:
