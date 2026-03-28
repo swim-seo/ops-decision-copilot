@@ -65,6 +65,32 @@ User uploads file
 
 All prompts live in `prompts/*.txt` with `{placeholder}` syntax. Load via `modules/prompt_loader.load_prompt("name", key=value)`. All templates accept `{domain_context}` which is injected in `app.py` before calling Claude.
 
+### Step 3 Layout
+
+Step 3 uses a `3:2` two-column layout:
+- **Left (`col_main`)**: Knowledge graph (pyvis HTML, height=620) + AI analysis tabs (요약/액션아이템/원인분석/보고서) + RAG search + node lookup
+- **Right (`col_chat`)**: Data chat panel + daily briefing button
+
+### Chat Panel (`col_chat`)
+
+Handles three intents detected by `_detect_chat_intent()`:
+
+| Intent | Trigger keywords | Handler |
+|--------|-----------------|---------|
+| `graph` | 그래프, 차트, 그려줘, 보여줘 | `_handle_chat_graph()` → Plotly line chart |
+| `analysis` | 판매, 재고, 발주, 여름, 계절, 잘팔리 | `_handle_chat_analysis()` → CSV summary → Claude |
+| `rag` | everything else | `_handle_chat_rag()` → KG + RAG combined |
+
+`_handle_chat_graph()` extracts `FG-XXX` / `PRDXXX` codes via regex, joins `MST_PART.csv` to resolve product names, then plots `FACT_MONTHLY_SALES.csv`. Falls back to channel-total chart if no code found.
+
+`_generate_daily_briefing()` loads three CSVs (`FACT_INVENTORY`, `FACT_MONTHLY_SALES`, `FACT_REPLENISHMENT_ORDER`), builds a pandas summary, then calls Claude once. Returns `(text, [fig1, fig2])`.
+
+### Demo Usage Limit
+
+`chat_api_calls` session state counter increments on every chat response and daily briefing call. Limit is `_DEMO_LIMIT = 20` (defined inside the `elif step == 3:` block). When exhausted: input/buttons disabled, red error banner shown. Badge color: green (>5 left) → amber (1–5) → red (0).
+
+Five preset question buttons (`_PRESETS_Q`) set `chat_preset_input` in session state, which is consumed as `user_input` on the next rerun (avoids `st.chat_input` value injection issues).
+
 ### Session State Keys
 
 `st.session_state` keys managed in `_init_session()`:
@@ -74,11 +100,14 @@ All prompts live in `prompts/*.txt` with `{placeholder}` syntax. Load via `modul
 - `kg` — `KnowledgeGraph` instance
 - `domain_config` — serialized `DomainConfig` dict (or `None`)
 - `step` — current UI step (1/2/3)
+- `chat_history` — list of `{"role", "content", "charts"}` dicts
+- `chat_api_calls` — int, increments each time Claude is called from chat
+- `chat_preset_input` — `str | None`, set by preset buttons, consumed once on rerun
 
 ### Persistent Storage
 
 - Vector store: `./data/vector_store/` (ChromaDB, persists between sessions)
 - Graph HTML: `./data/graph.html` (overwritten each render)
-- Uploads: `./data/uploads/`
+- Demo CSVs: `./data/` — `FACT_MONTHLY_SALES`, `FACT_INVENTORY`, `FACT_REPLENISHMENT_ORDER`, `MST_PART`, `MST_CHANNEL`, etc.
 
 These directories are auto-created by `config.py` at import time.
