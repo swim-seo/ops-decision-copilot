@@ -165,6 +165,8 @@ def _init_session():
         "domain_suggestion": None,
         "suggest_countdown": None,
         "chat_history": [],
+        "chat_api_calls": 0,
+        "chat_preset_input": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -1230,16 +1232,36 @@ elif step == 3:
     # ════════════════════════════════════════════════════════
     # 오른쪽: 데이터 채팅 + 일일 브리핑
     # ════════════════════════════════════════════════════════
+    _DEMO_LIMIT = 20
+
     with col_chat:
-        st.markdown("#### 💬 데이터 채팅")
+        used  = st.session_state.chat_api_calls
+        left  = _DEMO_LIMIT - used
+        exhausted = used >= _DEMO_LIMIT
+
+        # ── 헤더: 제목 + 사용량 배지 ─────────────────────────
+        badge_color = "#10b981" if left > 5 else ("#f59e0b" if left > 0 else "#ef4444")
+        st.markdown(
+            f'<div style="display:flex;align-items:center;justify-content:space-between;'
+            f'margin-bottom:.3rem">'
+            f'<span style="font-size:1.1rem;font-weight:700">💬 데이터 채팅</span>'
+            f'<span style="background:{badge_color};color:white;border-radius:20px;'
+            f'padding:2px 10px;font-size:.78rem;font-weight:700">'
+            f'데모 사용량: {used}/{_DEMO_LIMIT}</span></div>',
+            unsafe_allow_html=True,
+        )
         st.caption("CSV 데이터 기반 질문·그래프 생성, 지식그래프+RAG 결합 답변")
 
         # ── 일일 브리핑 버튼 ─────────────────────────────────
-        if st.button("📋 일일 브리핑 생성", type="primary",
-                     use_container_width=True, key="btn_briefing"):
+        if exhausted:
+            st.button("📋 일일 브리핑 생성", use_container_width=True,
+                      key="btn_briefing", disabled=True)
+        elif st.button("📋 일일 브리핑 생성", type="primary",
+                       use_container_width=True, key="btn_briefing"):
             with st.spinner("브리핑 생성 중... (약 20~30초)"):
                 try:
                     brief_text, brief_charts = _generate_daily_briefing()
+                    st.session_state.chat_api_calls += 1
                     st.session_state.chat_history.append({
                         "role": "assistant",
                         "content": brief_text,
@@ -1251,15 +1273,31 @@ elif step == 3:
 
         st.divider()
 
+        # ── 예시 질문 버튼 ────────────────────────────────────
+        _PRESETS_Q = [
+            ("🔍", "FG-002 선크림 수요 그래프 그려줘"),
+            ("📦", "재고 위험 상품 알려줘"),
+            ("📈", "여름에 잘 팔리는 상품 TOP3"),
+            ("🏪", "채널별 판매 현황 비교해줘"),
+            ("⚠️", "품절 위험 상품 있어?"),
+        ]
+        cols_q = st.columns(len(_PRESETS_Q))
+        for i, (icon, label) in enumerate(_PRESETS_Q):
+            with cols_q[i]:
+                if st.button(icon, key=f"qbtn_{i}", help=label,
+                             use_container_width=True, disabled=exhausted):
+                    st.session_state.chat_preset_input = label
+                    st.rerun()
+
         # ── 채팅 히스토리 표시 ───────────────────────────────
-        chat_box = st.container(height=520)
+        chat_box = st.container(height=460)
         with chat_box:
             if not st.session_state.chat_history:
-                st.caption("💡 예시 질문:")
-                st.caption("• FG-002 선크림 수요 그래프 그려줘")
-                st.caption("• 여름에 잘 팔리는 상품 뭐야?")
-                st.caption("• 재고 위험 상품 알려줘")
-                st.caption("• 이 상품 특징 알려줘")
+                st.markdown(
+                    '<div style="color:#94a3b8;font-size:.85rem;padding:.5rem 0">'
+                    '위 버튼을 클릭하거나 아래에 직접 입력하세요.</div>',
+                    unsafe_allow_html=True,
+                )
             else:
                 for msg in st.session_state.chat_history:
                     with st.chat_message(msg["role"]):
@@ -1267,12 +1305,22 @@ elif step == 3:
                         for chart in msg.get("charts", []):
                             st.plotly_chart(chart, use_container_width=True)
 
+        # ── 사용량 초과 배너 ─────────────────────────────────
+        if exhausted:
+            st.error(
+                "🚫 **데모 버전 사용량 초과** — 이번 세션에서 최대 20회 사용 가능합니다.",
+                icon=None,
+            )
+
         # ── 채팅 입력 ────────────────────────────────────────
+        preset = st.session_state.pop("chat_preset_input", None)  # 예시 버튼 클릭값
         user_input = st.chat_input(
-            "FG-002 수요 그래프 / 여름 판매 상품 / 재고 위험...",
+            "예: FG-002 선크림 수요 그래프 그려줘",
             key="chat_in",
-        )
-        if user_input:
+            disabled=exhausted,
+        ) or preset
+
+        if user_input and not exhausted:
             st.session_state.chat_history.append(
                 {"role": "user", "content": user_input, "charts": []}
             )
@@ -1292,6 +1340,7 @@ elif step == 3:
                 except Exception as e:
                     response = f"오류가 발생했습니다: {e}"
                     charts   = []
+            st.session_state.chat_api_calls += 1
             st.session_state.chat_history.append(
                 {"role": "assistant", "content": response, "charts": charts}
             )
