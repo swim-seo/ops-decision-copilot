@@ -16,7 +16,7 @@ from config import APP_TITLE, APP_ICON, DEFAULT_ENTITY_COLORS
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AI 운영 코파일럿",
-    page_icon="🤖",
+    page_icon="✨",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -25,8 +25,10 @@ st.set_page_config(
 def _apply_css(primary: str = "#2563EB"):
     st.markdown(f"""<style>
 .stApp {{ background:#f8fafc; }}
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&display=swap');
 .app-header {{ text-align:center; padding:1.8rem 0 .4rem; }}
-.app-header h1 {{ font-size:1.85rem; color:#1e293b; margin:0 0 .25rem; }}
+.app-header h1 {{ font-family:'Poppins',sans-serif; font-size:1.85rem;
+                  color:#1e293b; margin:0 0 .25rem; letter-spacing:-.02em; }}
 .app-header p  {{ font-size:1.05rem; color:#64748b; margin:0; font-weight:400; }}
 /* 단계 표시기 */
 .steps {{ display:flex; justify-content:center; align-items:center;
@@ -480,7 +482,7 @@ with st.sidebar:
 # 헤더
 st.markdown("""
 <div class="app-header">
-  <h1>🤖 AI 운영 코파일럿</h1>
+  <h1>✨ AI 운영 코파일럿</h1>
   <p>파일을 올리면 시스템 구조를 자동으로 파악합니다</p>
 </div>
 """, unsafe_allow_html=True)
