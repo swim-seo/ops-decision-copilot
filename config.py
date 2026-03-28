@@ -1,11 +1,39 @@
+"""
+[역할] 전역 설정 파일
+앱 전체에서 공통으로 사용하는 상수와 환경 변수를 한 곳에 정의합니다.
+  - API 키·모델명 등 Claude 연결 설정
+  - 문서 청킹 크기, 지원 파일 형식
+  - ChromaDB 벡터 저장소 경로·임베딩 모델
+  - Streamlit UI 기본 타이틀·아이콘
+  - 지식 그래프 출력 경로, 엔티티 색상 매핑
+  - data/ 등 필요 디렉터리 자동 생성
+"""
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv()  # 로컬 개발: .env 파일 읽기
+
+
+def _get_secret(key: str) -> str:
+    """
+    API 키 조회 우선순위:
+      1) st.secrets  — Streamlit Cloud 배포 환경
+      2) .env 파일   — 로컬 개발 환경
+      3) 환경변수    — CI/CD 등 기타 환경
+    """
+    try:
+        import streamlit as st
+        val = st.secrets.get(key, "")
+        if val:
+            return val
+    except Exception:
+        pass
+    return os.getenv(key, "")
+
 
 # ── API ───────────────────────────────────────────────────────────────────────
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY")
 MODEL_NAME = "claude-sonnet-4-6"
 MAX_TOKENS = 4096
 

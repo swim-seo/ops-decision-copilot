@@ -1,9 +1,11 @@
-# Environment
+# ── 환경변수 / 시크릿 ────────────────────────────────────────────────────────
 .env
 .env.local
+.streamlit/secrets.toml      # Streamlit Cloud 시크릿 (절대 커밋 금지)
 
-# Python
+# ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 .venv/
@@ -13,21 +15,18 @@ env/
 dist/
 build/
 
-# Data & Storage
-data/
+# ── 런타임 생성 데이터 (커밋 제외) ───────────────────────────────────────────
+data/vector_store/           # ChromaDB 벡터 인덱스 (로컬 생성)
+data/uploads/                # 사용자 업로드 임시 파일
+data/graph.html              # pyvis 렌더링 결과물
+# ※ data/*.csv, data/*.json, data/*.txt (데모 데이터)는 커밋 대상
 
-# pyvis generated JS libs & pip cache
+# ── pyvis 번들 / pip 캐시 ────────────────────────────────────────────────────
 lib/
-pip
 pip/
 
-# Streamlit
-.streamlit/secrets.toml
-
-# IDE
+# ── IDE / OS ─────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db

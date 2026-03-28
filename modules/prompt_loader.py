@@ -1,4 +1,10 @@
-"""프롬프트 템플릿 로더 모듈"""
+"""
+[역할] 프롬프트 템플릿 파일 로더
+prompts/ 폴더의 .txt 파일을 읽어 플레이스홀더({변수명})를 실제 값으로 치환합니다.
+  - load_prompt("summarize", document="...")  → prompts/summarize.txt 로드 후 치환
+  - load_prompt("rag_query", question="...", context="...")
+프롬프트를 코드와 분리해 관리하므로, 프롬프트 수정 시 Python 코드를 건드릴 필요가 없습니다.
+"""
 import os
 from typing import Dict
 

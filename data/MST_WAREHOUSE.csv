@@ -1,0 +1,4 @@
+﻿WAREHOUSE_CD,WAREHOUSE_NAME,LOCATION,CAPACITY,REGION
+WH001,서울 메인 물류센터,경기도 이천시,50000,수도권
+WH002,부산 물류센터,부산광역시 강서구,30000,영남
+WH003,대전 물류센터,대전광역시 대덕구,25000,충청

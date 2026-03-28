@@ -1,0 +1,345 @@
+{
+  "schema_version": "1.0",
+  "domain": "뷰티 이커머스 (에프앤코 / 바닐라코)",
+  "tables": {
+    "MST_SUPPLIER": {
+      "description": "원료·용기 공급업체 마스터",
+      "primary_key": "SUPPLIER_ID",
+      "columns": {
+        "SUPPLIER_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "example": "SUP001"
+        },
+        "SUPPLIER_NAME": {
+          "type": "VARCHAR(50)",
+          "nullable": false,
+          "example": "코스메랩"
+        },
+        "SUPPLIER_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "enum": [
+            "원료",
+            "용기"
+          ]
+        },
+        "COUNTRY": {
+          "type": "CHAR(2)",
+          "nullable": false,
+          "example": "KR"
+        },
+        "LEAD_TIME_DAYS": {
+          "type": "INTEGER",
+          "nullable": false,
+          "description": "발주~납품 소요일"
+        },
+        "MOQ": {
+          "type": "INTEGER",
+          "nullable": false,
+          "description": "최소주문수량"
+        },
+        "PAYMENT_TERMS": {
+          "type": "VARCHAR(10)",
+          "nullable": true,
+          "example": "NET30"
+        }
+      }
+    },
+    "MST_CHANNEL": {
+      "description": "판매 채널 마스터 (온·오프라인, 글로벌)",
+      "primary_key": "CHANNEL_ID",
+      "columns": {
+        "CHANNEL_ID": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "example": "CH001"
+        },
+        "CHANNEL_NAME": {
+          "type": "VARCHAR(30)",
+          "nullable": false,
+          "example": "틱톡샵_KR"
+        },
+        "CHANNEL_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "enum": [
+            "온라인",
+            "오프라인"
+          ]
+        },
+        "REGION": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "enum": [
+            "KR",
+            "US",
+            "SEA"
+          ]
+        },
+        "CURRENCY": {
+          "type": "CHAR(3)",
+          "nullable": false,
+          "enum": [
+            "KRW",
+            "USD"
+          ]
+        },
+        "PLATFORM_FEE_PCT": {
+          "type": "DECIMAL(4,1)",
+          "nullable": false,
+          "description": "플랫폼 수수료율(%)"
+        },
+        "LOCATION": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "description": "오프라인 주소"
+        }
+      }
+    },
+    "MST_PRODUCT": {
+      "description": "상품 마스터 (수요 유형·라이프사이클 포함)",
+      "primary_key": "PRODUCT_ID",
+      "foreign_keys": {
+        "SUPPLIER_ID": "MST_SUPPLIER.SUPPLIER_ID"
+      },
+      "columns": {
+        "PRODUCT_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "example": "PRD001"
+        },
+        "PRODUCT_NAME": {
+          "type": "VARCHAR(60)",
+          "nullable": false
+        },
+        "CATEGORY": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "enum": [
+            "스킨케어",
+            "립",
+            "아이",
+            "베이스"
+          ]
+        },
+        "DEMAND_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "enum": [
+            "SEASONAL",
+            "REORDER",
+            "LAUNCH",
+            "DECLINING"
+          ],
+          "description": "수요 유형 - 재고 전략의 핵심 분류"
+        },
+        "SEASONAL_PEAK": {
+          "type": "VARCHAR(5)",
+          "nullable": true,
+          "enum": [
+            "여름",
+            "겨울",
+            null
+          ]
+        },
+        "LIFECYCLE_STAGE": {
+          "type": "VARCHAR(8)",
+          "nullable": false,
+          "enum": [
+            "도입기",
+            "성장기",
+            "성숙기",
+            "쇠퇴기"
+          ]
+        },
+        "SUPPLIER_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "fk": "MST_SUPPLIER.SUPPLIER_ID"
+        },
+        "PRICE_KRW": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "PRICE_USD": {
+          "type": "DECIMAL(8,2)",
+          "nullable": false
+        },
+        "LAUNCH_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "STATUS": {
+          "type": "VARCHAR(12)",
+          "nullable": false,
+          "enum": [
+            "ACTIVE",
+            "DISCONTINUE"
+          ]
+        }
+      }
+    },
+    "FACT_MONTHLY_SALES": {
+      "description": "채널별 월간 판매 실적 팩트",
+      "primary_key": "SALE_ID",
+      "foreign_keys": {
+        "PRODUCT_ID": "MST_PRODUCT.PRODUCT_ID",
+        "CHANNEL_ID": "MST_CHANNEL.CHANNEL_ID"
+      },
+      "columns": {
+        "SALE_ID": {
+          "type": "VARCHAR(9)",
+          "nullable": false
+        },
+        "PRODUCT_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "fk": "MST_PRODUCT.PRODUCT_ID"
+        },
+        "CHANNEL_ID": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "fk": "MST_CHANNEL.CHANNEL_ID"
+        },
+        "YEAR_MONTH": {
+          "type": "CHAR(7)",
+          "nullable": false,
+          "example": "2024-01"
+        },
+        "SALES_QTY": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "SALES_AMOUNT": {
+          "type": "DECIMAL(14,2)",
+          "nullable": false
+        },
+        "CURRENCY": {
+          "type": "CHAR(3)",
+          "nullable": false
+        },
+        "RETURN_QTY": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "NET_SALES_QTY": {
+          "type": "INTEGER",
+          "nullable": false
+        }
+      }
+    },
+    "FACT_INVENTORY": {
+      "description": "매장·창고별 재고 현황 스냅샷 (분기말 기준)",
+      "primary_key": "INVENTORY_ID",
+      "foreign_keys": {
+        "PRODUCT_ID": "MST_PRODUCT.PRODUCT_ID"
+      },
+      "columns": {
+        "INVENTORY_ID": {
+          "type": "VARCHAR(9)",
+          "nullable": false
+        },
+        "PRODUCT_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "fk": "MST_PRODUCT.PRODUCT_ID"
+        },
+        "LOCATION_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "창고/매장 코드"
+        },
+        "SNAPSHOT_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "STOCK_QTY": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "SAFETY_STOCK_QTY": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "REORDER_POINT": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "COVERAGE_WEEKS": {
+          "type": "DECIMAL(5,1)",
+          "nullable": false,
+          "description": "현재고 ÷ 주평균수요"
+        },
+        "STOCK_STATUS": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "enum": [
+            "OVERSTOCK",
+            "NORMAL",
+            "LOW",
+            "CRITICAL"
+          ]
+        }
+      }
+    },
+    "MST_LOCATION": {
+      "description": "창고·매장 위치 마스터 (FACT_INVENTORY 참조)",
+      "primary_key": "LOCATION_ID",
+      "columns": {
+        "LOCATION_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false
+        },
+        "LOCATION_NAME": {
+          "type": "VARCHAR(30)",
+          "nullable": false
+        },
+        "LOCATION_TYPE": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "enum": [
+            "창고",
+            "매장"
+          ]
+        },
+        "REGION": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "enum": [
+            "KR",
+            "US",
+            "SEA"
+          ]
+        }
+      }
+    }
+  },
+  "relationships": [
+    {
+      "from": "MST_PRODUCT.SUPPLIER_ID",
+      "to": "MST_SUPPLIER.SUPPLIER_ID",
+      "type": "N:1"
+    },
+    {
+      "from": "FACT_MONTHLY_SALES.PRODUCT_ID",
+      "to": "MST_PRODUCT.PRODUCT_ID",
+      "type": "N:1"
+    },
+    {
+      "from": "FACT_MONTHLY_SALES.CHANNEL_ID",
+      "to": "MST_CHANNEL.CHANNEL_ID",
+      "type": "N:1"
+    },
+    {
+      "from": "FACT_INVENTORY.PRODUCT_ID",
+      "to": "MST_PRODUCT.PRODUCT_ID",
+      "type": "N:1"
+    },
+    {
+      "from": "FACT_INVENTORY.LOCATION_ID",
+      "to": "MST_LOCATION.LOCATION_ID",
+      "type": "N:1"
+    }
+  ]
+}

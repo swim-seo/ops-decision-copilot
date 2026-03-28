@@ -1,4 +1,13 @@
-"""지식 그래프 모듈 - NetworkX + pyvis 기반 엔티티 관계 시각화"""
+"""
+[역할] 지식 그래프 구축 및 HTML 시각화
+문서에서 추출된 엔티티·관계를 그래프로 구성하고 인터랙티브 HTML로 렌더링합니다.
+  - build_from_claude_extraction() : Claude가 추출한 엔티티·관계 JSON → NetworkX 그래프
+  - build_from_schema_json()       : SCHEMA_DEFINITION.json의 테이블·FK 구조 → 그래프
+  - build_from_csv_schema()        : CSV 스키마 정보 → 그래프 (2-pass: 노드 먼저, FK 엣지 나중)
+  - build_from_python_graph_data() : Python AST 추출 결과(함수·클래스·import) → 그래프
+  - render_html()                  : pyvis로 인터랙티브 그래프 HTML 파일 생성
+  - query_by_id()                  : 특정 노드의 연결 노드·엣지 조회
+"""
 import json
 import os
 import re

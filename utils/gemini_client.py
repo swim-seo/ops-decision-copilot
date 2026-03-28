@@ -1,3 +1,8 @@
+"""
+[역할] Gemini API 클라이언트 (현재 미사용)
+초기 프로토타입 단계에서 Google Gemini를 AI 엔진으로 사용하던 클라이언트입니다.
+현재 앱은 Claude(Anthropic)로 전환되었으므로 이 파일은 사용되지 않습니다.
+"""
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv

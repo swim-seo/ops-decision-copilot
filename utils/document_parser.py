@@ -1,3 +1,9 @@
+"""
+[역할] 초기 버전 문서 파서 (현재 미사용)
+PDF·DOCX 파싱만 지원하던 초기 구현체입니다.
+현재는 modules/document_parser.py가 이 역할을 대체하며
+CSV·Python AST 파싱 등 추가 기능이 통합되어 있습니다.
+"""
 import io
 import PyPDF2
 import docx

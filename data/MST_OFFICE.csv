@@ -1,0 +1,8 @@
+﻿OFFICE_CD,OFFICE_NAME,REGION,OFFICE_TYPE,LT,T,SS_PARAM,CURRENCY,TIMEZONE
+KR-ICN,인천 물류센터(메인),KR,창고,7,14,1.65,KRW,Asia/Seoul
+KR-MDG,명동 직영매장,KR,매장,2,7,1.65,KRW,Asia/Seoul
+KR-SSU,성수 직영매장,KR,매장,2,7,1.65,KRW,Asia/Seoul
+US-LAX,LA 물류센터,US,창고,21,30,1.65,USD,America/Los_Angeles
+SEA-SGP,싱가포르 허브,SEA,창고,14,21,1.65,USD,Asia/Singapore
+SEA-JKT,자카르타 거점창고,SEA,창고,18,28,1.65,USD,Asia/Jakarta
+SEA-BKK,방콕 거점창고,SEA,창고,16,21,1.65,USD,Asia/Bangkok

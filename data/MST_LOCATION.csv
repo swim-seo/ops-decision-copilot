@@ -1,0 +1,7 @@
+﻿LOCATION_ID,LOCATION_NAME,LOCATION_TYPE,REGION
+LOC001,인천 물류센터(메인),창고,KR
+LOC002,인천 물류센터(온라인),창고,KR
+LOC003,미국 LA 창고,창고,US
+LOC004,싱가포르 허브,창고,SEA
+LOC005,명동 매장,매장,KR
+LOC006,성수 매장,매장,KR

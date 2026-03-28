@@ -1,4 +1,12 @@
-"""RAG 엔진 모듈 - ChromaDB + sentence-transformers 기반 의미 검색"""
+"""
+[역할] RAG(검색 증강 생성) 엔진
+문서 청크를 벡터로 변환해 ChromaDB에 저장하고, 질문과 유사한 청크를 검색합니다.
+  - add_documents()  : 텍스트 청크 → 임베딩 → ChromaDB 저장
+  - search()         : 질문 텍스트 → 유사 청크 TOP-K 반환 (Claude 컨텍스트로 전달)
+  - clear()          : 컬렉션 초기화
+  - get_stats()      : 저장된 문서 수 등 현황 조회
+도메인별로 별도 컬렉션(collection_name)을 사용해 데이터가 섞이지 않습니다.
+"""
 import uuid
 from typing import List, Dict, Any
 

@@ -1,4 +1,12 @@
-"""도메인 적응형 설정 모듈 - Claude AI 기반 동적 도메인 분석"""
+"""
+[역할] 도메인 자동 분석 및 설정 관리
+사용자가 입력한 도메인명·설명을 Claude에게 보내 앱 전체 설정을 자동 생성합니다.
+  - DomainConfig (dataclass) : 도메인별 엔티티 색상·용어·문서유형·분석포커스·테마색상 보관
+      - to_context_string()  : 모든 Claude 프롬프트에 주입할 도메인 컨텍스트 문자열 생성
+      - collection_name      : ChromaDB 컬렉션명 자동 생성 (특수문자 제거)
+  - DomainAdapter            : Claude 호출 → JSON 파싱 → DomainConfig 반환
+      - 파싱 실패 시 기본 설정(general)으로 자동 폴백
+"""
 import json
 import re
 from dataclasses import dataclass, field

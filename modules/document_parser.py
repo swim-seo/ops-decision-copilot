@@ -1,4 +1,11 @@
-"""문서 파싱 및 청킹 모듈 (PDF, DOCX, TXT/MD/CSV/PY 지원)"""
+"""
+[역할] 문서 파싱 및 텍스트 청킹
+업로드된 파일에서 텍스트를 추출하고 RAG에 적합한 크기로 분할합니다.
+  - parse_file()             : PDF·DOCX·TXT·MD·CSV·PY → 텍스트 추출
+  - extract_csv_schema()     : CSV 컬럼 구조·FK 후보·샘플 데이터 추출
+  - extract_python_graph_data(): Python AST 파싱 → 함수·클래스·import 관계 추출 (KG용)
+  - chunk_text()             : 긴 텍스트를 오버랩 청크로 분할 (RAG 인덱싱용)
+"""
 import ast
 import csv
 import io
