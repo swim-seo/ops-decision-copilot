@@ -81,72 +81,8 @@ section[data-testid="stSidebar"] .stButton>button {{
 </style>""", unsafe_allow_html=True)
 
 
-# ── 업종 프리셋 ───────────────────────────────────────────────────────────────
-_PRESETS = {
-    "뷰티": {
-        "entity_types": {"person":"#2196F3","product":"#E91E63","supplier":"#9C27B0",
-                         "process":"#FF9800","issue":"#F44336","decision":"#4CAF50",
-                         "metric":"#607D8B","default":"#9E9E9E"},
-        "terminology": ["SKU","OEM","ODM","성분","포뮬레이션","충전량","용기","안전성시험"],
-        "document_patterns": ["회의록","품질보고서","원가분석","VOC리포트"],
-        "analysis_focus": ["제품 품질","원가 관리","공급망 리스크","고객 만족"],
-        "theme_color": "#E91E63", "app_icon": "💄",
-    },
-    "공급망": {
-        "entity_types": {"person":"#2196F3","supplier":"#9C27B0","product":"#795548",
-                         "location":"#4CAF50","issue":"#F44336","decision":"#2563EB",
-                         "metric":"#607D8B","default":"#9E9E9E"},
-        "terminology": ["리드타임","재고","발주","공급업체","SKU","창고","납기","안전재고"],
-        "document_patterns": ["발주서","재고현황","공급망보고서","납기분석"],
-        "analysis_focus": ["재고 최적화","납기 준수","공급업체 관리","수요 예측"],
-        "theme_color": "#2563EB", "app_icon": "📦",
-    },
-    "에너지": {
-        "entity_types": {"person":"#2196F3","facility":"#FF9800","resource":"#00BCD4",
-                         "process":"#795548","issue":"#F44336","decision":"#4CAF50",
-                         "metric":"#607D8B","default":"#9E9E9E"},
-        "terminology": ["발전량","수요예측","그리드","ESS","탄소중립","PPA","설비이용률"],
-        "document_patterns": ["운영보고서","설비점검보고서","안전보고서"],
-        "analysis_focus": ["에너지 효율","설비 안전","비용 최적화","환경 규제"],
-        "theme_color": "#FF9800", "app_icon": "⚡",
-    },
-    "제조": {
-        "entity_types": {"person":"#2196F3","product":"#795548","process":"#FF9800",
-                         "resource":"#00BCD4","issue":"#F44336","decision":"#4CAF50",
-                         "metric":"#607D8B","default":"#9E9E9E"},
-        "terminology": ["생산계획","불량률","공정개선","납기","재고","설비가동률"],
-        "document_patterns": ["생산일보","품질보고서","불량분석보고서"],
-        "analysis_focus": ["생산 효율","품질 관리","설비 유지보수","원가 절감"],
-        "theme_color": "#607D8B", "app_icon": "🏭",
-    },
-    "물류": {
-        "entity_types": {"person":"#2196F3","location":"#4CAF50","process":"#FF9800",
-                         "resource":"#00BCD4","issue":"#F44336","decision":"#795548",
-                         "metric":"#607D8B","default":"#9E9E9E"},
-        "terminology": ["배송","재고","창고","운송비","적재율","납기","반품"],
-        "document_patterns": ["배송보고서","재고현황","운영회의록","비용분석"],
-        "analysis_focus": ["배송 효율","재고 관리","비용 최적화","고객 서비스"],
-        "theme_color": "#0284c7", "app_icon": "🚚",
-    },
-    "금융": {
-        "entity_types": {"person":"#2196F3","organization":"#9C27B0","product":"#795548",
-                         "process":"#FF9800","issue":"#F44336","decision":"#4CAF50",
-                         "metric":"#607D8B","default":"#9E9E9E"},
-        "terminology": ["포트폴리오","리스크","수익률","규제준수","AUM","신용등급"],
-        "document_patterns": ["투자보고서","리스크보고서","이사회회의록","실적보고"],
-        "analysis_focus": ["리스크 관리","수익 극대화","규제 준수","운영 효율"],
-        "theme_color": "#4CAF50", "app_icon": "💰",
-    },
-    "기타": {
-        "entity_types": {"person":"#2196F3","organization":"#9C27B0","process":"#FF9800",
-                         "resource":"#00BCD4","issue":"#F44336","decision":"#4CAF50",
-                         "metric":"#607D8B","default":"#9E9E9E"},
-        "terminology": ["전략","목표","성과","리스크","의사결정","KPI","예산"],
-        "document_patterns": ["회의록","보고서","기획서","정책문서"],
-        "analysis_focus": ["핵심 의사결정","리스크 관리","성과 측정","실행 과제"],
-        "theme_color": "#2563EB", "app_icon": "🤖",
-    },
-}
+# ── 도메인 프리셋 (domains/ 패키지에서 로드) ─────────────────────────────────
+from domains import ALL_PRESETS as _PRESETS
 
 _DEFAULT_DOMAIN_CONTEXT = (
     "도메인: 일반 비즈니스\n핵심 용어: 전략, 목표, 성과, 리스크, 의사결정\n"
@@ -221,20 +157,8 @@ def _quick_detect_domain(file_names: list) -> str:
     return "비즈니스 운영"
 
 def _preset_for(name: str) -> dict:
-    n = name.upper()
-    if any(k in n for k in ["뷰티","BEAUTY","화장품","COSMETIC","이커머스"]):
-        return _PRESETS["뷰티"]
-    if any(k in n for k in ["공급","SUPPLY","재고","INVENTORY","발주","창고"]):
-        return _PRESETS["공급망"]
-    if any(k in n for k in ["에너지","ENERGY","발전"]):
-        return _PRESETS["에너지"]
-    if any(k in n for k in ["제조","MANUF","생산","FACTORY"]):
-        return _PRESETS["제조"]
-    if any(k in n for k in ["물류","LOGISTIC","배송"]):
-        return _PRESETS["물류"]
-    if any(k in n for k in ["금융","FINANC","투자","회계"]):
-        return _PRESETS["금융"]
-    return _PRESETS["기타"]
+    from domains import get_preset
+    return get_preset(name)
 
 def _build_domain_from_name(name: str):
     from modules.domain_adapter import DomainConfig
