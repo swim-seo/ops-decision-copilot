@@ -165,6 +165,8 @@ def _init_session():
         "chat_history": [],
         "chat_api_calls": 0,
         "chat_preset_input": None,
+        "qp_input": "",
+        "qp_result": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -780,6 +782,137 @@ elif step == 3:
     try: rag_cnt = st.session_state.rag.document_count()
     except Exception: pass
     c4.metric("🔗 RAG 청크", rag_cnt)
+
+    st.divider()
+
+    # ════════════════════════════════════════════════════════════════════════
+    # 업무 문장 → 데이터 추천 섹션
+    # ════════════════════════════════════════════════════════════════════════
+    with st.expander("🔍 업무 문장 → 필요한 데이터 추천", expanded=bool(st.session_state.qp_result)):
+        qp_col1, qp_col2 = st.columns([4, 1])
+        with qp_col1:
+            qp_input = st.text_area(
+                "업무 문장 입력",
+                value=st.session_state.qp_input,
+                height=80,
+                placeholder="예: 다음 분기 틱톡샵 선크림 프로모션 준비. 재고 현황 파악하고 작년 동기 판매량 비교 필요.",
+                label_visibility="collapsed",
+                key="qp_text",
+            )
+        with qp_col2:
+            st.markdown("<div style='height:1.6rem'></div>", unsafe_allow_html=True)
+            run_qp = st.button("🔍 분석", type="primary",
+                               use_container_width=True, key="btn_qp")
+
+        if run_qp and qp_input.strip():
+            st.session_state.qp_input = qp_input
+            with st.spinner("데이터 추천 분석 중..."):
+                from modules.query_planner import plan as qp_plan
+                st.session_state.qp_result = qp_plan(
+                    qp_input.strip(),
+                    rag            = st.session_state.rag,
+                    kg             = st.session_state.kg,
+                    claude         = st.session_state.claude,
+                    domain_context = domain_context,
+                )
+            st.rerun()
+
+        qp = st.session_state.qp_result
+        if qp:
+            # ── 의도 + 엔티티 요약 ───────────────────────────────────────
+            st.markdown(
+                f'<div style="background:#f0f9ff;border-left:4px solid #0284c7;'
+                f'border-radius:8px;padding:.6rem 1rem;margin:.5rem 0;font-size:.9rem">'
+                f'<b>📌 감지된 의도:</b> {qp.intent}</div>',
+                unsafe_allow_html=True,
+            )
+
+            entity_badges = []
+            _etype_colors = {
+                "channel":   "#7c3aed", "product":  "#be185d",
+                "geography": "#0369a1", "time":     "#b45309",
+                "operation": "#065f46",
+            }
+            for etype, vals in qp.entities.items():
+                color = _etype_colors.get(etype, "#475569")
+                for v in vals[:3]:
+                    entity_badges.append(
+                        f'<span style="background:{color}1a;color:{color};border:1px solid {color}55;'
+                        f'border-radius:12px;padding:1px 9px;font-size:.75rem;margin:2px">{v}</span>'
+                    )
+            if entity_badges:
+                st.markdown("".join(entity_badges), unsafe_allow_html=True)
+
+            st.markdown(f"**추천 데이터셋 {len(qp.datasets)}개**")
+
+            # ── 데이터셋 카드 (3열 그리드) ───────────────────────────────
+            card_cols = st.columns(3)
+            for i, ds in enumerate(qp.datasets):
+                conf_color = (
+                    "#10b981" if ds.confidence >= 0.5
+                    else "#f59e0b" if ds.confidence >= 0.2
+                    else "#94a3b8"
+                )
+                tag = "🔗 FK 연관" if ds.is_expanded else "🎯 직접 매칭"
+
+                with card_cols[i % 3]:
+                    st.markdown(
+                        f'<div style="background:white;border:1px solid #e2e8f0;'
+                        f'border-top:3px solid {conf_color};border-radius:10px;'
+                        f'padding:.85rem;margin-bottom:.6rem">'
+                        f'<div style="display:flex;justify-content:space-between;align-items:center">'
+                        f'<b style="font-size:.95rem">{ds.table_name}</b>'
+                        f'<span style="font-size:.7rem;color:{conf_color};font-weight:700">'
+                        f'{int(ds.confidence*100)}%</span></div>'
+                        f'<div style="font-size:.75rem;color:#64748b;margin:.2rem 0">{ds.description}</div>'
+                        f'<div style="font-size:.78rem;color:#334155;margin:.3rem 0">'
+                        f'💡 {ds.reason}</div>'
+                        f'<div style="font-size:.7rem;color:#94a3b8">{tag}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    # 버튼 행
+                    b1, b2 = st.columns(2)
+                    with b1:
+                        if st.button("👁️ 미리보기", key=f"qp_prev_{i}",
+                                     use_container_width=True):
+                            st.session_state[f"qp_preview_{i}"] = \
+                                not st.session_state.get(f"qp_preview_{i}", False)
+                            st.rerun()
+                    with b2:
+                        chat_q = f"{ds.table_name} 데이터 분석해줘. {qp.raw_input[:40]}"
+                        if st.button("💬 채팅으로", key=f"qp_chat_{i}",
+                                     use_container_width=True):
+                            st.session_state.chat_preset_input = chat_q
+                            st.rerun()
+
+                    # 미리보기 패널
+                    if st.session_state.get(f"qp_preview_{i}", False):
+                        import os
+                        import pandas as _pd
+                        csv_path = os.path.join("./data", ds.csv_file)
+                        if os.path.exists(csv_path):
+                            try:
+                                _df = _pd.read_csv(csv_path, encoding="utf-8-sig", nrows=20)
+                                st.caption(
+                                    f"📊 {ds.csv_file} · {len(_df.columns)}컬럼 "
+                                    f"· 상위 20행 표시"
+                                )
+                                st.dataframe(_df, use_container_width=True, height=200)
+                                _pk_cols = [c for c in _df.columns
+                                            if any(s in c.upper() for s in ["_ID","_CD","_NO","_KEY"])]
+                                if _pk_cols:
+                                    st.caption(f"🔑 주요 키 컬럼: {', '.join(_pk_cols[:5])}")
+                            except Exception as _e:
+                                st.warning(f"미리보기 실패: {_e}")
+                        else:
+                            st.caption(f"📁 `{ds.csv_file}` 파일 없음")
+
+            # ── 관련 문서 추천 ───────────────────────────────────────────
+            if qp.documents:
+                st.markdown("**📄 관련 문서**")
+                for docf in qp.documents:
+                    st.caption(f"• {docf}")
 
     st.divider()
 
