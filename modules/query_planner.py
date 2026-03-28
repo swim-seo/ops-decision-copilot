@@ -189,6 +189,8 @@ class DatasetRecommendation:
     confidence:       float          # 0.0–1.0
     matched_keywords: List[str]
     is_expanded:      bool = False   # FK 체인으로 추가된 경우 True
+    check_question:   str = ""       # 지금 확인할 질문
+    next_action:      str = ""       # 다음 액션
 
 
 @dataclass
@@ -332,24 +334,29 @@ def _pass2_refine_with_claude(
 [추천 데이터셋 후보]
 {schema_summary}
 
-각 데이터셋이 왜 이 업무에 필요한지 1줄로 설명하세요.
-형식 (JSON):
+각 데이터셋에 대해 3가지를 작성하세요:
+1. reason: 이 업무에 왜 필요한지 1줄
+2. check_question: 이 데이터로 지금 확인해야 할 질문 1줄 (구체적 질문 형식)
+3. next_action: 이 데이터 분석 후 해야 할 다음 액션 1줄
+
+형식 (JSON only):
 {{
-  "FACT_MONTHLY_SALES": "이유",
-  "MST_CHANNEL": "이유",
+  "FACT_MONTHLY_SALES": {{
+    "reason": "이유",
+    "check_question": "채널별 판매량이 목표 대비 달성됐는가?",
+    "next_action": "미달 채널 마케팅 강화 계획 수립"
+  }},
   ...
 }}
 JSON만 출력하세요."""
 
     try:
-        response = claude.generate(prompt, max_tokens=800)
-        # JSON 파싱
-        import json
-        # 코드블록 제거
+        response = claude.generate(prompt, max_tokens=1000)
+        import json as _json
         clean = re.sub(r"```(?:json)?\s*([\s\S]*?)```", r"\1", response).strip()
         json_match = re.search(r"\{[\s\S]*\}", clean)
         if json_match:
-            return json.loads(json_match.group())
+            return _json.loads(json_match.group())
     except Exception:
         pass
     return {}
@@ -405,10 +412,16 @@ def plan(
     datasets: List[DatasetRecommendation] = []
     for tname, score, matched, is_exp in candidates:
         meta = _SCHEMA_REGISTRY.get(tname, {})
-        reason = (
-            refined_reasons.get(tname)
-            or _build_reason_rule(tname, matched, entities, is_exp)
-        )
+        # refined_reasons 값이 dict이면 새 형식, str이면 구 형식
+        refined = refined_reasons.get(tname)
+        if isinstance(refined, dict):
+            reason         = refined.get("reason") or _build_reason_rule(tname, matched, entities, is_exp)
+            check_question = refined.get("check_question", "")
+            next_action    = refined.get("next_action", "")
+        else:
+            reason         = refined or _build_reason_rule(tname, matched, entities, is_exp)
+            check_question = ""
+            next_action    = ""
         datasets.append(DatasetRecommendation(
             table_name       = tname,
             csv_file         = meta.get("csv_file", f"{tname}.csv"),
@@ -418,6 +431,8 @@ def plan(
             confidence       = round(score, 2),
             matched_keywords = matched,
             is_expanded      = is_exp,
+            check_question   = check_question,
+            next_action      = next_action,
         ))
 
     # ── Pass 3: 문서 추천 ─────────────────────────────────────────────────────

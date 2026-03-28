@@ -938,6 +938,7 @@ elif step == 3:
 
         if run_qp and qp_input.strip():
             st.session_state.qp_input = qp_input
+            st.session_state.qp_result = None  # 이전 결과 초기화
             with st.spinner("데이터 추천 분석 중..."):
                 from modules.query_planner import plan as qp_plan
                 st.session_state.qp_result = qp_plan(
@@ -975,7 +976,15 @@ elif step == 3:
             if entity_badges:
                 st.markdown("".join(entity_badges), unsafe_allow_html=True)
 
-            st.markdown(f"**추천 데이터셋 {len(qp.datasets)}개**")
+            qp_hdr_c1, qp_hdr_c2 = st.columns([4, 1])
+            with qp_hdr_c1:
+                st.markdown(f"**추천 데이터셋 {len(qp.datasets)}개**")
+            with qp_hdr_c2:
+                if st.button("✖ 추천 닫기", key="qp_dismiss",
+                             use_container_width=True):
+                    st.session_state.qp_result = None
+                    st.session_state.qp_input  = ""
+                    st.rerun()
 
             # ── 데이터셋 카드 (3열 그리드) ───────────────────────────────
             card_cols = st.columns(3)
@@ -988,18 +997,32 @@ elif step == 3:
                 tag = "🔗 FK 연관" if ds.is_expanded else "🎯 직접 매칭"
 
                 with card_cols[i % 3]:
+                    # 카드 헤더 + 추천 이유
                     st.markdown(
                         f'<div style="background:white;border:1px solid #e2e8f0;'
                         f'border-top:3px solid {conf_color};border-radius:10px;'
-                        f'padding:.85rem;margin-bottom:.6rem">'
+                        f'padding:.85rem;margin-bottom:.4rem">'
                         f'<div style="display:flex;justify-content:space-between;align-items:center">'
                         f'<b style="font-size:.95rem">{ds.table_name}</b>'
                         f'<span style="font-size:.7rem;color:{conf_color};font-weight:700">'
                         f'{int(ds.confidence*100)}%</span></div>'
                         f'<div style="font-size:.75rem;color:#64748b;margin:.2rem 0">{ds.description}</div>'
-                        f'<div style="font-size:.78rem;color:#334155;margin:.3rem 0">'
-                        f'💡 {ds.reason}</div>'
-                        f'<div style="font-size:.7rem;color:#94a3b8">{tag}</div>'
+                        f'<div style="font-size:.78rem;color:#334155;margin:.2rem 0;'
+                        f'padding:.3rem .5rem;background:#f8fafc;border-radius:6px">'
+                        f'💡 <b>추천 이유:</b> {ds.reason}</div>'
+                        + (
+                            f'<div style="font-size:.77rem;color:#0369a1;margin:.2rem 0;'
+                            f'padding:.3rem .5rem;background:#f0f9ff;border-radius:6px">'
+                            f'🔍 <b>지금 확인할 질문:</b> {ds.check_question}</div>'
+                            if ds.check_question else ""
+                        )
+                        + (
+                            f'<div style="font-size:.77rem;color:#065f46;margin:.2rem 0;'
+                            f'padding:.3rem .5rem;background:#f0fdf4;border-radius:6px">'
+                            f'⚡ <b>다음 액션:</b> {ds.next_action}</div>'
+                            if ds.next_action else ""
+                        )
+                        + f'<div style="font-size:.7rem;color:#94a3b8;margin-top:.3rem">{tag}</div>'
                         f'</div>',
                         unsafe_allow_html=True,
                     )
@@ -1012,7 +1035,9 @@ elif step == 3:
                                 not st.session_state.get(f"qp_preview_{i}", False)
                             st.rerun()
                     with b2:
-                        chat_q = f"{ds.table_name} 데이터 분석해줘. {qp.raw_input[:40]}"
+                        # check_question이 있으면 그걸 채팅 질문으로
+                        chat_q = ds.check_question if ds.check_question else \
+                                 f"{ds.table_name} 데이터 분석해줘. {qp.raw_input[:40]}"
                         if st.button("💬 채팅으로", key=f"qp_chat_{i}",
                                      use_container_width=True):
                             st.session_state.chat_preset_input = chat_q
@@ -1069,6 +1094,14 @@ elif step == 3:
                     except Exception as _e:
                         st.error(f"브리핑 생성 실패: {_e}")
                 st.rerun()
+
+        if st.session_state.briefing_cards:
+            _bc_x_col, _ = st.columns([1, 4])
+            with _bc_x_col:
+                if st.button("✖ 브리핑 닫기", key="brief_dismiss",
+                             use_container_width=True):
+                    st.session_state.briefing_cards = None
+                    st.rerun()
 
         cards = st.session_state.briefing_cards
         if cards:
@@ -1188,6 +1221,43 @@ elif step == 3:
                     st.markdown(r)
                     st.download_button("💾 다운로드", r,
                         f"actions_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+
+                    # ── 연관 데이터셋 badge 표시 ─────────────────────────
+                    with st.spinner("연관 데이터셋 분석 중..."):
+                        try:
+                            from modules.query_planner import plan as _qp_plan, _SCHEMA_REGISTRY
+                            _act_plan = _qp_plan(
+                                r[:500],  # 액션 아이템 텍스트 첫 500자 기준
+                                rag=None, kg=None, claude=None,  # rule-only (빠르게)
+                                domain_context=domain_context,
+                            )
+                            if _act_plan.datasets:
+                                st.markdown("---\n**📊 이 액션과 관련된 데이터셋**")
+                                _ds_badges = []
+                                for _ds in _act_plan.datasets[:6]:
+                                    _c = "#10b981" if _ds.confidence >= 0.5 else "#f59e0b"
+                                    _ds_badges.append(
+                                        f'<span style="background:{_c}1a;color:{_c};'
+                                        f'border:1px solid {_c}55;border-radius:12px;'
+                                        f'padding:2px 10px;font-size:.78rem;margin:2px;'
+                                        f'display:inline-block">'
+                                        f'📊 {_ds.table_name} '
+                                        f'<span style="opacity:.7">{int(_ds.confidence*100)}%</span></span>'
+                                    )
+                                    if _ds.next_action:
+                                        _ds_badges.append(
+                                            f'<div style="font-size:.73rem;color:#475569;'
+                                            f'margin:1px 0 4px 8px">⚡ {_ds.next_action}</div>'
+                                        )
+                                st.markdown("".join(_ds_badges), unsafe_allow_html=True)
+                                # 쿼리 플래너로 보내기
+                                if st.button("🔍 데이터 추천 자세히 보기",
+                                             key="act_to_qp", use_container_width=False):
+                                    st.session_state.qp_input  = r[:200]
+                                    st.session_state.qp_result = _act_plan
+                                    st.rerun()
+                        except Exception:
+                            pass
 
             with s3:
                 issue = st.text_input("특정 문제 (선택)", placeholder="예: 납기 지연 원인", key="issue_h")

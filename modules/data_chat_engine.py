@@ -477,19 +477,27 @@ def _claude_interpret(
         f"[핵심 수치]\n{metrics_str}\n"
         f"[데이터 요약]\n{data_summary[:2000]}"
         f"{doc_section}\n\n"
+        "⚠️ 범위 표현은 반드시 `~` 하나만 사용 (예: 10~20개). `~~` 취소선 절대 금지.\n\n"
         "아래 형식으로 답변하세요:\n"
         "## 요약\n"
         "질문에 대한 한 줄 답변.\n\n"
         "## 해석\n"
-        "데이터 기반으로 2~3문단 설명. 수치 언급, 비즈니스 시사점 포함."
+        "데이터 기반으로 2~3문단 설명. 수치 언급, 비즈니스 시사점 포함.\n\n"
+        "## 다음 할 일\n"
+        "1. **[오늘]** — 구체적인 행동 + 이유 한 줄\n"
+        "2. **[이번 주 내]** — 구체적인 행동 + 이유 한 줄\n"
+        "3. **[이번 달 내]** — 구체적인 행동 + 이유 한 줄"
     )
 
     try:
-        response = claude.generate(prompt, max_tokens=900)
-        sum_m    = re.search(r"##\s*요약\s*\n(.*?)(?=##|\Z)", response, re.DOTALL)
-        int_m    = re.search(r"##\s*해석\s*\n(.*?)(?=##|\Z)",  response, re.DOTALL)
+        response = claude.generate(prompt, max_tokens=1100)
+        sum_m    = re.search(r"##\s*요약\s*\n(.*?)(?=##|\Z)",   response, re.DOTALL)
+        int_m    = re.search(r"##\s*해석\s*\n(.*?)(?=##|\Z)",   response, re.DOTALL)
+        act_m    = re.search(r"##\s*다음 할 일\s*\n(.*?)(?=##|\Z)", response, re.DOTALL)
         summary  = sum_m.group(1).strip() if sum_m else response.split("\n")[0]
         interp   = int_m.group(1).strip() if int_m else response
+        if act_m:
+            interp += "\n\n---\n### 🗂️ 다음 할 일\n" + act_m.group(1).strip()
         return summary, interp
     except Exception:
         return _rule_summary(question_type, metrics), data_summary
