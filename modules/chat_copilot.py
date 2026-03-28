@@ -1,0 +1,241 @@
+"""
+[역할] 채팅 코파일럿 라우터
+사용자 질문을 분석하여 최적의 답변 경로를 선택하고 근거 정보를 함께 반환합니다.
+
+라우팅 규칙:
+  - "data"     : 제품코드/판매/재고/발주/차트 키워드 → CSV+pandas 기반
+  - "doc"      : 회의록/보고서/정책/의사결정 키워드 → RAG+KG 기반
+  - "combined" : 두 키워드 동시 또는 분류 불가 → RAG+KG+데이터 결합
+
+반환: ChatResult (text, route, charts, datasets, documents, kg_nodes)
+"""
+import re
+from dataclasses import dataclass, field
+from typing import Any, List, Optional
+
+
+# ── 결과 데이터클래스 ─────────────────────────────────────────────────────────
+
+@dataclass
+class ChatResult:
+    text:      str
+    route:     str                        # "data" | "doc" | "combined"
+    charts:    List[Any]   = field(default_factory=list)
+    datasets:  List[str]   = field(default_factory=list)   # 사용한 CSV 파일명
+    documents: List[str]   = field(default_factory=list)   # 사용한 문서 파일명
+    kg_nodes:  int         = 0                              # 매칭된 KG 노드 수
+
+
+# ── 키워드 정의 ───────────────────────────────────────────────────────────────
+
+_GRAPH_KW = ["그래프", "차트", "시각화", "그려줘", "보여줘", "플롯"]
+_DATA_KW  = _GRAPH_KW + [
+    "잘팔리", "잘 팔리", "판매", "매출", "분석", "재고", "발주",
+    "수요", "상위", "여름", "봄", "가을", "겨울", "계절",
+    "top", "채널", "품절", "stockout",
+]
+_DOC_KW   = ["회의록", "보고서", "정책", "분석자료", "문서", "의사결정", "액션", "요약"]
+_PROD_RE  = re.compile(r"(FG-\d+|PRD\d+)", re.IGNORECASE)
+_SEASON   = {"여름": [6,7,8], "봄": [3,4,5], "가을": [9,10,11], "겨울": [12,1,2]}
+
+
+# ── 라우팅 ───────────────────────────────────────────────────────────────────
+
+def detect_route(msg: str) -> str:
+    """질문 유형 분류: 'data' | 'doc' | 'combined'"""
+    m        = msg.lower()
+    has_data = any(k in m for k in _DATA_KW) or bool(_PROD_RE.search(msg))
+    has_doc  = any(k in m for k in _DOC_KW)
+
+    if has_data and not has_doc:
+        return "data"
+    if has_doc and not has_data:
+        return "doc"
+    return "combined"   # 둘 다 있거나 둘 다 없을 때
+
+
+def _detect_season(msg: str) -> Optional[str]:
+    for s in _SEASON:
+        if s in msg:
+            return s
+    return None
+
+
+# ── 경로별 처리 ───────────────────────────────────────────────────────────────
+
+def _handle_data(msg: str, claude, domain_context: str) -> ChatResult:
+    from modules.data_analyst import (
+        product_sales_chart, channel_sales_chart,
+        season_top_products, inventory_risk_summary,
+        pending_orders_summary,
+    )
+    m        = msg.lower()
+    ctx      : List[str] = []
+    datasets : List[str] = []
+    charts   : List[Any] = []
+
+    # ── 차트/그래프 요청 ──────────────────────────────────
+    if any(k in m for k in _GRAPH_KW) or bool(_PROD_RE.search(msg)):
+        match = _PROD_RE.search(msg)
+        if match:
+            fig, name, ds = product_sales_chart(match.group(1))
+            datasets.extend(ds)
+            if fig:
+                charts.append(fig)
+            text = f"**{name}** 월별 판매 추이입니다." if fig else f"'{match.group(1)}' 판매 데이터를 찾을 수 없습니다."
+        else:
+            recent = 3 if "최근" in m else 0
+            fig, ds = channel_sales_chart(recent_months=recent)
+            datasets.extend(ds)
+            if fig:
+                charts.append(fig)
+            text = "채널별 월별 판매 추이입니다."
+        return ChatResult(text=text, route="data", charts=charts,
+                          datasets=list(set(datasets)))
+
+    # ── 판매 / 계절 ───────────────────────────────────────
+    if any(k in m for k in ["판매", "매출", "잘팔리", "잘 팔리", "수요", "상위",
+                              "여름", "봄", "가을", "겨울", "계절", "top"]):
+        season = _detect_season(m)
+        summary, ds = season_top_products(season, top_n=5)
+        ctx.append(summary); datasets.extend(ds)
+
+    # ── 재고 / 품절 ───────────────────────────────────────
+    if any(k in m for k in ["재고", "inventory", "위험", "critical", "stock", "품절", "stockout"]):
+        summary, ds = inventory_risk_summary()
+        ctx.append(summary); datasets.extend(ds)
+
+    # ── 발주 ─────────────────────────────────────────────
+    if any(k in m for k in ["발주", "주문", "order", "replenishment"]):
+        summary, ds = pending_orders_summary()
+        ctx.append(summary); datasets.extend(ds)
+
+    # ── 채널 ─────────────────────────────────────────────
+    if "채널" in m:
+        fig, ds = channel_sales_chart(recent_months=3)
+        datasets.extend(ds)
+        if fig:
+            charts.append(fig)
+
+    if not ctx and not charts:
+        return ChatResult(
+            text="관련 데이터를 찾을 수 없습니다. 다른 질문을 시도해보세요.",
+            route="data",
+        )
+
+    if ctx:
+        data_summary = "\n\n".join(ctx)
+        prompt = (
+            f"{domain_context}\n\n"
+            f"[데이터 요약]\n{data_summary}\n\n"
+            f"[질문] {msg}\n\n"
+            "위 데이터를 바탕으로 질문에 간결하게 답변하세요."
+        )
+        text = claude.generate(prompt, max_tokens=1000)
+    else:
+        text = "차트를 생성했습니다."
+
+    return ChatResult(text=text, route="data", charts=charts,
+                      datasets=list(set(datasets)))
+
+
+def _handle_doc(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
+    from modules.prompt_loader import load_prompt
+
+    kg_context = ""
+    kg_nodes   = 0
+    if kg:
+        first_word = msg.split()[0] if msg.split() else ""
+        result = kg.query_by_id(first_word)
+        if result["matched_nodes"]:
+            kg_nodes   = len(result["matched_nodes"])
+            nodes_str  = ", ".join(f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5])
+            edges_str  = "; ".join(
+                f"{e['source']}→{e['relation']}→{e['target']}"
+                for e in result["edges"][:5]
+            )
+            kg_context = f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n"
+
+    doc_files: List[str] = []
+    rag_context = ""
+    if rag:
+        hits = rag.query(msg, n_results=4)
+        if hits:
+            doc_files   = list(dict.fromkeys(h["filename"] for h in hits))
+            rag_context = "\n\n".join(f"[{h['filename']}]\n{h['text']}" for h in hits)
+
+    combined = (kg_context + rag_context) or "관련 문서를 찾지 못했습니다."
+    response = claude.generate(
+        load_prompt("rag_query", question=msg, context=combined,
+                    domain_context=domain_context),
+        max_tokens=1000,
+    )
+    return ChatResult(text=response, route="doc",
+                      documents=doc_files, kg_nodes=kg_nodes)
+
+
+def _handle_combined(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
+    from modules.data_analyst import season_top_products, inventory_risk_summary
+    from modules.prompt_loader import load_prompt
+
+    m             = msg.lower()
+    data_parts    : List[str] = []
+    all_datasets  : List[str] = []
+    charts        : List[Any] = []
+
+    season = _detect_season(m)
+    if season or any(k in m for k in ["판매", "매출", "수요"]):
+        summary, ds = season_top_products(season, top_n=3)
+        data_parts.append(summary); all_datasets.extend(ds)
+    if any(k in m for k in ["재고", "품절"]):
+        summary, ds = inventory_risk_summary()
+        data_parts.append(summary); all_datasets.extend(ds)
+
+    doc_files: List[str] = []
+    rag_context = ""
+    if rag:
+        hits = rag.query(msg, n_results=3)
+        if hits:
+            doc_files   = list(dict.fromkeys(h["filename"] for h in hits))
+            rag_context = "\n\n".join(f"[{h['filename']}]\n{h['text']}" for h in hits)
+
+    kg_nodes   = 0
+    kg_prefix  = ""
+    if kg:
+        first_word = msg.split()[0] if msg.split() else ""
+        result = kg.query_by_id(first_word)
+        if result["matched_nodes"]:
+            kg_nodes  = len(result["matched_nodes"])
+            nodes_str = ", ".join(f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5])
+            kg_prefix = f"[지식그래프 노드: {nodes_str}]\n\n"
+
+    data_section = "\n\n".join(data_parts)
+    combined_ctx = "\n\n".join(filter(None, [data_section, kg_prefix + rag_context]))
+    combined_ctx = combined_ctx or "관련 데이터를 찾지 못했습니다."
+
+    prompt = (
+        f"{domain_context}\n\n"
+        f"[참고 데이터 및 문서]\n{combined_ctx}\n\n"
+        f"[질문] {msg}\n\n"
+        "데이터와 문서를 결합하여 종합적으로 답변하세요."
+    )
+    response = claude.generate(prompt, max_tokens=1200)
+    return ChatResult(
+        text=response, route="combined",
+        charts=charts,
+        datasets=list(set(all_datasets)),
+        documents=doc_files,
+        kg_nodes=kg_nodes,
+    )
+
+
+# ── 메인 진입점 ───────────────────────────────────────────────────────────────
+
+def respond(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
+    """사용자 질문 → ChatResult 반환 (라우팅 자동 결정)."""
+    route = detect_route(msg)
+    if route == "data":
+        return _handle_data(msg, claude, domain_context)
+    if route == "doc":
+        return _handle_doc(msg, claude, rag, kg, domain_context)
+    return _handle_combined(msg, claude, rag, kg, domain_context)

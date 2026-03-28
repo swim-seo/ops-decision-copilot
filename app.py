@@ -8,8 +8,6 @@ import time
 import json as _json
 from datetime import datetime
 
-import pandas as pd
-import plotly.express as px
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -431,286 +429,34 @@ def _process_text_paste(title: str, text: str) -> bool:
     return True
 
 
-# ── 채팅 헬퍼 ─────────────────────────────────────────────────────────────────
-
-def _load_csv(filename: str):
-    """data/ 폴더에서 CSV를 DataFrame으로 로드합니다."""
-    path = os.path.join("./data", filename)
-    if os.path.exists(path):
-        try:
-            return pd.read_csv(path, encoding="utf-8-sig")
-        except Exception:
-            return None
-    return None
-
-
-def _detect_chat_intent(msg: str) -> str:
-    m = msg.lower()
-    if any(k in m for k in ["그래프", "차트", "시각화", "그려줘", "보여줘", "플롯"]):
-        return "graph"
-    if any(k in m for k in ["잘팔리", "잘 팔리", "판매", "매출", "분석",
-                              "재고", "발주", "수요", "상위", "여름", "계절"]):
-        return "analysis"
-    return "rag"
-
-
-def _handle_chat_graph(msg: str):
-    """그래프 생성: 제품 코드 감지 → 월별 판매 line chart."""
-    import re
-    prod_match = re.search(r"(FG-\d+|PRD\d+)", msg.upper())
-    sales_df   = _load_csv("FACT_MONTHLY_SALES.csv")
-    parts_df   = _load_csv("MST_PART.csv")
-
-    if prod_match and sales_df is not None and parts_df is not None:
-        code = prod_match.group(1)
-        if code.startswith("FG-"):
-            row = parts_df[parts_df["PART_CD"] == code]
-            if row.empty:
-                return None, f"'{code}' 제품을 찾을 수 없습니다."
-            product_id = row.iloc[0]["LINKED_PRODUCT_ID"]
-            product_name = row.iloc[0]["PART_NAME"]
-        else:
-            product_id = code
-            mst = _load_csv("MST_PRODUCT.csv")
-            if mst is not None:
-                r2 = mst[mst["PRODUCT_ID"] == product_id]
-                product_name = r2.iloc[0]["PRODUCT_NAME"] if not r2.empty else product_id
-            else:
-                product_name = product_id
-
-        filtered = sales_df[sales_df["PRODUCT_ID"] == product_id].sort_values("YEAR_MONTH")
-        if filtered.empty:
-            return None, f"'{code}' 판매 데이터가 없습니다."
-        fig = px.line(filtered, x="YEAR_MONTH", y="NET_SALES_QTY",
-                      title=f"{product_name} 월별 수요",
-                      labels={"YEAR_MONTH": "월", "NET_SALES_QTY": "판매량"},
-                      markers=True)
-        fig.update_layout(height=280, margin=dict(t=40, b=30))
-        return fig, f"**{product_name}** 월별 판매 추이입니다."
-
-    # 제품 코드 없으면 채널별 전체 차트
-    ch_df = _load_csv("MST_CHANNEL.csv")
-    if sales_df is not None and ch_df is not None:
-        merged = sales_df.merge(ch_df[["CHANNEL_ID", "CHANNEL_NAME"]], on="CHANNEL_ID", how="left")
-        grouped = merged.groupby(["YEAR_MONTH", "CHANNEL_NAME"])["NET_SALES_QTY"].sum().reset_index()
-        fig = px.line(grouped, x="YEAR_MONTH", y="NET_SALES_QTY", color="CHANNEL_NAME",
-                      title="채널별 월별 판매량",
-                      labels={"YEAR_MONTH": "월", "NET_SALES_QTY": "판매량"},
-                      markers=True)
-        fig.update_layout(height=280, margin=dict(t=40, b=30))
-        return fig, "채널별 월별 판매 추이입니다."
-
-    return None, "그래프를 생성할 데이터가 없습니다."
-
-
-def _handle_chat_analysis(msg: str) -> str:
-    """CSV 데이터 요약 → Claude 답변."""
-    m = msg.lower()
-    context_parts = []
-    parts_df = _load_csv("MST_PART.csv")
-
-    # 판매 / 계절
-    if any(k in m for k in ["잘팔리", "잘 팔리", "판매", "매출", "상위", "수요",
-                              "여름", "봄", "가을", "겨울", "계절"]):
-        sales = _load_csv("FACT_MONTHLY_SALES.csv")
-        if sales is not None:
-            season_kw = {"여름": [6,7,8], "봄": [3,4,5], "가을": [9,10,11], "겨울": [12,1,2]}
-            target_months = None
-            season_label  = None
-            for sname, months in season_kw.items():
-                if sname in m:
-                    target_months = months
-                    season_label  = sname
-                    break
-
-            if target_months:
-                sales["_month"] = sales["YEAR_MONTH"].str[-2:].astype(int)
-                filtered = sales[sales["_month"].isin(target_months)]
-                top5 = filtered.groupby("PRODUCT_ID")["NET_SALES_QTY"].sum().nlargest(5)
-                context_parts.append(f"[{season_label} 판매 TOP5]")
-            else:
-                top5 = sales.groupby("PRODUCT_ID")["NET_SALES_QTY"].sum().nlargest(5)
-                context_parts.append("[전체 판매 TOP5]")
-
-            for pid, qty in top5.items():
-                name = pid
-                if parts_df is not None:
-                    row = parts_df[parts_df["LINKED_PRODUCT_ID"] == pid]
-                    if not row.empty:
-                        name = row.iloc[0]["PART_NAME"]
-                context_parts.append(f"  · {name}: {qty:,}개")
-
-    # 재고
-    if any(k in m for k in ["재고", "inventory", "위험", "critical", "stock"]):
-        inv = _load_csv("FACT_INVENTORY.csv")
-        if inv is not None:
-            latest = inv.sort_values("SNAPSHOT_DATE").groupby("PRODUCT_ID").last().reset_index()
-            critical = latest[latest["STOCK_STATUS"] == "CRITICAL"]
-            context_parts.append(f"[재고 CRITICAL {len(critical)}개]")
-            for _, row in critical.iterrows():
-                name = row["PRODUCT_ID"]
-                if parts_df is not None:
-                    pr = parts_df[parts_df["LINKED_PRODUCT_ID"] == row["PRODUCT_ID"]]
-                    if not pr.empty:
-                        name = pr.iloc[0]["PART_NAME"]
-                context_parts.append(f"  · {name}: {row['STOCK_QTY']}개 (안전재고 {row['SAFETY_STOCK_QTY']}개)")
-
-    # 발주
-    if any(k in m for k in ["발주", "주문", "order", "replenishment"]):
-        orders = _load_csv("FACT_REPLENISHMENT_ORDER.csv")
-        if orders is not None:
-            pending = orders[orders["STATUS"].isin(["PENDING", "IN_TRANSIT"])]
-            context_parts.append(f"[진행중 발주 {len(pending)}건]")
-            if parts_df is not None and not pending.empty:
-                top5 = pending.groupby("PART_CD")["ORDER_QTY"].sum().nlargest(5)
-                for part_cd, qty in top5.items():
-                    pr = parts_df[parts_df["PART_CD"] == part_cd]
-                    name = pr.iloc[0]["PART_NAME"] if not pr.empty else part_cd
-                    context_parts.append(f"  · {name}: {qty:,}개 발주중")
-
-    if not context_parts:
-        return _handle_chat_rag(msg)
-
-    data_summary = "\n".join(context_parts)
-    prompt = (
-        f"{_get_domain_context()}\n\n"
-        f"[데이터 요약]\n{data_summary}\n\n"
-        f"[질문] {msg}\n\n"
-        "위 데이터를 바탕으로 질문에 간결하게 답변하세요."
-    )
-    return st.session_state.claude.generate(prompt, max_tokens=1000)
-
-
-def _handle_chat_rag(msg: str) -> str:
-    """지식그래프 + RAG 결합 답변."""
-    kg_context = ""
-    if st.session_state.kg:
-        first_word = msg.split()[0] if msg.split() else ""
-        result = st.session_state.kg.query_by_id(first_word)
-        if result["matched_nodes"]:
-            nodes_str = ", ".join(
-                f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5]
-            )
-            edges_str = "; ".join(
-                f"{e['source']}→{e['relation']}→{e['target']}"
-                for e in result["edges"][:5]
-            )
-            kg_context = f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n"
-
-    rag_context = ""
-    if st.session_state.rag:
-        hits = st.session_state.rag.query(msg, n_results=3)
-        if hits:
-            rag_context = "\n\n".join(
-                f"[{h['filename']}]\n{h['text']}" for h in hits
-            )
-
-    from modules.prompt_loader import load_prompt
-    combined = (kg_context + rag_context) or "관련 데이터를 찾지 못했습니다."
-    return st.session_state.claude.generate(
-        load_prompt("rag_query", question=msg,
-                    context=combined, domain_context=_get_domain_context()),
-        max_tokens=1000,
-    )
-
+# ── 채팅 헬퍼 (modules/chat_copilot, modules/data_analyst 위임) ───────────────
 
 def _generate_daily_briefing():
-    """일일 브리핑: 재고위험 · 채널TOP3 · 발주필요 → (text, [charts])."""
-    parts_df = _load_csv("MST_PART.csv")
-    sections = []
-    charts   = []
+    """일일 브리핑: data_analyst 함수로 데이터 수집 → Claude 요약.
+    Returns (summary_text, charts, datasets_used)
+    """
+    from modules.data_analyst import (
+        inventory_risk_summary, inventory_coverage_chart,
+        channel_top3_chart, replenishment_status,
+    )
+    sections: list = []
+    charts:   list = []
+    all_ds:   list = []
 
-    # ── 1. 재고 위험 ──────────────────────────────────────────────────────────
-    inv = _load_csv("FACT_INVENTORY.csv")
-    latest = None
-    if inv is not None:
-        latest = inv.sort_values("SNAPSHOT_DATE").groupby("PRODUCT_ID").last().reset_index()
-        critical = latest[latest["STOCK_STATUS"] == "CRITICAL"]
-        warning  = latest[latest["STOCK_STATUS"] == "WARNING"]
-        lines = [f"🚨 재고 위험 {len(critical)}개 / 경고 {len(warning)}개"]
-        for _, row in critical.iterrows():
-            name = row["PRODUCT_ID"]
-            if parts_df is not None:
-                pr = parts_df[parts_df["LINKED_PRODUCT_ID"] == row["PRODUCT_ID"]]
-                if not pr.empty:
-                    name = pr.iloc[0]["PART_NAME"]
-            lines.append(f"  · {name}: {row['STOCK_QTY']}개 (안전재고 {row['SAFETY_STOCK_QTY']}개)")
-        sections.append("\n".join(lines))
+    inv_text, ds = inventory_risk_summary()
+    sections.append(inv_text); all_ds.extend(ds)
 
-        if parts_df is not None and not latest.empty:
-            top_risk = latest.nsmallest(8, "COVERAGE_WEEKS").copy()
-            top_risk = top_risk.merge(
-                parts_df[["LINKED_PRODUCT_ID", "PART_NAME"]],
-                left_on="PRODUCT_ID", right_on="LINKED_PRODUCT_ID", how="left"
-            )
-            top_risk["label"] = top_risk["PART_NAME"].fillna(top_risk["PRODUCT_ID"])
-            fig1 = px.bar(
-                top_risk, x="label", y="COVERAGE_WEEKS",
-                color="STOCK_STATUS",
-                color_discrete_map={"CRITICAL": "#EF4444", "WARNING": "#F59E0B", "OK": "#10B981"},
-                title="📦 재고 커버리지 (주 단위, 낮을수록 위험)",
-                labels={"label": "상품", "COVERAGE_WEEKS": "재고 커버 주수"},
-            )
-            fig1.update_layout(height=250, margin=dict(t=40, b=30))
-            charts.append(fig1)
+    fig1, ds = inventory_coverage_chart()
+    if fig1: charts.append(fig1)
+    all_ds.extend(ds)
 
-    # ── 2. 채널별 판매 TOP3 ───────────────────────────────────────────────────
-    sales = _load_csv("FACT_MONTHLY_SALES.csv")
-    ch_df = _load_csv("MST_CHANNEL.csv")
-    if sales is not None and ch_df is not None:
-        recent_months = sorted(sales["YEAR_MONTH"].unique())[-3:]
-        recent = sales[sales["YEAR_MONTH"].isin(recent_months)]
-        merged = recent.merge(ch_df[["CHANNEL_ID", "CHANNEL_NAME"]], on="CHANNEL_ID", how="left")
-        ch_top = merged.groupby("CHANNEL_NAME")["NET_SALES_QTY"].sum().nlargest(5).reset_index()
+    fig2, ds = channel_top3_chart()
+    if fig2: charts.append(fig2)
+    all_ds.extend(ds)
 
-        lines = ["📊 최근 3개월 채널별 판매 TOP5"]
-        for i, row in ch_top.iterrows():
-            lines.append(f"  {i+1}. {row['CHANNEL_NAME']}: {row['NET_SALES_QTY']:,}개")
-        sections.append("\n".join(lines))
+    rep_text, ds = replenishment_status()
+    sections.append(rep_text); all_ds.extend(ds)
 
-        if parts_df is not None:
-            prod_ch = merged.merge(
-                parts_df[["LINKED_PRODUCT_ID", "PART_NAME"]],
-                left_on="PRODUCT_ID", right_on="LINKED_PRODUCT_ID", how="left"
-            )
-            prod_ch["label"] = prod_ch["PART_NAME"].fillna(prod_ch["PRODUCT_ID"])
-        else:
-            prod_ch = merged.copy()
-            prod_ch["label"] = prod_ch["PRODUCT_ID"]
-
-        top3_per_ch = (
-            prod_ch.groupby(["CHANNEL_NAME", "label"])["NET_SALES_QTY"]
-            .sum().reset_index()
-            .sort_values("NET_SALES_QTY", ascending=False)
-            .groupby("CHANNEL_NAME").head(3)
-        )
-        fig2 = px.bar(
-            top3_per_ch, x="CHANNEL_NAME", y="NET_SALES_QTY", color="label",
-            title="📈 채널별 TOP3 상품 (최근 3개월)",
-            labels={"CHANNEL_NAME": "채널", "NET_SALES_QTY": "판매량", "label": "상품"},
-        )
-        fig2.update_layout(height=250, margin=dict(t=40, b=30))
-        charts.append(fig2)
-
-    # ── 3. 발주 필요 ──────────────────────────────────────────────────────────
-    orders = _load_csv("FACT_REPLENISHMENT_ORDER.csv")
-    if orders is not None and latest is not None and parts_df is not None:
-        critical_pids  = set(latest[latest["STOCK_STATUS"] == "CRITICAL"]["PRODUCT_ID"])
-        active_parts   = set(orders[orders["STATUS"].isin(["PENDING", "IN_TRANSIT"])]["PART_CD"])
-        lines = ["📋 발주 필요 상품"]
-        for pid in critical_pids:
-            pr = parts_df[parts_df["LINKED_PRODUCT_ID"] == pid]
-            if pr.empty:
-                continue
-            pcd  = pr.iloc[0]["PART_CD"]
-            name = pr.iloc[0]["PART_NAME"]
-            if pcd in active_parts:
-                lines.append(f"  · {name}: 발주 진행중 ✓")
-            else:
-                lines.append(f"  · {name}: 발주 없음 ⚠️")
-        sections.append("\n".join(lines))
-
-    # ── Claude 브리핑 요약 ─────────────────────────────────────────────────
     data_summary = "\n\n".join(sections)
     prompt = (
         f"{_get_domain_context()}\n\n"
@@ -723,7 +469,7 @@ def _generate_daily_briefing():
         f"### ✅ 권장 액션"
     )
     summary = st.session_state.claude.generate(prompt, max_tokens=1500)
-    return summary, charts
+    return summary, charts, list(set(all_ds))
 
 
 # ── CSS 적용 ──────────────────────────────────────────────────────────────────
@@ -1234,9 +980,17 @@ elif step == 3:
     # ════════════════════════════════════════════════════════
     _DEMO_LIMIT = 20
 
+    # 라우트 배지 설정
+    _ROUTE_BADGE = {
+        "data":     ("📊", "#0284c7", "데이터 기반"),
+        "doc":      ("📄", "#7c3aed", "문서 기반"),
+        "combined": ("🔗", "#059669", "결합 분석"),
+        "briefing": ("📋", "#d97706", "일일 브리핑"),
+    }
+
     with col_chat:
-        used  = st.session_state.chat_api_calls
-        left  = _DEMO_LIMIT - used
+        used      = st.session_state.chat_api_calls
+        left      = _DEMO_LIMIT - used
         exhausted = used >= _DEMO_LIMIT
 
         # ── 헤더: 제목 + 사용량 배지 ─────────────────────────
@@ -1250,7 +1004,7 @@ elif step == 3:
             f'데모 사용량: {used}/{_DEMO_LIMIT}</span></div>',
             unsafe_allow_html=True,
         )
-        st.caption("CSV 데이터 기반 질문·그래프 생성, 지식그래프+RAG 결합 답변")
+        st.caption("질문만 입력하면 문서·데이터·지식그래프를 자동으로 결합해 답변합니다.")
 
         # ── 일일 브리핑 버튼 ─────────────────────────────────
         if exhausted:
@@ -1260,12 +1014,12 @@ elif step == 3:
                        use_container_width=True, key="btn_briefing"):
             with st.spinner("브리핑 생성 중... (약 20~30초)"):
                 try:
-                    brief_text, brief_charts = _generate_daily_briefing()
+                    brief_text, brief_charts, brief_ds = _generate_daily_briefing()
                     st.session_state.chat_api_calls += 1
                     st.session_state.chat_history.append({
-                        "role": "assistant",
-                        "content": brief_text,
-                        "charts": brief_charts,
+                        "role": "assistant", "content": brief_text,
+                        "charts": brief_charts, "datasets": brief_ds,
+                        "documents": [], "kg_nodes": 0, "route": "briefing",
                     })
                 except Exception as e:
                     st.error(f"브리핑 생성 실패: {e}")
@@ -1299,11 +1053,49 @@ elif step == 3:
                     unsafe_allow_html=True,
                 )
             else:
-                for msg in st.session_state.chat_history:
-                    with st.chat_message(msg["role"]):
-                        st.markdown(msg["content"])
-                        for chart in msg.get("charts", []):
+                for entry in st.session_state.chat_history:
+                    with st.chat_message(entry["role"]):
+                        st.markdown(entry["content"])
+
+                        # 차트 렌더링
+                        for chart in entry.get("charts", []):
                             st.plotly_chart(chart, use_container_width=True)
+
+                        # 근거 표시 (assistant 메시지만)
+                        if entry["role"] == "assistant":
+                            route      = entry.get("route", "combined")
+                            datasets   = entry.get("datasets", [])
+                            documents  = entry.get("documents", [])
+                            kg_nodes   = entry.get("kg_nodes", 0)
+                            icon_r, clr, lbl = _ROUTE_BADGE.get(
+                                route, ("🔗", "#059669", "결합 분석")
+                            )
+                            parts_html = [
+                                f'<span style="background:{clr};color:white;border-radius:12px;'
+                                f'padding:1px 8px;font-size:.72rem;font-weight:700;margin-right:4px">'
+                                f'{icon_r} {lbl}</span>'
+                            ]
+                            for ds in datasets:
+                                parts_html.append(
+                                    f'<span style="background:#f1f5f9;color:#475569;border-radius:10px;'
+                                    f'padding:1px 7px;font-size:.7rem;margin-right:3px">📊 {ds}</span>'
+                                )
+                            for doc in documents:
+                                parts_html.append(
+                                    f'<span style="background:#f1f5f9;color:#475569;border-radius:10px;'
+                                    f'padding:1px 7px;font-size:.7rem;margin-right:3px">📄 {doc}</span>'
+                                )
+                            if kg_nodes > 0:
+                                parts_html.append(
+                                    f'<span style="background:#f1f5f9;color:#475569;border-radius:10px;'
+                                    f'padding:1px 7px;font-size:.7rem">🕸️ KG {kg_nodes}노드</span>'
+                                )
+                            if len(parts_html) > 1:  # 라우트 배지 외 근거가 있을 때만
+                                st.markdown(
+                                    '<div style="margin-top:.5rem;opacity:.85">'
+                                    + "".join(parts_html) + "</div>",
+                                    unsafe_allow_html=True,
+                                )
 
         # ── 사용량 초과 배너 ─────────────────────────────────
         if exhausted:
@@ -1313,7 +1105,7 @@ elif step == 3:
             )
 
         # ── 채팅 입력 ────────────────────────────────────────
-        preset = st.session_state.pop("chat_preset_input", None)  # 예시 버튼 클릭값
+        preset     = st.session_state.pop("chat_preset_input", None)
         user_input = st.chat_input(
             "예: FG-002 선크림 수요 그래프 그려줘",
             key="chat_in",
@@ -1322,26 +1114,32 @@ elif step == 3:
 
         if user_input and not exhausted:
             st.session_state.chat_history.append(
-                {"role": "user", "content": user_input, "charts": []}
+                {"role": "user", "content": user_input,
+                 "charts": [], "datasets": [], "documents": [], "kg_nodes": 0, "route": ""}
             )
             with st.spinner("답변 생성 중..."):
                 try:
-                    intent = _detect_chat_intent(user_input)
-                    if intent == "graph":
-                        fig, text = _handle_chat_graph(user_input)
-                        charts   = [fig] if fig else []
-                        response = text
-                    elif intent == "analysis":
-                        response = _handle_chat_analysis(user_input)
-                        charts   = []
-                    else:
-                        response = _handle_chat_rag(user_input)
-                        charts   = []
+                    from modules.chat_copilot import respond
+                    result = respond(
+                        user_input,
+                        claude       = st.session_state.claude,
+                        rag          = st.session_state.rag,
+                        kg           = st.session_state.kg,
+                        domain_context = domain_context,
+                    )
                 except Exception as e:
-                    response = f"오류가 발생했습니다: {e}"
-                    charts   = []
+                    from modules.chat_copilot import ChatResult
+                    result = ChatResult(
+                        text=f"오류가 발생했습니다: {e}", route="combined"
+                    )
             st.session_state.chat_api_calls += 1
-            st.session_state.chat_history.append(
-                {"role": "assistant", "content": response, "charts": charts}
-            )
+            st.session_state.chat_history.append({
+                "role":      "assistant",
+                "content":   result.text,
+                "charts":    result.charts,
+                "datasets":  result.datasets,
+                "documents": result.documents,
+                "kg_nodes":  result.kg_nodes,
+                "route":     result.route,
+            })
             st.rerun()
