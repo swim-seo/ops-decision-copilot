@@ -221,7 +221,11 @@ class KnowledgeGraph:
             net.add_edge(src, tgt, label="", title=relation)
 
         os.makedirs(os.path.dirname(GRAPH_OUTPUT_PATH), exist_ok=True)
-        net.save_graph(GRAPH_OUTPUT_PATH)
+        # save_graph()는 인코딩을 지정하지 않아 Windows에서 cp949로 저장 → UnicodeEncodeError
+        # generate_html()로 문자열을 받아 UTF-8로 직접 저장
+        html_str = net.generate_html()
+        with open(GRAPH_OUTPUT_PATH, "w", encoding="utf-8") as _f:
+            _f.write(html_str)
         self._inject_ui(GRAPH_OUTPUT_PATH, node_meta)
         return GRAPH_OUTPUT_PATH
 
