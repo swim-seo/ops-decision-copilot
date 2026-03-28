@@ -16,68 +16,59 @@ from config import APP_TITLE, APP_ICON, DEFAULT_ENTITY_COLORS
 # ── 페이지 설정 ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="AI 운영 코파일럿",
-    page_icon="✨",
+    page_icon="⬡",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# ── CSS (화이트 클린 테마) ────────────────────────────────────────────────────
+# ── CSS ───────────────────────────────────────────────────────────────────────
 def _apply_css(primary: str = "#2563EB"):
     st.markdown(f"""<style>
-.stApp {{ background:#f8fafc; }}
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&display=swap');
-.app-header {{ text-align:center; padding:1.8rem 0 .4rem; }}
-.app-header h1 {{ font-family:'Poppins',sans-serif; font-size:1.85rem;
-                  color:#1e293b; margin:0 0 .25rem; letter-spacing:-.02em; }}
-.app-header p  {{ font-size:1.05rem; color:#64748b; margin:0; font-weight:400; }}
-/* 단계 표시기 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+.stApp {{ background:#f8fafc; font-family:'Inter',sans-serif; }}
+.app-header {{ text-align:center; padding:2rem 0 .5rem; }}
+.app-header h1 {{ font-family:'Inter',sans-serif; font-size:1.7rem;
+                  color:#0f172a; margin:0 0 .3rem; letter-spacing:-.03em; font-weight:700; }}
+.app-header p  {{ font-size:.9rem; color:#64748b; margin:0; font-weight:400; }}
 .steps {{ display:flex; justify-content:center; align-items:center;
           margin:1rem 0 1.8rem; gap:0; }}
 .step  {{ display:flex; flex-direction:column; align-items:center; width:150px; }}
-.s-dot {{ width:36px; height:36px; border-radius:50%; display:flex;
-          align-items:center; justify-content:center; font-weight:700;
-          font-size:.9rem; background:white; color:#94a3b8;
-          border:2px solid #cbd5e1; }}
-.s-dot.active {{ background:{primary}; color:white; border-color:{primary};
-                 box-shadow:0 0 0 4px {primary}22; }}
-.s-dot.done   {{ background:#10b981; color:white; border-color:#10b981; }}
-.s-lbl {{ font-size:.72rem; color:#94a3b8; margin-top:.22rem; font-weight:500; }}
-.s-lbl.active {{ color:{primary}; font-weight:700; }}
-.s-line {{ flex:1; height:2px; background:#e2e8f0; margin-bottom:1rem;
-           max-width:65px; }}
-.s-line.done {{ background:#10b981; }}
-/* 카드 */
-.card {{ background:white; border-radius:14px; padding:1.4rem;
-         box-shadow:0 1px 4px rgba(0,0,0,.07); margin-bottom:.8rem; }}
-/* 도메인 배너 */
-.dom-banner {{ background:linear-gradient(135deg,{primary}0d,{primary}1a);
-               border:1.5px solid {primary}55; border-radius:12px;
-               padding:1rem 1.4rem; margin:.8rem 0;
-               font-size:1.05rem; }}
-/* 버튼 */
-.stButton>button {{ border-radius:10px; font-weight:600; transition:all .15s; }}
-/* 메트릭 */
+.s-dot {{ width:30px; height:30px; border-radius:50%; display:flex;
+          align-items:center; justify-content:center; font-weight:600;
+          font-size:.82rem; background:white; color:#94a3b8;
+          border:2px solid #e2e8f0; }}
+.s-dot.active {{ background:{primary}; color:white; border-color:{primary}; }}
+.s-dot.done   {{ background:{primary}; color:white; border-color:{primary}; }}
+.s-lbl {{ font-size:.68rem; color:#94a3b8; margin-top:.25rem; font-weight:500; }}
+.s-lbl.active {{ color:{primary}; font-weight:600; }}
+.s-line {{ flex:1; height:2px; background:#e2e8f0; margin-bottom:1rem; max-width:65px; }}
+.s-line.done {{ background:{primary}; }}
+.card {{ background:white; border-radius:8px; padding:1.2rem;
+         box-shadow:0 1px 3px rgba(0,0,0,.05); border:1px solid #e2e8f0;
+         margin-bottom:.8rem; }}
+.dom-banner {{ background:{primary}08; border:1px solid {primary}33;
+               border-radius:6px; padding:.9rem 1.2rem; margin:.8rem 0;
+               font-size:.95rem; }}
+.stButton>button {{ border-radius:6px !important; font-weight:500 !important;
+                    font-size:.85rem !important; transition:all .1s !important; }}
 div[data-testid="metric-container"] {{
-  background:white; border-radius:12px;
-  border:1px solid #e2e8f0; border-left:4px solid {primary}; padding:.8rem; }}
-/* 탭 */
-.stTabs [data-baseweb="tab"] {{ color:#64748b; font-weight:600; }}
-.stTabs [aria-selected="true"] {{ border-bottom:3px solid {primary}; color:{primary}; }}
-/* 업로더 */
+  background:white; border-radius:6px;
+  border:1px solid #e2e8f0; border-left:3px solid {primary}; padding:.75rem; }}
+.stTabs [data-baseweb="tab"] {{ color:#64748b; font-weight:500; font-size:.875rem; }}
+.stTabs [aria-selected="true"] {{ border-bottom:2px solid {primary}; color:{primary}; font-weight:600; }}
 [data-testid="stFileUploader"] {{
-  border:2px dashed {primary}66; border-radius:12px; background:white; }}
-/* 배지 */
-.badge {{ display:inline-block; padding:3px 10px; border-radius:20px;
-          font-size:.78em; font-weight:700; margin:2px; }}
-/* 사이드바 */
-section[data-testid="stSidebar"] {{ background:#1e293b !important; }}
+  border:1.5px dashed #cbd5e1; border-radius:8px; background:white; }}
+.badge {{ display:inline-block; padding:2px 8px; border-radius:4px;
+          font-size:.75em; font-weight:600; margin:2px; }}
+section[data-testid="stSidebar"] {{ background:#f8fafc !important;
+  border-right:1px solid #e2e8f0 !important; }}
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] span,
 section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] div {{ color:#e2e8f0 !important; }}
+section[data-testid="stSidebar"] div {{ color:#1e293b !important; }}
 section[data-testid="stSidebar"] .stButton>button {{
-  background:#334155 !important; color:#e2e8f0 !important;
-  border:1px solid #475569 !important; }}
+  background:white !important; color:#334155 !important;
+  border:1px solid #e2e8f0 !important; font-size:.8rem !important; }}
 </style>""", unsafe_allow_html=True)
 
 
@@ -537,19 +528,18 @@ _apply_css(_get_theme_color())
 # ── 사이드바 (최소화) ─────────────────────────────────────────────────────────
 with st.sidebar:
     dc = st.session_state.domain_config
-    icon = dc["app_icon"] if dc else "🤖"
-    dname = dc["name"] if dc else "AI 코파일럿"
-    st.markdown(f"### {icon} {dname}")
+    dname = dc["name"] if dc else "AI 운영 코파일럿"
+    st.markdown(f"### {dname}")
     st.divider()
 
     if st.session_state.documents:
-        st.markdown(f"**📁 로드된 문서 ({len(st.session_state.documents)}개)**")
+        st.markdown(f"**로드된 문서 {len(st.session_state.documents)}개**")
         for fname in list(st.session_state.documents.keys())[:8]:
             st.caption(f"• {fname}")
         if len(st.session_state.documents) > 8:
             st.caption(f"  ... 외 {len(st.session_state.documents)-8}개")
         st.divider()
-        if st.button("🗑️ 전체 초기화", use_container_width=True):
+        if st.button("초기화", use_container_width=True):
             st.session_state.documents = {}
             if st.session_state.rag:
                 try: st.session_state.rag.delete_collection()
@@ -567,14 +557,14 @@ with st.sidebar:
     st.divider()
     if st.session_state.kg:
         s = st.session_state.kg.get_stats()
-        st.caption(f"🕸️ 노드 {s['nodes']} / 엣지 {s['edges']}")
+        st.caption(f"노드 {s['nodes']} / 엣지 {s['edges']}")
     if st.session_state.rag:
-        try: st.caption(f"🔗 RAG 청크 {st.session_state.rag.document_count()}개")
+        try: st.caption(f"RAG 청크 {st.session_state.rag.document_count()}개")
         except Exception: pass
 
     st.divider()
     st.markdown("**단계 이동**")
-    for lbl, n in [("1️⃣ 도메인 설정", 1), ("2️⃣ 파일 업로드", 2), ("3️⃣ 결과 보기", 3)]:
+    for lbl, n in [("도메인 설정", 1), ("파일 업로드", 2), ("결과 보기", 3)]:
         if st.button(lbl, use_container_width=True, key=f"nav_{n}"):
             st.session_state.step = n; st.rerun()
 
@@ -586,8 +576,8 @@ with st.sidebar:
 # 헤더
 st.markdown("""
 <div class="app-header">
-  <h1>✨ AI 운영 코파일럿</h1>
-  <p>파일을 올리면 시스템 구조를 자동으로 파악합니다</p>
+  <h1>AI 운영 코파일럿</h1>
+  <p>문서와 데이터를 연결해 의사결정을 돕습니다</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -642,7 +632,7 @@ if step == 1:
         )
         c1, c2 = st.columns([1, 3])
         with c1:
-            if st.button("✅ 이 도메인으로 시작", type="primary"):
+            if st.button("이 도메인으로 시작", type="primary"):
                 final = (override or suggestion).strip()
                 cfg = _build_domain_from_name(final)
                 st.session_state.domain_config = cfg.to_dict()
@@ -670,12 +660,12 @@ if step == 1:
         st.caption("도메인을 선택하면 AI가 해당 분야 용어·관계를 파악해 더 정확하게 분석합니다.")
 
         preset_items = [
-            ("💄 뷰티·이커머스", "뷰티 이커머스"),
-            ("📦 공급망·재고",   "공급망·재고 관리"),
-            ("⚡ 에너지",        "에너지"),
-            ("🏭 제조·생산",     "제조·생산"),
-            ("🚚 물류",          "물류"),
-            ("💰 금융",          "금융"),
+            ("뷰티 / 이커머스", "뷰티 이커머스"),
+            ("공급망 / 재고",   "공급망·재고 관리"),
+            ("에너지",          "에너지"),
+            ("제조 / 생산",     "제조·생산"),
+            ("물류",            "물류"),
+            ("금융",            "금융"),
         ]
         cols = st.columns(3)
         for i, (label, name) in enumerate(preset_items):
@@ -694,7 +684,7 @@ if step == 1:
                 placeholder="예: 의료·병원, 법률, 반도체 제조...",
                 label_visibility="collapsed", key="custom_domain")
         with cb:
-            if st.button("✅ 확인", type="primary", use_container_width=True):
+            if st.button("확인", type="primary", use_container_width=True):
                 if custom.strip():
                     cfg = _build_domain_from_name(custom.strip())
                     st.session_state.domain_config = cfg.to_dict()
@@ -705,7 +695,7 @@ if step == 1:
 
         st.divider()
         st.caption("💡 도메인 없이 바로 파일을 올려도 됩니다. 파일 내용으로 자동 감지합니다.")
-        if st.button("⏩ 설정 없이 바로 파일 올리기"):
+        if st.button("설정 없이 시작"):
             st.session_state.step = 2; st.rerun()
 
 
@@ -731,7 +721,7 @@ elif step == 2:
     col_s, _ = st.columns([2, 3])
     with col_s:
         sample_clicked = st.button(
-            "🚀 샘플 데이터로 바로 시작",
+            "샘플 데이터로 시작",
             use_container_width=True,
             help="data/ 폴더의 바닐라코 데모 데이터를 자동으로 불러옵니다",
         )
@@ -752,7 +742,7 @@ elif step == 2:
     st.divider()
 
     # ── 탭: 파일 업로드 | 텍스트 직접 입력 ─────────────────────────────────
-    tab_file, tab_text = st.tabs(["📁 파일 업로드", "✏️ 텍스트 직접 입력"])
+    tab_file, tab_text = st.tabs(["파일 업로드", "텍스트 직접 입력"])
 
     with tab_file:
         uploaded = st.file_uploader(
@@ -782,7 +772,7 @@ elif step == 2:
         body_in  = st.text_area("내용을 붙여넣으세요",
                                  height=280, key="txt_body",
                                  label_visibility="collapsed")
-        if st.button("📊 분석 시작", type="primary", key="btn_txt"):
+        if st.button("분석 시작", type="primary", key="btn_txt"):
             if not title_in.strip():
                 st.error("제목을 입력해주세요.")
             elif not body_in.strip():
@@ -803,7 +793,7 @@ elif step == 2:
     if st.session_state.documents:
         st.divider()
         st.info(f"📁 현재 {len(st.session_state.documents)}개 문서 로드됨")
-        if st.button("▶ 결과 보기", type="primary"):
+        if st.button("결과 보기", type="primary"):
             st.session_state.step = 3; st.rerun()
 
 
@@ -816,7 +806,7 @@ elif step == 3:
 
     if not st.session_state.documents:
         st.warning("📂 문서가 없습니다.")
-        if st.button("← 파일 업로드"):
+        if st.button("파일 업로드로 돌아가기"):
             st.session_state.step = 2; st.rerun()
         st.stop()
 
@@ -857,7 +847,7 @@ elif step == 3:
             )
         with qp_col2:
             st.markdown("<div style='height:1.6rem'></div>", unsafe_allow_html=True)
-            run_qp = st.button("🔍 분석", type="primary",
+            run_qp = st.button("분석", type="primary",
                                use_container_width=True, key="btn_qp")
 
         if run_qp and qp_input.strip():
@@ -904,7 +894,7 @@ elif step == 3:
             with qp_hdr_c1:
                 st.markdown(f"**추천 데이터셋 {len(qp.datasets)}개**")
             with qp_hdr_c2:
-                if st.button("✖ 추천 닫기", key="qp_dismiss",
+                if st.button("닫기", key="qp_dismiss",
                              use_container_width=True):
                     st.session_state.qp_result = None
                     st.session_state.qp_input  = ""
@@ -953,7 +943,7 @@ elif step == 3:
                     # 버튼 행
                     b1, b2 = st.columns(2)
                     with b1:
-                        if st.button("👁️ 미리보기", key=f"qp_prev_{i}",
+                        if st.button("미리보기", key=f"qp_prev_{i}",
                                      use_container_width=True):
                             st.session_state[f"qp_preview_{i}"] = \
                                 not st.session_state.get(f"qp_preview_{i}", False)
@@ -962,7 +952,7 @@ elif step == 3:
                         # check_question이 있으면 그걸 채팅 질문으로
                         chat_q = ds.check_question if ds.check_question else \
                                  f"{ds.table_name} 데이터 분석해줘. {qp.raw_input[:40]}"
-                        if st.button("💬 채팅으로", key=f"qp_chat_{i}",
+                        if st.button("채팅으로 보내기", key=f"qp_chat_{i}",
                                      use_container_width=True):
                             st.session_state.chat_preset_input = chat_q
                             st.rerun()
@@ -1009,8 +999,8 @@ elif step == 3:
             st.caption("재고 위험·채널 판매·발주 필요·이상 변화를 한눈에 파악하고 채팅으로 이어서 분석하세요.")
         with bc_col2:
             if _brief_exhausted:
-                st.button("📋 브리핑 생성", use_container_width=True, disabled=True, key="btn_brief_top")
-            elif st.button("📋 브리핑 생성", type="primary", use_container_width=True, key="btn_brief_top"):
+                st.button("브리핑 생성", use_container_width=True, disabled=True, key="btn_brief_top")
+            elif st.button("브리핑 생성", type="primary", use_container_width=True, key="btn_brief_top"):
                 with st.spinner("4개 섹션 분석 중... (약 20~30초)"):
                     try:
                         st.session_state.briefing_cards = _generate_briefing_cards()
@@ -1022,7 +1012,7 @@ elif step == 3:
         if st.session_state.briefing_cards:
             _bc_x_col, _ = st.columns([1, 4])
             with _bc_x_col:
-                if st.button("✖ 브리핑 닫기", key="brief_dismiss",
+                if st.button("닫기", key="brief_dismiss",
                              use_container_width=True):
                     st.session_state.briefing_cards = None
                     st.rerun()
@@ -1061,7 +1051,7 @@ elif step == 3:
                     for act in card["actions"]:
                         st.markdown(f"• {act}")
                     # 채팅으로 이어서 질문 버튼
-                    if st.button("💬 채팅으로 이어서 질문",
+                    if st.button("채팅으로 이어서 질문",
                                  key=f"brief_chat_{card['id']}",
                                  use_container_width=True):
                         st.session_state.chat_preset_input = card["chat_prompt"]
@@ -1098,10 +1088,10 @@ elif step == 3:
             else:
                 st.error("그래프 렌더링 실패")
 
-            with st.expander("🔄 특정 문서 그래프 재추출"):
+            with st.expander("특정 문서 그래프 재추출"):
                 sel_doc = st.selectbox("문서 선택", list(st.session_state.documents.keys()),
                                         key="kg_re_sel")
-                if st.button("🔄 재추출", key="btn_reextract"):
+                if st.button("재추출", key="btn_reextract"):
                     with st.spinner("재추출 중..."):
                         _extract_kg_with_domain(st.session_state.documents[sel_doc])
                     st.success(f"✅ 완료! 노드 {kg.get_stats()['nodes']}개")
@@ -1110,7 +1100,7 @@ elif step == 3:
         st.divider()
 
         # ── 하단 탭 ──────────────────────────────────────────
-        tab_ai, tab_rag, tab_num = st.tabs(["🤖 AI 분석", "🔍 문서 검색 (RAG)", "🔎 번호 조회"])
+        tab_ai, tab_rag, tab_num = st.tabs(["AI 분석", "문서 검색 (RAG)", "번호 조회"])
 
         with tab_ai:
             from modules.prompt_loader import load_prompt
@@ -1126,10 +1116,10 @@ elif step == 3:
                 st.caption(f"ℹ️ 처음 {MAX_C:,}자만 분석합니다.")
                 atxt = atxt[:MAX_C]
 
-            s1, s2, s3, s4 = st.tabs(["📋 요약", "✅ 액션 아이템", "🔬 원인 분석", "📊 보고서"])
+            s1, s2, s3, s4 = st.tabs(["요약", "액션 아이템", "원인 분석", "보고서"])
 
             with s1:
-                if st.button("📋 요약 생성", key="btn_sum"):
+                if st.button("요약 생성", key="btn_sum"):
                     with st.spinner("요약 중..."):
                         r = st.session_state.claude.generate(
                             load_prompt("summarize", document=atxt, domain_context=domain_context))
@@ -1138,7 +1128,7 @@ elif step == 3:
                         f"summary_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
 
             with s2:
-                if st.button("✅ 액션 아이템 추출", key="btn_act"):
+                if st.button("액션 아이템 추출", key="btn_act"):
                     with st.spinner("추출 중..."):
                         r = st.session_state.claude.generate(
                             load_prompt("action_items", document=atxt, domain_context=domain_context))
@@ -1175,7 +1165,7 @@ elif step == 3:
                                         )
                                 st.markdown("".join(_ds_badges), unsafe_allow_html=True)
                                 # 쿼리 플래너로 보내기
-                                if st.button("🔍 데이터 추천 자세히 보기",
+                                if st.button("데이터 추천 자세히 보기",
                                              key="act_to_qp", use_container_width=False):
                                     st.session_state.qp_input  = r[:200]
                                     st.session_state.qp_result = _act_plan
@@ -1185,7 +1175,7 @@ elif step == 3:
 
             with s3:
                 issue = st.text_input("특정 문제 (선택)", placeholder="예: 납기 지연 원인", key="issue_h")
-                if st.button("🔬 원인 분석", key="btn_root"):
+                if st.button("원인 분석", key="btn_root"):
                     doc = f"[분석초점: {issue}]\n\n{atxt}" if issue else atxt
                     with st.spinner("분석 중..."):
                         r = st.session_state.claude.generate(
@@ -1196,7 +1186,7 @@ elif step == 3:
 
             with s4:
                 rdate = st.date_input("날짜", value=datetime.today(), key="rpt_dt")
-                if st.button("📊 보고서 초안", key="btn_rpt"):
+                if st.button("보고서 초안", key="btn_rpt"):
                     with st.spinner("작성 중..."):
                         r = st.session_state.claude.generate(
                             load_prompt("report_draft", document=atxt,
@@ -1213,7 +1203,7 @@ elif step == 3:
             with rc1: top_k = st.slider("검색 수", 1, 10, 5, key="rag_k")
             with rc2: show_src = st.checkbox("출처 청크 보기", value=True, key="rag_src")
 
-            if st.button("🔍 검색 & 답변", type="primary", key="btn_rag") and q.strip():
+            if st.button("검색 및 답변", type="primary", key="btn_rag") and q.strip():
                 with st.spinner("검색 중..."):
                     hits = st.session_state.rag.query(q, n_results=top_k)
                 if not hits:
@@ -1243,7 +1233,7 @@ elif step == 3:
                 with nc1: depth = st.selectbox("탐색 깊이", [1, 2, 3], key="num_d")
                 with nc2: use_rag = st.checkbox("문서에서도 검색 (RAG)", value=True, key="num_r")
 
-                if st.button("🔎 조회", type="primary", key="btn_num") and qi.strip():
+                if st.button("조회", type="primary", key="btn_num") and qi.strip():
                     query = qi.strip()
                     visited, frontier = set(), set()
                     init_r = kg.query_by_id(query)
@@ -1321,7 +1311,7 @@ elif step == 3:
         st.markdown(
             f'<div style="display:flex;align-items:center;justify-content:space-between;'
             f'margin-bottom:.3rem">'
-            f'<span style="font-size:1.1rem;font-weight:700">💬 데이터 채팅</span>'
+            f'<span style="font-size:1.1rem;font-weight:700">데이터 채팅</span>'
             f'<span style="background:{badge_color};color:white;border-radius:20px;'
             f'padding:2px 10px;font-size:.78rem;font-weight:700">'
             f'데모 사용량: {used}/{_DEMO_LIMIT}</span></div>',
@@ -1331,18 +1321,18 @@ elif step == 3:
 
         # ── 예시 질문 버튼 ────────────────────────────────────
         _PRESETS_Q = [
-            ("🔍", "FG-002 선크림 수요 그래프 그려줘"),
-            ("📦", "재고 위험 상품 알려줘"),
-            ("📈", "여름에 잘 팔리는 상품 TOP3"),
-            ("🏪", "채널별 판매 현황 비교해줘"),
-            ("⚠️", "품절 위험 상품 있어?"),
+            ("수요 분석",  "FG-002 선크림 수요 그래프 그려줘"),
+            ("재고 위험",  "재고 위험 상품 알려줘"),
+            ("판매 TOP3", "여름에 잘 팔리는 상품 TOP3"),
+            ("채널 비교",  "채널별 판매 현황 비교해줘"),
+            ("품절 위험",  "품절 위험 상품 있어?"),
         ]
         cols_q = st.columns(len(_PRESETS_Q))
-        for i, (icon, label) in enumerate(_PRESETS_Q):
+        for i, (label, prompt) in enumerate(_PRESETS_Q):
             with cols_q[i]:
-                if st.button(icon, key=f"qbtn_{i}", help=label,
+                if st.button(label, key=f"qbtn_{i}",
                              use_container_width=True, disabled=exhausted):
-                    st.session_state.chat_preset_input = label
+                    st.session_state.chat_preset_input = prompt
                     st.rerun()
 
         # ── 채팅 히스토리 표시 ───────────────────────────────
