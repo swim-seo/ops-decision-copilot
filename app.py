@@ -167,6 +167,7 @@ def _init_session():
         "chat_preset_input": None,
         "qp_input": "",
         "qp_result": None,
+        "briefing_cards": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -472,6 +473,137 @@ def _generate_daily_briefing():
     )
     summary = st.session_state.claude.generate(prompt, max_tokens=1500)
     return summary, charts, list(set(all_ds))
+
+
+def _generate_briefing_cards():
+    """4개 카드형 일일 브리핑 데이터를 생성합니다.
+    Returns list of card dicts: {id, title, icon, data_text, metrics, chart, chat_prompt, summary, actions}
+    """
+    from modules.data_analyst import (
+        inventory_risk_summary, inventory_coverage_chart,
+        channel_top3_chart, replenishment_status,
+        detect_anomaly_products, season_top_products,
+    )
+    import json as _json2
+
+    cards_raw = []
+
+    # ── 카드 1: 재고 위험 ───────────────────────────────────
+    inv_text, _ = inventory_risk_summary()
+    inv_fig, _  = inventory_coverage_chart()
+    # CRITICAL/WARNING 수치 파싱
+    import re as _re
+    _m = _re.search(r"CRITICAL\s*(\d+)개\s*/\s*WARNING\s*(\d+)개", inv_text)
+    inv_critical = int(_m.group(1)) if _m else 0
+    inv_warning  = int(_m.group(2)) if _m else 0
+    cards_raw.append({
+        "id": "inventory",
+        "title": "재고 위험 상품",
+        "icon": "🚨",
+        "data_text": inv_text,
+        "metrics": [
+            {"label": "CRITICAL", "value": str(inv_critical), "delta": None},
+            {"label": "WARNING",  "value": str(inv_warning),  "delta": None},
+        ],
+        "chart": inv_fig,
+        "chat_prompt": "재고 위험 CRITICAL 상품 목록과 즉시 조치 방법을 알려줘",
+    })
+
+    # ── 카드 2: 채널별 판매 TOP3 ────────────────────────────
+    from modules.data_analyst import load_csv as _load_csv
+    _ch_sales = _load_csv("FACT_MONTHLY_SALES.csv")
+    _ch_mst   = _load_csv("MST_CHANNEL.csv")
+    ch_summary = ""
+    ch_channels = 0
+    if _ch_sales is not None and _ch_mst is not None:
+        _recent_m = sorted(_ch_sales["YEAR_MONTH"].unique())[-1:]
+        _recent_s = _ch_sales[_ch_sales["YEAR_MONTH"].isin(_recent_m)]
+        _merged   = _recent_s.merge(_ch_mst[["CHANNEL_ID","CHANNEL_NAME"]], on="CHANNEL_ID", how="left")
+        ch_channels = _merged["CHANNEL_NAME"].nunique()
+        _top = _merged.groupby("CHANNEL_NAME")["NET_SALES_QTY"].sum().nlargest(3)
+        ch_summary = "\n".join(f"  · {ch}: {qty:,}개" for ch, qty in _top.items())
+    ch_fig, _ = channel_top3_chart()
+    cards_raw.append({
+        "id": "channel",
+        "title": "채널별 판매 TOP3",
+        "icon": "📈",
+        "data_text": f"[최근 채널별 판매]\n{ch_summary}" if ch_summary else "채널 데이터 없음",
+        "metrics": [
+            {"label": "활성 채널", "value": str(ch_channels), "delta": None},
+        ],
+        "chart": ch_fig,
+        "chat_prompt": "채널별 판매 현황 비교하고 가장 성장하는 채널 알려줘",
+    })
+
+    # ── 카드 3: 발주 필요 상품 ──────────────────────────────
+    rep_text, _ = replenishment_status()
+    _orders = _load_csv("FACT_REPLENISHMENT_ORDER.csv")
+    pending_cnt = 0
+    if _orders is not None:
+        pending_cnt = len(_orders[_orders["STATUS"].isin(["PENDING","IN_TRANSIT"])])
+    _no_order = rep_text.count("발주 없음")
+    cards_raw.append({
+        "id": "replenishment",
+        "title": "발주 필요 상품",
+        "icon": "📦",
+        "data_text": rep_text,
+        "metrics": [
+            {"label": "진행중 발주",  "value": str(pending_cnt), "delta": None},
+            {"label": "발주 미처리", "value": str(_no_order),   "delta": None},
+        ],
+        "chart": None,
+        "chat_prompt": "발주 없는 위험 상품 목록 보여주고 발주 우선순위 제안해줘",
+    })
+
+    # ── 카드 4: 이상 변화 감지 ──────────────────────────────
+    anom_text, _ = detect_anomaly_products(top_n=5)
+    _surge_cnt = anom_text.count("🔺")
+    _drop_cnt  = anom_text.count("🔻")
+    cards_raw.append({
+        "id": "anomaly",
+        "title": "이상 변화 감지",
+        "icon": "⚡",
+        "data_text": anom_text,
+        "metrics": [
+            {"label": "급등 상품", "value": str(_surge_cnt), "delta": None},
+            {"label": "급락 상품", "value": str(_drop_cnt),  "delta": None},
+        ],
+        "chart": None,
+        "chat_prompt": "급등/급락 상품 원인 분석하고 대응 방안 알려줘",
+    })
+
+    # ── Claude 한 번 호출: 4개 섹션의 요약 + 액션 생성 ────
+    all_data = "\n\n".join(c["data_text"] for c in cards_raw)
+    ai_prompt = (
+        f"{_get_domain_context()}\n\n"
+        f"[운영 현황 데이터]\n{all_data}\n\n"
+        "위 4개 섹션에 대해 운영 담당자를 위한 JSON을 작성하세요.\n"
+        "각 섹션: 한 줄 요약(summary)과 즉시 해야 할 일 3개(actions 배열).\n"
+        '출력 형식 (JSON only, 다른 텍스트 없이):\n'
+        '{"inventory":{"summary":"...","actions":["...","...","..."]},'
+        '"channel":{"summary":"...","actions":["...","...","..."]},'
+        '"replenishment":{"summary":"...","actions":["...","...","..."]},'
+        '"anomaly":{"summary":"...","actions":["...","...","..."]}}'
+    )
+    raw_ai = st.session_state.claude.generate(ai_prompt, max_tokens=800)
+
+    # JSON 파싱 시도
+    ai_data = {}
+    try:
+        _start = raw_ai.find("{")
+        _end   = raw_ai.rfind("}") + 1
+        if _start >= 0 and _end > _start:
+            ai_data = _json2.loads(raw_ai[_start:_end])
+    except Exception:
+        pass
+
+    _default_ai = {"summary": "데이터 분석 완료", "actions": ["현황 확인", "담당자 공유", "조치 계획 수립"]}
+    for card in cards_raw:
+        ai = ai_data.get(card["id"], _default_ai)
+        card["summary"] = ai.get("summary", _default_ai["summary"])
+        card["actions"] = ai.get("actions", _default_ai["actions"])[:3]
+
+    return cards_raw
 
 
 # ── CSS 적용 ──────────────────────────────────────────────────────────────────
@@ -916,6 +1048,70 @@ elif step == 3:
 
     st.divider()
 
+    # ════════════════════════════════════════════════════════════════════════
+    # 일일 브리핑 섹션
+    # ════════════════════════════════════════════════════════════════════════
+    _DEMO_LIMIT_BRIEF = 20
+    _brief_exhausted = st.session_state.chat_api_calls >= _DEMO_LIMIT_BRIEF
+
+    with st.expander("📋 일일 브리핑 — 오늘의 운영 현황 4대 요약", expanded=bool(st.session_state.briefing_cards)):
+        bc_col1, bc_col2 = st.columns([2, 1])
+        with bc_col1:
+            st.caption("재고 위험·채널 판매·발주 필요·이상 변화를 한눈에 파악하고 채팅으로 이어서 분석하세요.")
+        with bc_col2:
+            if _brief_exhausted:
+                st.button("📋 브리핑 생성", use_container_width=True, disabled=True, key="btn_brief_top")
+            elif st.button("📋 브리핑 생성", type="primary", use_container_width=True, key="btn_brief_top"):
+                with st.spinner("4개 섹션 분석 중... (약 20~30초)"):
+                    try:
+                        st.session_state.briefing_cards = _generate_briefing_cards()
+                        st.session_state.chat_api_calls += 1
+                    except Exception as _e:
+                        st.error(f"브리핑 생성 실패: {_e}")
+                st.rerun()
+
+        cards = st.session_state.briefing_cards
+        if cards:
+            _CARD_COLORS = {
+                "inventory":     "#ef4444",
+                "channel":       "#0284c7",
+                "replenishment": "#d97706",
+                "anomaly":       "#7c3aed",
+            }
+            card_cols = st.columns(4)
+            for i, card in enumerate(cards):
+                clr = _CARD_COLORS.get(card["id"], "#64748b")
+                with card_cols[i]:
+                    # 카드 헤더
+                    st.markdown(
+                        f'<div style="border-top:3px solid {clr};border-radius:8px 8px 0 0;'
+                        f'background:{clr}0d;padding:.5rem .8rem;font-weight:700;font-size:.95rem">'
+                        f'{card["icon"]} {card["title"]}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    # 한 줄 요약
+                    st.caption(card["summary"])
+                    # 핵심 수치
+                    if card["metrics"]:
+                        m_cols = st.columns(len(card["metrics"]))
+                        for mi, met in enumerate(card["metrics"]):
+                            m_cols[mi].metric(met["label"], met["value"])
+                    # 차트
+                    if card.get("chart"):
+                        st.plotly_chart(card["chart"], use_container_width=True)
+                    # 지금 해야 할 일
+                    st.markdown("**지금 해야 할 일**")
+                    for act in card["actions"]:
+                        st.markdown(f"• {act}")
+                    # 채팅으로 이어서 질문 버튼
+                    if st.button("💬 채팅으로 이어서 질문",
+                                 key=f"brief_chat_{card['id']}",
+                                 use_container_width=True):
+                        st.session_state.chat_preset_input = card["chat_prompt"]
+                        st.rerun()
+
+    st.divider()
+
     # ── 2컬럼 레이아웃: 왼쪽(KG+분석탭) / 오른쪽(채팅) ─────────────────────
     col_main, col_chat = st.columns([3, 2], gap="medium")
 
@@ -1109,9 +1305,9 @@ elif step == 3:
                                 st.markdown(ans)
 
     # ════════════════════════════════════════════════════════
-    # 오른쪽: 데이터 채팅 + 일일 브리핑
+    # 오른쪽: 데이터 채팅
     # ════════════════════════════════════════════════════════
-    _DEMO_LIMIT = 20
+    _DEMO_LIMIT = _DEMO_LIMIT_BRIEF  # 위에서 정의
 
     # 라우트 배지 설정
     _ROUTE_BADGE = {
@@ -1138,27 +1334,6 @@ elif step == 3:
             unsafe_allow_html=True,
         )
         st.caption("질문만 입력하면 문서·데이터·지식그래프를 자동으로 결합해 답변합니다.")
-
-        # ── 일일 브리핑 버튼 ─────────────────────────────────
-        if exhausted:
-            st.button("📋 일일 브리핑 생성", use_container_width=True,
-                      key="btn_briefing", disabled=True)
-        elif st.button("📋 일일 브리핑 생성", type="primary",
-                       use_container_width=True, key="btn_briefing"):
-            with st.spinner("브리핑 생성 중... (약 20~30초)"):
-                try:
-                    brief_text, brief_charts, brief_ds = _generate_daily_briefing()
-                    st.session_state.chat_api_calls += 1
-                    st.session_state.chat_history.append({
-                        "role": "assistant", "content": brief_text,
-                        "charts": brief_charts, "datasets": brief_ds,
-                        "documents": [], "kg_nodes": 0, "route": "briefing",
-                    })
-                except Exception as e:
-                    st.error(f"브리핑 생성 실패: {e}")
-            st.rerun()
-
-        st.divider()
 
         # ── 예시 질문 버튼 ────────────────────────────────────
         _PRESETS_Q = [
@@ -1189,6 +1364,17 @@ elif step == 3:
                 for entry in st.session_state.chat_history:
                     with st.chat_message(entry["role"]):
                         st.markdown(entry["content"])
+
+                        # 메트릭 카드 렌더링
+                        metrics = entry.get("metrics", [])
+                        if metrics and entry["role"] == "assistant":
+                            m_cols = st.columns(min(len(metrics), 3))
+                            for mi, met in enumerate(metrics):
+                                m_cols[mi % 3].metric(
+                                    met.get("label", ""),
+                                    met.get("value", ""),
+                                    delta=met.get("delta"),
+                                )
 
                         # 차트 렌더링
                         for chart in entry.get("charts", []):
@@ -1274,5 +1460,6 @@ elif step == 3:
                 "documents": result.documents,
                 "kg_nodes":  result.kg_nodes,
                 "route":     result.route,
+                "metrics":   getattr(result, "metrics", []),
             })
             st.rerun()

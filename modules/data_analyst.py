@@ -254,6 +254,50 @@ def replenishment_status() -> Tuple[str, List[str]]:
     return "\n".join(lines), datasets
 
 
+# ── 이상 변화 탐지 ───────────────────────────────────────────────────────────
+
+def detect_anomaly_products(top_n: int = 5) -> Tuple[str, List[str]]:
+    """최근 2개월 vs 직전 2개월 급등/급락 상품 탐지. Returns (summary_text, datasets_used)"""
+    datasets: List[str] = []
+    sales = load_csv("FACT_MONTHLY_SALES.csv")
+    parts = load_csv("MST_PART.csv")
+    if sales is None:
+        return "판매 데이터 없음", []
+    datasets.append("FACT_MONTHLY_SALES.csv")
+    if parts is not None:
+        datasets.append("MST_PART.csv")
+
+    months = sorted(sales["YEAR_MONTH"].unique())
+    if len(months) < 4:
+        return "비교할 기간 데이터 부족 (최소 4개월 필요)", datasets
+
+    recent   = months[-2:]
+    previous = months[-4:-2]
+
+    r_sales = sales[sales["YEAR_MONTH"].isin(recent)].groupby("PRODUCT_ID")["NET_SALES_QTY"].sum()
+    p_sales = sales[sales["YEAR_MONTH"].isin(previous)].groupby("PRODUCT_ID")["NET_SALES_QTY"].sum()
+
+    combined = pd.concat([r_sales.rename("recent"), p_sales.rename("prev")], axis=1).fillna(0)
+    combined["change_pct"] = ((combined["recent"] - combined["prev"]) / (combined["prev"] + 1)) * 100
+
+    surges = combined[combined["change_pct"] >  50].nlargest(top_n, "change_pct")
+    drops  = combined[combined["change_pct"] < -50].nsmallest(top_n, "change_pct")
+
+    label = f"{previous[0]}~{previous[-1]} → {recent[0]}~{recent[-1]}"
+    lines = [f"[이상 변화 탐지 ({label})]"]
+
+    if surges.empty and drops.empty:
+        lines.append("  급등/급락 상품 없음 (임계치: ±50%)")
+    else:
+        for pid, row in surges.iterrows():
+            name = _resolve_product_name(pid, parts)
+            lines.append(f"  🔺 {name}: +{row['change_pct']:.0f}%  ({int(row['prev'])}→{int(row['recent'])}개)")
+        for pid, row in drops.iterrows():
+            name = _resolve_product_name(pid, parts)
+            lines.append(f"  🔻 {name}: {row['change_pct']:.0f}%  ({int(row['prev'])}→{int(row['recent'])}개)")
+    return "\n".join(lines), datasets
+
+
 # ── 채널 TOP3 차트 (브리핑용) ─────────────────────────────────────────────────
 
 def channel_top3_chart() -> Tuple[Optional[Any], List[str]]:

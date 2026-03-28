@@ -24,6 +24,7 @@ class ChatResult:
     datasets:  List[str]   = field(default_factory=list)   # 사용한 CSV 파일명
     documents: List[str]   = field(default_factory=list)   # 사용한 문서 파일명
     kg_nodes:  int         = 0                              # 매칭된 KG 노드 수
+    metrics:   List[Any]   = field(default_factory=list)   # [{label, value, delta}]
 
 
 # ── 키워드 정의 ───────────────────────────────────────────────────────────────
@@ -234,8 +235,21 @@ def _handle_combined(msg: str, claude, rag, kg, domain_context: str) -> ChatResu
 def respond(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
     """사용자 질문 → ChatResult 반환 (라우팅 자동 결정)."""
     route = detect_route(msg)
-    if route == "data":
-        return _handle_data(msg, claude, domain_context)
     if route == "doc":
         return _handle_doc(msg, claude, rag, kg, domain_context)
-    return _handle_combined(msg, claude, rag, kg, domain_context)
+    # data or combined → data_chat_engine 사용
+    from modules.data_chat_engine import analyze
+    answer = analyze(msg, claude=claude, rag=rag, kg=kg, domain_context=domain_context)
+    text = ""
+    if answer.summary:
+        text = f"**{answer.summary}**\n\n"
+    text += answer.interpretation or "관련 데이터를 찾을 수 없습니다."
+    return ChatResult(
+        text      = text,
+        route     = route,
+        charts    = answer.charts,
+        datasets  = answer.datasets,
+        documents = answer.documents,
+        kg_nodes  = answer.kg_nodes,
+        metrics   = answer.metrics,
+    )
