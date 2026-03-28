@@ -186,6 +186,125 @@ class KnowledgeGraph:
             counts[t] = counts.get(t, 0) + 1
         return counts
 
+    def build_from_python_ast(self, graph_data: dict) -> bool:
+        """Python AST에서 추출한 노드/엣지를 그래프에 추가합니다."""
+        nodes = graph_data.get("nodes", [])
+        edges = graph_data.get("edges", [])
+        if not nodes:
+            return False
+
+        for node in nodes:
+            node_id = node.get("id", "")
+            if node_id:
+                self.graph.add_node(
+                    node_id,
+                    label=node.get("label", node_id),
+                    type=node.get("type", "default"),
+                )
+
+        for edge in edges:
+            src = edge.get("source", "")
+            tgt = edge.get("target", "")
+            if src and tgt:
+                self.graph.add_edge(src, tgt, relation=edge.get("relation", "관련"))
+
+        return True
+
+    def build_from_csv_schema(self, schema: dict, all_table_names: list = None) -> bool:
+        """CSV 스키마에서 테이블 노드와 FK 관계 엣지를 추가합니다."""
+        table_name = schema.get("table_name", "")
+        if not table_name:
+            return False
+
+        columns = schema.get("columns", [])
+        fk_candidates = schema.get("fk_candidates", [])
+        col_types = schema.get("col_types", {})
+
+        pk_cols = [c for c in columns if c.lower() in ("id", f"{table_name.lower()}_id")]
+        tooltip = (
+            f"[CSV 테이블]\n"
+            f"컬럼 수: {len(columns)}\n"
+            f"컬럼: {', '.join(columns[:10])}{'...' if len(columns) > 10 else ''}\n"
+            f"FK 후보: {', '.join(fk_candidates) if fk_candidates else '없음'}"
+        )
+        self.graph.add_node(
+            table_name,
+            label=table_name,
+            type="csv_table",
+            title=tooltip,
+        )
+
+        # FK 후보 컬럼을 다른 테이블과 연결
+        all_names = {n.lower(): n for n in (all_table_names or list(self.graph.nodes))}
+        for fk_col in fk_candidates:
+            # fk_col 이름에서 참조 테이블 추론: order_id → order/orders, product_no → product/products
+            for suffix in ("_id", "_no", "_code", "_num", "_key", "_seq", "_pk",
+                           "번호", "코드"):
+                if fk_col.lower().endswith(suffix):
+                    ref_candidate = fk_col[: -len(suffix)].lower()
+                    # 정확 매칭 → 복수형(s) → 접두 매칭
+                    matched_ref = None
+                    if ref_candidate in all_names:
+                        matched_ref = all_names[ref_candidate]
+                    elif ref_candidate + "s" in all_names:
+                        matched_ref = all_names[ref_candidate + "s"]
+                    else:
+                        for tname_lower, tname in all_names.items():
+                            if tname_lower.startswith(ref_candidate) or ref_candidate.startswith(tname_lower):
+                                matched_ref = tname
+                                break
+                    if matched_ref and matched_ref != table_name:
+                        self.graph.add_edge(table_name, matched_ref, relation=fk_col)
+                    break
+
+        return True
+
+    def query_by_id(self, query: str) -> Dict[str, Any]:
+        """부품번호·상품번호 등 키워드로 연결된 모든 노드 정보를 반환합니다."""
+        query_lower = query.lower()
+        matched = [n for n in self.graph.nodes if query_lower in n.lower()]
+
+        result: Dict[str, Any] = {
+            "matched_nodes": [],
+            "connected_nodes": [],
+            "edges": [],
+        }
+
+        visited_nodes = set()
+        for node in matched:
+            attrs = dict(self.graph.nodes[node])
+            attrs["id"] = node
+            result["matched_nodes"].append(attrs)
+            visited_nodes.add(node)
+
+        for node in matched:
+            for neighbor in list(self.graph.successors(node)):
+                if neighbor not in visited_nodes:
+                    visited_nodes.add(neighbor)
+                    n_attrs = dict(self.graph.nodes[neighbor])
+                    n_attrs["id"] = neighbor
+                    result["connected_nodes"].append(n_attrs)
+                edge_data = self.graph.get_edge_data(node, neighbor) or {}
+                result["edges"].append({
+                    "from": node,
+                    "to": neighbor,
+                    "relation": edge_data.get("relation", ""),
+                })
+            for neighbor in list(self.graph.predecessors(node)):
+                if neighbor not in visited_nodes:
+                    visited_nodes.add(neighbor)
+                    n_attrs = dict(self.graph.nodes[neighbor])
+                    n_attrs["id"] = neighbor
+                    result["connected_nodes"].append(n_attrs)
+                edge_data = self.graph.get_edge_data(neighbor, node) or {}
+                result["edges"].append({
+                    "from": neighbor,
+                    "to": node,
+                    "relation": edge_data.get("relation", ""),
+                })
+
+        return result
+
     def clear(self):
         self.graph.clear()
 

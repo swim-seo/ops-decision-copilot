@@ -41,6 +41,13 @@ DEFAULT_ENTITY_COLORS = {
     # 스키마 테이블 유형
     "master_table": "#1565C0",  # 진한 파랑 — 마스터 테이블
     "fact_table":   "#E65100",  # 진한 주황 — 팩트 테이블
+    # CSV/Python 추출 유형
+    "csv_table":    "#00796B",  # 초록 — CSV 테이블
+    "file":         "#5C6BC0",  # 인디고 — Python 파일
+    "class":        "#7B1FA2",  # 보라 — 클래스
+    "function":     "#0288D1",  # 하늘 — 함수
+    "method":       "#0097A7",  # 청록 — 메서드
+    "module":       "#558B2F",  # 올리브 — 모듈
     "default":      "#9E9E9E",
 }
 

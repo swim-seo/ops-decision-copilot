@@ -314,6 +314,7 @@ with st.sidebar:
             "🤖 AI 분석",
             "🔍 문서 검색 (RAG)",
             "🕸️ 지식 그래프",
+            "🔎 번호 조회",
         ],
         label_visibility="collapsed",
     )
@@ -562,8 +563,8 @@ elif page == "📄 문서 업로드":
         st.stop()
 
     uploaded = st.file_uploader(
-        "파일을 드래그하거나 클릭하여 업로드 (PDF, DOCX, TXT, MD, JSON)",
-        type=["pdf", "docx", "txt", "md", "json"],
+        "파일을 드래그하거나 클릭하여 업로드 (PDF, DOCX, TXT, MD, JSON, CSV, PY)",
+        type=["pdf", "docx", "txt", "md", "json", "csv", "py"],
         accept_multiple_files=True,
         label_visibility="collapsed",
     )
@@ -587,34 +588,76 @@ elif page == "📄 문서 업로드":
 
     if uploaded:
         import json as _json
-        from modules.document_parser import parse_file
+        from modules.document_parser import (
+            parse_file,
+            extract_csv_schema,
+            extract_python_graph_data,
+        )
 
         with st.spinner("문서를 처리 중입니다..."):
             new_files = []
-            schema_files = set()  # 스키마 JSON은 Claude 엔티티 추출 생략
+            # 파일 유형별 분류: KG를 직접 구성한 파일 → Claude 엔티티 추출 생략
+            kg_direct_files = set()
+
+            # CSV 배치 처리용: (schema, uf.name) 목록 수집 후 FK 2-pass 해석
+            pending_csv_schemas: list = []
+
             for uf in uploaded:
                 if uf.name not in st.session_state.documents:
                     try:
-                        if uf.name.lower().endswith(".json"):
+                        fname_lower = uf.name.lower()
+
+                        # ── 스키마 JSON (.json) ─────────────────────────
+                        if fname_lower.endswith(".json"):
                             raw = uf.read().decode("utf-8")
                             data = _json.loads(raw)
                             if "tables" in data and "relationships" in data:
-                                # ── 스키마 JSON: 그래프 직접 구성 ────────
                                 ok = st.session_state.kg.build_from_schema_json(data)
                                 if ok:
                                     stats = st.session_state.kg.get_stats()
                                     st.write(
-                                        f"  ✅ `{uf.name}` 스키마 파싱 완료 "
+                                        f"  ✅ `{uf.name}` 스키마 JSON "
                                         f"→ 노드 {stats['nodes']}개, 엣지 {stats['edges']}개"
                                     )
                                 text = _schema_to_text(data)
                                 st.session_state.documents[uf.name] = text
                                 new_files.append(uf.name)
-                                schema_files.add(uf.name)
+                                kg_direct_files.add(uf.name)
                             else:
                                 st.warning(
                                     f"⚠️ `{uf.name}` — tables/relationships 키가 없는 JSON입니다."
                                 )
+
+                        # ── CSV (.csv): 1차 파싱만, KG 구성은 배치로 후처리 ──
+                        elif fname_lower.endswith(".csv"):
+                            raw = uf.read().decode("utf-8", errors="replace")
+                            schema = extract_csv_schema(uf.name, raw)
+                            pending_csv_schemas.append((uf.name, schema))
+                            from modules.document_parser import _csv_schema_to_text
+                            text = _csv_schema_to_text(schema)
+                            st.session_state.documents[uf.name] = text
+                            new_files.append(uf.name)
+                            kg_direct_files.add(uf.name)
+
+                        # ── Python (.py): AST 함수/클래스/import 관계 ──
+                        elif fname_lower.endswith(".py"):
+                            source = uf.read().decode("utf-8")
+                            graph_data = extract_python_graph_data(source, uf.name)
+                            ok = st.session_state.kg.build_from_python_ast(graph_data)
+                            if ok:
+                                stats = st.session_state.kg.get_stats()
+                                n_nodes = len(graph_data["nodes"])
+                                n_edges = len(graph_data["edges"])
+                                st.write(
+                                    f"  ✅ `{uf.name}` Python AST "
+                                    f"→ 노드 {n_nodes}개, 엣지 {n_edges}개 "
+                                    f"(누적 KG: {stats['nodes']}노드)"
+                                )
+                            st.session_state.documents[uf.name] = source
+                            new_files.append(uf.name)
+                            kg_direct_files.add(uf.name)
+
+                        # ── 일반 문서 (PDF/DOCX/TXT/MD) ─────────────────
                         else:
                             text = parse_file(uf)
                             if text.strip():
@@ -622,11 +665,32 @@ elif page == "📄 문서 업로드":
                                 new_files.append(uf.name)
                             else:
                                 st.warning(f"⚠️ `{uf.name}` 에서 텍스트를 추출할 수 없습니다.")
+
                     except Exception as e:
                         st.error(f"❌ `{uf.name}` 파싱 오류: {e}")
 
+            # ── CSV 배치 KG 구성 (2-pass FK 해석) ───────────────────────────────
+            if pending_csv_schemas:
+                st.markdown("#### CSV 지식그래프 구성")
+                # 1st pass: 노드만 추가 (FK 없이)
+                for _fname, _schema in pending_csv_schemas:
+                    st.session_state.kg.build_from_csv_schema(_schema, [])
+                # 2nd pass: 모든 테이블 이름 알고 난 뒤 FK 재해석
+                all_known_tables = list(st.session_state.kg.graph.nodes)
+                for _fname, _schema in pending_csv_schemas:
+                    st.session_state.kg.build_from_csv_schema(_schema, all_known_tables)
+                    _stats = st.session_state.kg.get_stats()
+                    _fk_info = (
+                        f", FK후보: {', '.join(_schema['fk_candidates'])}"
+                        if _schema["fk_candidates"] else ""
+                    )
+                    st.write(
+                        f"  ✅ `{_fname}` CSV → 컬럼 {_schema['total_cols']}개{_fk_info} "
+                        f"(KG 누적: 노드 {_stats['nodes']}개, 엣지 {_stats['edges']}개)"
+                    )
+
             if new_files:
-                # RAG 인덱싱 (스키마 포함 전체)
+                # RAG 인덱싱 (전체)
                 st.markdown("#### RAG 인덱싱")
                 prog = st.progress(0)
                 for i, fname in enumerate(new_files):
@@ -635,10 +699,10 @@ elif page == "📄 문서 업로드":
                     prog.progress((i + 1) / len(new_files))
                     st.write(f"  ✅ `{fname}` → {n}개 청크 인덱싱 완료")
 
-                # 지식 그래프 엔티티 추출 (스키마 JSON은 건너뜀)
-                non_schema = [f for f in new_files if f not in schema_files]
-                if non_schema:
-                    st.markdown("#### 지식 그래프 엔티티 추출")
+                # 지식 그래프 엔티티 추출 (직접 구성된 파일은 건너뜀)
+                needs_claude_kg = [f for f in new_files if f not in kg_direct_files]
+                if needs_claude_kg:
+                    st.markdown("#### 지식 그래프 엔티티 추출 (Claude)")
                     from modules.knowledge_graph import build_entity_extraction_prompt
 
                     if st.session_state.domain_config:
@@ -656,7 +720,7 @@ elif page == "📄 문서 업로드":
 
                     extraction_prompt_template = build_entity_extraction_prompt(entity_types_desc)
 
-                    for fname in non_schema:
+                    for fname in needs_claude_kg:
                         text = st.session_state.documents[fname]
                         excerpt = text[:3000]
                         with st.spinner(f"  `{fname}` 엔티티 추출 중..."):
@@ -976,3 +1040,147 @@ elif page == "🕸️ 지식 그래프":
         if etype != "default"
     )
     st.markdown(legend_html, unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 페이지: 번호 조회
+# ════════════════════════════════════════════════════════════════════════════════
+elif page == "🔎 번호 조회":
+    st.title("🔎 부품·상품 번호 조회")
+    st.markdown(
+        "부품번호·상품번호·테이블명을 입력하면 지식그래프에서 "
+        "연결된 모든 테이블 정보를 찾고, 업로드된 문서에서 관련 내용을 합쳐 답변합니다."
+    )
+    st.divider()
+
+    if not _load_modules():
+        st.stop()
+
+    kg = st.session_state.kg
+    stats = kg.get_stats()
+
+    if stats["nodes"] == 0:
+        st.info("📂 먼저 파일을 업로드하여 지식그래프를 구성하세요.")
+        st.stop()
+
+    # ── 입력 ──────────────────────────────────────────────────────────────────
+    query_input = st.text_input(
+        "번호 또는 이름 입력",
+        placeholder="예: PROD-001, 주문테이블, order_id, OrderService ...",
+    )
+
+    col_a, col_b = st.columns([1, 3])
+    with col_a:
+        depth = st.selectbox("탐색 깊이", [1, 2, 3], index=0, help="1=직접 연결, 2=2단계, 3=3단계")
+    with col_b:
+        use_rag = st.checkbox("문서에서도 관련 내용 검색 (RAG)", value=True)
+
+    if st.button("🔎 조회", use_container_width=True, type="primary") and query_input.strip():
+        query = query_input.strip()
+
+        # ── KG 서브그래프 탐색 (BFS depth 단계) ──────────────────────────────
+        visited = set()
+        frontier = set()
+
+        # 초기 매칭
+        init_result = kg.query_by_id(query)
+        if not init_result["matched_nodes"]:
+            st.warning(f"'{query}'와 일치하는 노드가 지식그래프에 없습니다.")
+            st.caption(
+                f"현재 KG 노드 목록: {', '.join(list(kg.graph.nodes)[:30])}"
+                + ("..." if len(kg.graph.nodes) > 30 else "")
+            )
+        else:
+            for n in init_result["matched_nodes"]:
+                frontier.add(n["id"])
+            visited.update(frontier)
+
+            all_nodes = list(init_result["matched_nodes"])
+            all_edges = list(init_result["edges"])
+
+            # depth > 1: BFS 확장
+            for _ in range(depth - 1):
+                next_frontier = set()
+                for node_id in frontier:
+                    sub = kg.query_by_id(node_id)
+                    for n in sub["connected_nodes"] + sub["matched_nodes"]:
+                        if n["id"] not in visited:
+                            visited.add(n["id"])
+                            next_frontier.add(n["id"])
+                            all_nodes.append(n)
+                    for e in sub["edges"]:
+                        if e not in all_edges:
+                            all_edges.append(e)
+                frontier = next_frontier
+
+            # ── 결과 표시 ─────────────────────────────────────────────────
+            st.markdown(f"### 🔵 연결 노드 {len(all_nodes)}개 발견")
+
+            node_cols = st.columns(min(len(all_nodes), 3))
+            for i, node in enumerate(all_nodes):
+                with node_cols[i % 3]:
+                    ntype = node.get("type", "default")
+                    color = _get_entity_colors().get(ntype, "#9E9E9E")
+                    label = node.get("label", node["id"])
+                    st.markdown(
+                        f'<div class="domain-card">'
+                        f'<b><span style="color:{color}">●</span> {label}</b><br>'
+                        f'<small>유형: {ntype}</small>'
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+            if all_edges:
+                st.markdown("**관계 (엣지)**")
+                for e in all_edges[:20]:
+                    st.markdown(
+                        f"- `{e['from']}` → **{e['relation'] or '관련'}** → `{e['to']}`"
+                    )
+                if len(all_edges) > 20:
+                    st.caption(f"... 외 {len(all_edges) - 20}개 관계")
+
+            # ── RAG 검색 ──────────────────────────────────────────────────
+            rag_context = ""
+            if use_rag and st.session_state.documents:
+                with st.spinner("관련 문서 검색 중..."):
+                    hits = st.session_state.rag.query(query, n_results=5)
+                if hits:
+                    st.divider()
+                    st.markdown("### 📎 관련 문서 청크")
+                    context_parts = []
+                    for i, h in enumerate(hits, 1):
+                        with st.expander(
+                            f"출처 {i}: `{h['filename']}` (유사도: {h['score']:.3f})"
+                        ):
+                            st.write(h["text"])
+                        context_parts.append(f"[출처 {i}: {h['filename']}]\n{h['text']}")
+                    rag_context = "\n\n---\n\n".join(context_parts)
+
+            # ── Claude 종합 답변 ───────────────────────────────────────────
+            st.divider()
+            st.markdown("### 💬 종합 답변")
+
+            kg_summary = (
+                f"지식그래프에서 '{query}' 관련 노드 {len(all_nodes)}개 발견:\n"
+            )
+            for n in all_nodes:
+                kg_summary += f"- [{n.get('type','?')}] {n['id']}: {n.get('label','')}\n"
+            if all_edges:
+                kg_summary += "\n관계:\n"
+                for e in all_edges[:15]:
+                    kg_summary += f"- {e['from']} --{e['relation']}--> {e['to']}\n"
+
+            domain_context = _get_domain_context()
+
+            answer_prompt = (
+                f"다음은 '{query}'에 대한 지식그래프 정보와 관련 문서 내용입니다.\n\n"
+                f"=== 지식그래프 ===\n{kg_summary}\n\n"
+                + (f"=== 관련 문서 ===\n{rag_context}\n\n" if rag_context else "")
+                + f"=== 도메인 컨텍스트 ===\n{domain_context}\n\n"
+                f"위 정보를 종합하여 '{query}'에 대해 연결된 테이블/모듈/프로세스 관계와 "
+                f"핵심 내용을 명확하게 한국어로 설명해주세요."
+            )
+
+            with st.spinner("Claude가 종합 분석 중..."):
+                answer = st.session_state.claude.generate(answer_prompt, max_tokens=2048)
+            st.markdown(answer)
