@@ -88,9 +88,14 @@ class KnowledgeGraph:
             )
 
         for rel in relationships:
-            src = rel.get("from", "")
-            tgt = rel.get("to", "")
+            raw_src = rel.get("from", "")
+            raw_tgt = rel.get("to", "")
+            # "TABLE.COLUMN" 형식이면 테이블명만 추출, 컬럼은 join_key로 활용
+            src = raw_src.split(".")[0] if "." in raw_src else raw_src
+            tgt = raw_tgt.split(".")[0] if "." in raw_tgt else raw_tgt
             join_key = rel.get("join_key", "")
+            if not join_key and "." in raw_src:
+                join_key = raw_src.split(".", 1)[1]
             if src and tgt:
                 self.graph.add_edge(src, tgt, relation=join_key)
 
