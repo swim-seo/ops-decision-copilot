@@ -22,7 +22,7 @@ _INJECTION_PATTERNS = re.compile(
     r"|새로운\s+지시"
     r"|이전\s+지시.*무시"
     r"|역할.*변경"
-    r"|system\s*:",
+    r"|system\s*:)",
     re.IGNORECASE | re.DOTALL,
 )
 
