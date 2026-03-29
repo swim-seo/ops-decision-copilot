@@ -5,109 +5,148 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Running the App
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Run locally (requires ANTHROPIC_API_KEY in .env)
 streamlit run app.py
 ```
 
 API key resolution order: `st.secrets` (Streamlit Cloud) → `.env` file → environment variable.
+Set `ANTHROPIC_API_KEY` in `.env` for local dev.
 
 ## Architecture Overview
 
-This is a single-page Streamlit app with a 3-step flow:
+Single-file Streamlit app (`app.py`) orchestrating a 3-step flow:
 
-**Step 1 → Step 2 → Step 3**
-Domain Setup → File Upload → Results (KG + AI Analysis)
+**Step 1** Domain Setup → **Step 2** File Upload → **Step 3** Results
 
-### Data Flow
+All UI state lives in `st.session_state` (initialized in `_init_session()`). Modules in `modules/` contain pure business logic with no Streamlit dependency.
+
+---
+
+## Domain System
+
+`domains/` package holds 7 preset dicts (`beauty`, `supply_chain`, `energy`, `manufacturing`, `logistics`, `finance`, `generic`). Each exports `PRESET` with keys: `entity_types`, `terminology`, `document_patterns`, `analysis_focus`, `theme_color`, `app_icon`.
+
+`domains/__init__.py` exposes `ALL_PRESETS` (dict) and `get_preset(name)` (keyword-matched lookup).
+
+`app.py._build_domain_from_name(name)` → if name matches a preset, returns `DomainConfig` from preset; otherwise calls `DomainAdapter.analyze_domain()` (one Claude call) to generate config dynamically.
+
+`DomainConfig` (in `domain_adapter.py`) drives everything domain-specific:
+- `.collection_name` → per-domain ChromaDB collection (prevents data mixing across domains)
+- `.to_context_string()` → injected as `{domain_context}` into every Claude prompt
+- `.get_entity_types_description()` → used in KG extraction prompt
+
+---
+
+## File Processing Pipeline
 
 ```
-User uploads file
-  → document_parser.py (parse_file / extract_csv_schema / extract_python_graph_data)
-  → RAGEngine.add_document() → ChromaDB vector store
-  → KnowledgeGraph.build_*() → NetworkX + pyvis HTML
-  → Claude analysis via prompts/*.txt templates
+upload / sample load
+  → document_parser.py
+      parse_file()           → PDF/DOCX/TXT/MD → plain text
+      extract_csv_schema()   → column names, types, FK candidates → dict
+      extract_python_graph_data() → AST → {nodes, edges}
+  → RAGEngine.add_document() → chunk → ChromaDB
+  → KnowledgeGraph.build_*() → NetworkX → pyvis HTML
 ```
 
-### Key Modules
+`KnowledgeGraph` has four build paths:
+- `build_from_claude_extraction()` — general docs (Claude returns JSON with nodes/edges)
+- `build_from_schema_json()` — `SCHEMA_DEFINITION.json` (tables→nodes, FK→edges)
+- `build_from_csv_schema()` — 2-pass: add table node first, then FK edges after all tables loaded
+- `build_from_python_ast()` — Python files (classes/functions/imports)
 
-| File | Role |
-|------|------|
-| `app.py` | All Streamlit UI, session state, page routing |
-| `config.py` | Constants + `_get_secret()` for API key resolution |
-| `modules/claude_client.py` | Thin Anthropic SDK wrapper (`generate`, `generate_with_system`) |
-| `modules/rag_engine.py` | ChromaDB ingestion + cosine-similarity search |
-| `modules/knowledge_graph.py` | NetworkX graph builder + pyvis HTML renderer |
-| `modules/document_parser.py` | PDF/DOCX/TXT/CSV/Python → text + AST extraction |
-| `modules/domain_adapter.py` | `DomainConfig` dataclass + Claude-powered domain analyzer |
-| `modules/prompt_loader.py` | Loads `prompts/*.txt` and replaces `{placeholders}` |
+`render_html()` uses `net.generate_html()` (NOT `save_graph()` — that omits encoding on Windows) then writes with `encoding="utf-8"`, then `_inject_ui()` injects drill-down JS (Level 1→2→3).
 
-### Domain Adaptation
+---
 
-`DomainConfig` drives everything domain-specific:
-- `collection_name` property → per-domain ChromaDB collection (prevents data mixing)
-- `to_context_string()` → injected into every Claude prompt as `{domain_context}`
-- `get_entity_types_description()` → used in KG entity extraction prompt
+## Chat System
 
-`app.py` has inline presets (`_PRESETS`) for 7 industries (뷰티/공급망/에너지/제조/물류/금융/기타). If domain name matches a preset, `_build_domain_from_name()` uses it directly without calling Claude. Otherwise `DomainAdapter.analyze_domain()` calls Claude and falls back to default config on failure.
+### Routing (`chat_copilot.py`)
 
-### Knowledge Graph Build Paths
+`detect_route(msg)` classifies into `"data"` | `"doc"` | `"combined"` by keyword matching.
 
-`knowledge_graph.py` has four distinct builders depending on file type:
-- `build_from_claude_extraction()` — general documents (Claude extracts entities/relations as JSON)
-- `build_from_schema_json()` — `SCHEMA_DEFINITION.json` (tables → nodes, FK relationships → edges)
-- `build_from_csv_schema()` — CSV files (2-pass: add nodes first, then FK edges)
-- `build_from_python_graph_data()` — Python files (AST: classes/functions/imports)
+`respond()` dispatches:
+- `"doc"` → `_handle_doc()` — RAG + KG lookup → Claude with `rag_query.txt` prompt
+- `"data"` / `"combined"` → **delegates to `data_chat_engine.analyze()`**
 
-### Prompt Templates
+Returns `ChatResult(text, route, charts, datasets, documents, kg_nodes, metrics)`.
 
-All prompts live in `prompts/*.txt` with `{placeholder}` syntax. Load via `modules/prompt_loader.load_prompt("name", key=value)`. All templates accept `{domain_context}` which is injected in `app.py` before calling Claude.
+### Data Chat Engine (`data_chat_engine.py`)
 
-### Step 3 Layout
+5 question types auto-detected, each returns a `DataAnswer`:
 
-Step 3 uses a `3:2` two-column layout:
-- **Left (`col_main`)**: Knowledge graph (pyvis HTML, height=620) + AI analysis tabs (요약/액션아이템/원인분석/보고서) + RAG search + node lookup
-- **Right (`col_chat`)**: Data chat panel + daily briefing button
+| Type | Trigger | Output |
+|------|---------|--------|
+| `CHART` | Product code `FG-XXX` / chart keywords | Plotly line/bar chart |
+| `RANKING` | TOP / 잘팔리 / 계절 | Horizontal bar + ranking |
+| `COMPARISON` | 비교 / YoY / 전년 | Year-over-year bar chart |
+| `RISK` | 위험 / 품절 / CRITICAL | Coverage chart + reorder status |
+| `DESCRIPTION` | everything else | RAG + KG combined |
 
-### Chat Panel (`col_chat`)
+All types call `_claude_interpret()` which appends a `## 다음 할 일` section (오늘/이번 주/이번 달) to every answer.
 
-Handles three intents detected by `_detect_chat_intent()`:
+### Query Planner (`query_planner.py`)
 
-| Intent | Trigger keywords | Handler |
-|--------|-----------------|---------|
-| `graph` | 그래프, 차트, 그려줘, 보여줘 | `_handle_chat_graph()` → Plotly line chart |
-| `analysis` | 판매, 재고, 발주, 여름, 계절, 잘팔리 | `_handle_chat_analysis()` → CSV summary → Claude |
-| `rag` | everything else | `_handle_chat_rag()` → KG + RAG combined |
+`plan(text, rag, kg, claude, domain_context)` → `QueryPlan`:
+- Pass 1: keyword match against `_SCHEMA_REGISTRY` (13 table schemas)
+- Pass 2a: FK-chain expansion (related tables added at 50% confidence)
+- Pass 2b: Claude refines reasons → returns `{table: {reason, check_question, next_action}}`
+- Pass 3: RAG document recommendations
 
-`_handle_chat_graph()` extracts `FG-XXX` / `PRDXXX` codes via regex, joins `MST_PART.csv` to resolve product names, then plots `FACT_MONTHLY_SALES.csv`. Falls back to channel-total chart if no code found.
+`DatasetRecommendation` fields: `table_name`, `confidence`, `reason`, `check_question`, `next_action`, `is_expanded`.
 
-`_generate_daily_briefing()` loads three CSVs (`FACT_INVENTORY`, `FACT_MONTHLY_SALES`, `FACT_REPLENISHMENT_ORDER`), builds a pandas summary, then calls Claude once. Returns `(text, [fig1, fig2])`.
+---
 
-### Demo Usage Limit
+## Session State Keys
 
-`chat_api_calls` session state counter increments on every chat response and daily briefing call. Limit is `_DEMO_LIMIT = 20` (defined inside the `elif step == 3:` block). When exhausted: input/buttons disabled, red error banner shown. Badge color: green (>5 left) → amber (1–5) → red (0).
+Managed in `_init_session()`:
 
-Five preset question buttons (`_PRESETS_Q`) set `chat_preset_input` in session state, which is consumed as `user_input` on the next rerun (avoids `st.chat_input` value injection issues).
+| Key | Type | Purpose |
+|-----|------|---------|
+| `documents` | `dict[str, str]` | filename → parsed text |
+| `rag` | `RAGEngine` | recreated on domain change |
+| `claude` | `ClaudeClient` | Anthropic SDK wrapper |
+| `kg` | `KnowledgeGraph` | NetworkX graph |
+| `domain_config` | `dict \| None` | serialized DomainConfig |
+| `step` | `int` | current UI step (1/2/3) |
+| `chat_history` | `list` | `{role, content, charts, datasets, documents, kg_nodes, route, metrics}` |
+| `chat_api_calls` | `int` | increments each LLM call; demo limit = 20 |
+| `chat_preset_input` | `str \| None` | set by chat preset buttons, consumed once |
+| `pending_chat_message` | `str \| None` | set by briefing/planner buttons for auto-send |
+| `qp_input` | `str` | last query planner input text |
+| `qp_result` | `QueryPlan \| None` | last query planner result |
+| `briefing_cards` | `list \| None` | 4-card daily briefing data |
 
-### Session State Keys
+`pending_chat_message` and `chat_preset_input` are both consumed via `st.session_state.pop()` before `st.chat_input`, used as `user_input` fallback for auto-send behavior.
 
-`st.session_state` keys managed in `_init_session()`:
-- `documents` — dict of filename → parsed text
-- `rag` — `RAGEngine` instance (recreated when domain/collection changes)
-- `claude` — `ClaudeClient` instance
-- `kg` — `KnowledgeGraph` instance
-- `domain_config` — serialized `DomainConfig` dict (or `None`)
-- `step` — current UI step (1/2/3)
-- `chat_history` — list of `{"role", "content", "charts"}` dicts
-- `chat_api_calls` — int, increments each time Claude is called from chat
-- `chat_preset_input` — `str | None`, set by preset buttons, consumed once on rerun
+---
 
-### Persistent Storage
+## Step 3 Layout
 
-- Vector store: `./data/vector_store/` (ChromaDB, persists between sessions)
-- Graph HTML: `./data/graph.html` (overwritten each render)
-- Demo CSVs: `./data/` — `FACT_MONTHLY_SALES`, `FACT_INVENTORY`, `FACT_REPLENISHMENT_ORDER`, `MST_PART`, `MST_CHANNEL`, etc.
+```
+expander: 업무 문장 → 데이터 추천  (query planner)
+expander: 일일 브리핑  (2×2 grid of 4 cards)
+divider
+col_main (3/5) | col_chat (2/5)
+  KG (pyvis HTML)   |  chat header + preset buttons
+  reextract expander|  chat history container (height=460)
+  divider           |  exhausted banner
+  tabs: AI분석 / 문서검색(RAG) / 번호조회
+    sub-tabs: 요약 / 액션아이템 / 원인분석 / 보고서
+```
 
-These directories are auto-created by `config.py` at import time.
+---
+
+## Prompt Templates
+
+All in `prompts/*.txt` with `{placeholder}` syntax. Load with `prompt_loader.load_prompt("name", key=value)`. All accept `{domain_context}` injected from `DomainConfig.to_context_string()`.
+
+---
+
+## Persistent Storage
+
+- `./data/vector_store/` — ChromaDB (persists between sessions)
+- `./data/graph.html` — overwritten on each `render_html()` call
+- `./data/` — sample CSVs (`FACT_MONTHLY_SALES`, `FACT_INVENTORY`, `FACT_REPLENISHMENT_ORDER`, `MST_PRODUCT`, `MST_CHANNEL`, `SCHEMA_DEFINITION.json`)
+
+Directories are auto-created by `config.py` at import time.
