@@ -22,13 +22,16 @@ def _get_secret(key: str) -> str:
       2) .env 파일   — 로컬 개발 환경
       3) 환경변수    — CI/CD 등 기타 환경
     """
+    # 1) Streamlit secrets (Cloud 배포 시)
     try:
         import streamlit as st
-        val = st.secrets.get(key, "")
-        if val:
-            return val
+        if hasattr(st, "secrets") and key in st.secrets:
+            val = st.secrets[key]
+            if val:
+                return str(val)
     except Exception:
         pass
+    # 2) .env / 환경변수
     return os.getenv(key, "")
 
 
