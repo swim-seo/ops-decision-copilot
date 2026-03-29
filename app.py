@@ -183,8 +183,6 @@ def _get_collection_name() -> str:
 
 def _quick_detect_domain(file_names: list) -> str:
     names = " ".join(file_names).upper()
-    if any(k in names for k in ["VANILLAECO","BEAUTY","COSMETIC","LIPSTICK","SKINCARE"]):
-        return "뷰티 이커머스"
     if any(k in names for k in ["REPLENISH","SUPPLY_ROUTE","OFFICE","PART","STOCKOUT"]):
         return "공급망·재고 관리"
     if any(k in names for k in ["PRODUCT","SALES","CHANNEL","SKU"]):
@@ -275,50 +273,58 @@ def _extract_kg_with_domain(text: str):
     response = st.session_state.claude.generate(prompt, max_tokens=4096)
     st.session_state.kg.build_from_claude_json(response)
 
-def _process_uploaded_files(uploaded_files) -> int:
+def _process_file_contents(entries: list) -> int:
+    """파일 콘텐츠 통합 처리. entries: [(filename, raw_bytes_or_text, source), ...]
+    source: 'upload' | 'disk'
+    """
     from modules.document_parser import (
         parse_file, extract_csv_schema,
         extract_python_graph_data, _csv_schema_to_text,
     )
     new_files, kg_direct, pending_csv = [], set(), []
 
-    for uf in uploaded_files:
-        if uf.name in st.session_state.documents:
+    for fname, content, source in entries:
+        if fname in st.session_state.documents:
             continue
         try:
-            fl = uf.name.lower()
+            fl = fname.lower()
             if fl.endswith(".json"):
-                raw = uf.read().decode("utf-8")
+                raw = content if isinstance(content, str) else content.decode("utf-8")
                 data = _json.loads(raw)
                 if "tables" in data and "relationships" in data:
                     st.session_state.kg.build_from_schema_json(data)
                     text = _schema_to_text(data)
                 else:
-                    text = raw
-                st.session_state.documents[uf.name] = text
-                new_files.append(uf.name); kg_direct.add(uf.name)
+                    text = _json.dumps(data, ensure_ascii=False) if isinstance(data, dict) else raw
+                st.session_state.documents[fname] = text
+                new_files.append(fname); kg_direct.add(fname)
 
             elif fl.endswith(".csv"):
-                raw = uf.read().decode("utf-8", errors="replace")
-                schema = extract_csv_schema(uf.name, raw)
-                pending_csv.append((uf.name, schema))
-                st.session_state.documents[uf.name] = _csv_schema_to_text(schema)
-                new_files.append(uf.name); kg_direct.add(uf.name)
+                raw = content if isinstance(content, str) else content.decode("utf-8-sig", errors="replace")
+                schema = extract_csv_schema(fname, raw)
+                pending_csv.append((fname, schema))
+                st.session_state.documents[fname] = _csv_schema_to_text(schema)
+                new_files.append(fname); kg_direct.add(fname)
 
             elif fl.endswith(".py"):
-                source = uf.read().decode("utf-8")
-                gd = extract_python_graph_data(source, uf.name)
+                src = content if isinstance(content, str) else content.decode("utf-8")
+                gd = extract_python_graph_data(src, fname)
                 st.session_state.kg.build_from_python_ast(gd)
-                st.session_state.documents[uf.name] = source
-                new_files.append(uf.name); kg_direct.add(uf.name)
+                st.session_state.documents[fname] = src
+                new_files.append(fname); kg_direct.add(fname)
 
             else:
-                text = parse_file(uf)
+                if source == "upload":
+                    text = parse_file(content)  # content is UploadedFile
+                else:
+                    text = content if isinstance(content, str) else content.decode("utf-8", errors="replace")
                 if text.strip():
-                    st.session_state.documents[uf.name] = text
-                    new_files.append(uf.name)
-        except Exception as e:
-            st.warning(f"⚠️ `{uf.name}` 오류: {e}")
+                    st.session_state.documents[fname] = text
+                    new_files.append(fname)
+        except (ValueError, _json.JSONDecodeError, UnicodeDecodeError) as e:
+            st.warning(f"⚠️ `{fname}` 파싱 오류: {e}")
+        except IOError as e:
+            st.warning(f"⚠️ `{fname}` 파일 오류: {e}")
 
     # CSV 2-pass FK
     if pending_csv:
@@ -332,66 +338,54 @@ def _process_uploaded_files(uploaded_files) -> int:
     for fname in new_files:
         st.session_state.rag.add_document(st.session_state.documents[fname], fname)
 
-    # Claude KG 추출 (TXT/PDF/DOCX — 도메인 컨텍스트 포함)
-    for fname in new_files:
-        if fname not in kg_direct:
-            _extract_kg_with_domain(st.session_state.documents[fname])
+    # Claude KG 추출 (TXT/PDF/DOCX — 도메인 컨텍스트 포함, 병렬화)
+    kg_targets = [fname for fname in new_files if fname not in kg_direct]
+    if kg_targets:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {
+                executor.submit(_extract_kg_with_domain, st.session_state.documents[fname]): fname
+                for fname in kg_targets
+            }
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except (ValueError, IOError) as e:
+                    st.warning(f"⚠️ KG 추출 실패 ({futures[future]}): {e}")
 
     return len(new_files)
 
+
+def _process_uploaded_files(uploaded_files) -> int:
+    from modules.document_parser import parse_file
+    entries = []
+    for uf in uploaded_files:
+        fl = uf.name.lower()
+        if fl.endswith((".json", ".csv", ".py")):
+            entries.append((uf.name, uf.read(), "upload"))
+        else:
+            entries.append((uf.name, uf, "upload"))
+    return _process_file_contents(entries)
+
+
 def _load_sample_data() -> int:
-    from modules.document_parser import extract_csv_schema, _csv_schema_to_text
     data_dir = "./data"
     if not os.path.isdir(data_dir):
         return 0
-
-    new_files, kg_direct, pending_csv = [], set(), []
-
+    entries = []
     for fname in sorted(os.listdir(data_dir)):
         fpath = os.path.join(data_dir, fname)
         if not os.path.isfile(fpath) or fname in st.session_state.documents:
             continue
-        try:
-            fl = fname.lower()
-            if fl.endswith(".json"):
-                with open(fpath, encoding="utf-8") as f:
-                    data = _json.load(f)
-                if "tables" in data and "relationships" in data:
-                    st.session_state.kg.build_from_schema_json(data)
-                    text = _schema_to_text(data)
-                else:
-                    text = _json.dumps(data, ensure_ascii=False)
-                st.session_state.documents[fname] = text
-                new_files.append(fname); kg_direct.add(fname)
-
-            elif fl.endswith(".csv"):
-                with open(fpath, encoding="utf-8-sig", errors="replace") as f:
-                    raw = f.read()
-                schema = extract_csv_schema(fname, raw)
-                pending_csv.append((fname, schema))
-                st.session_state.documents[fname] = _csv_schema_to_text(schema)
-                new_files.append(fname); kg_direct.add(fname)
-
-            elif fl.endswith(".txt"):
-                with open(fpath, encoding="utf-8", errors="replace") as f:
-                    text = f.read()
-                if text.strip():
-                    st.session_state.documents[fname] = text
-                    new_files.append(fname)
-        except Exception:
-            pass
-
-    if pending_csv:
-        for fn, sc in pending_csv:
-            st.session_state.kg.build_from_csv_schema(sc, [])
-        all_tables = list(st.session_state.kg.graph.nodes)
-        for fn, sc in pending_csv:
-            st.session_state.kg.build_from_csv_schema(sc, all_tables)
-
-    for fname in new_files:
-        st.session_state.rag.add_document(st.session_state.documents[fname], fname)
-
-    return len(new_files)
+        fl = fname.lower()
+        if fl.endswith((".json", ".csv", ".txt")):
+            try:
+                enc = "utf-8-sig" if fl.endswith(".csv") else "utf-8"
+                with open(fpath, encoding=enc, errors="replace") as f:
+                    entries.append((fname, f.read(), "disk"))
+            except IOError:
+                pass
+    return _process_file_contents(entries)
 
 def _process_text_paste(title: str, text: str) -> bool:
     key = f"{title.strip()}.txt"
@@ -565,7 +559,7 @@ def _generate_briefing_cards():
         _end   = raw_ai.rfind("}") + 1
         if _start >= 0 and _end > _start:
             ai_data = _json2.loads(raw_ai[_start:_end])
-    except Exception:
+    except (ValueError, KeyError, _json2.JSONDecodeError):
         pass
 
     _default_ai = {"summary": "데이터 분석 완료", "actions": ["현황 확인", "담당자 공유", "조치 계획 수립"]}
@@ -779,9 +773,12 @@ elif step == 2:
         with st.spinner("샘플 데이터를 불러오는 중..."):
             n = _load_sample_data()
         if n > 0:
-            st.success(f"✅ 샘플 데이터 {n}개 파일 로드 완료!")
+            st.success(f"샘플 데이터 {n}개 파일 로드 완료!")
             if not st.session_state.domain_config:
-                cfg = _build_domain_from_name("뷰티 이커머스")
+                # 샘플 데이터 파일명으로 도메인 자동 감지
+                _sample_files = [f for f in os.listdir("./data") if os.path.isfile(os.path.join("./data", f))]
+                _detected = _quick_detect_domain(_sample_files)
+                cfg = _build_domain_from_name(_detected)
                 st.session_state.domain_config = cfg.to_dict()
                 _apply_css(cfg.theme_color)
             st.session_state.step = 3; st.rerun()
@@ -1249,35 +1246,35 @@ elif step == 3:
                  "charts": [], "datasets": [], "documents": [], "kg_nodes": 0, "route": ""}
             )
             _chat_success = False
-            with st.spinner("분석 중..."):
-                try:
-                    from modules.chat_copilot import respond, detect_route
-                    from modules.claude_client import TOKENS
-                    result = respond(
-                        user_input,
-                        claude         = st.session_state.claude,
-                        rag            = st.session_state.rag,
-                        kg             = st.session_state.kg,
-                        domain_context = domain_context,
-                    )
-                    _chat_success = True
-                except Exception as e:
-                    from modules.chat_copilot import ChatResult
-                    result = ChatResult(
-                        text=f"오류가 발생했습니다: {e}", route="combined"
-                    )
+            try:
+                from modules.chat_copilot import respond_stream
+                gen, meta = respond_stream(
+                    user_input,
+                    claude         = st.session_state.claude,
+                    rag            = st.session_state.rag,
+                    kg             = st.session_state.kg,
+                    domain_context = domain_context,
+                )
+                with chat_box:
+                    with st.chat_message("assistant"):
+                        streamed_text = st.write_stream(gen)
+                _chat_success = True
+            except Exception as e:
+                streamed_text = f"오류가 발생했습니다: {e}"
+                meta = None
+
             # 성공 시에만 카운트 증가
             if _chat_success:
                 st.session_state.chat_api_calls += 1
             st.session_state.chat_history.append({
                 "role":      "assistant",
-                "content":   result.text,
-                "charts":    result.charts,
-                "datasets":  result.datasets,
-                "documents": result.documents,
-                "kg_nodes":  result.kg_nodes,
-                "route":     result.route,
-                "metrics":   getattr(result, "metrics", []),
+                "content":   streamed_text if isinstance(streamed_text, str) else str(streamed_text),
+                "charts":    meta.charts if meta else [],
+                "datasets":  meta.datasets if meta else [],
+                "documents": meta.documents if meta else [],
+                "kg_nodes":  meta.kg_nodes if meta else 0,
+                "route":     meta.route if meta else "combined",
+                "metrics":   getattr(meta, "metrics", []) if meta else [],
             })
             st.rerun()
 
@@ -1285,10 +1282,10 @@ elif step == 3:
     # 메인: 지식그래프 + AI 분석 탭 (full width)
     # ════════════════════════════════════════════════════════
     # ── 지식그래프 ───────────────────────────────────────
-    st.markdown("#### 🕸️ 지식 그래프")
+    st.markdown("#### 지식 그래프")
 
     if stats["nodes"] == 0:
-        st.info("📂 CSV·JSON·TXT·PDF 문서를 업로드하면 엔티티 관계 그래프가 나타납니다.")
+        st.info("CSV·JSON·TXT·PDF 문서를 업로드하면 엔티티 관계 그래프가 나타납니다.")
     else:
         if stats["entity_types"]:
             legend_html = "".join(
@@ -1298,13 +1295,104 @@ elif step == 3:
             )
             st.markdown(legend_html, unsafe_allow_html=True)
 
-        html_path = kg.render_html(entity_colors=entity_colors)
-        if html_path and os.path.exists(html_path):
-            with open(html_path, "r", encoding="utf-8") as f:
-                html_content = f.read()
-            components.html(html_content, height=620, scrolling=False)
-        else:
-            st.error("그래프 렌더링 실패")
+        kg_tab_graph, kg_tab_erd, kg_tab_flow = st.tabs(["노드 그래프", "ERD 테이블 뷰", "데이터 흐름 뷰"])
+
+        with kg_tab_graph:
+            html_path = kg.render_html(entity_colors=entity_colors)
+            if html_path and os.path.exists(html_path):
+                with open(html_path, "r", encoding="utf-8") as f:
+                    html_content = f.read()
+                components.html(html_content, height=620, scrolling=False)
+            else:
+                st.error("그래프 렌더링 실패")
+
+        with kg_tab_erd:
+            _table_nodes = {nid: attrs for nid, attrs in kg.graph.nodes(data=True)
+                           if attrs.get("type") in ("master_table", "fact_table", "csv_table")}
+            if not _table_nodes:
+                st.info("테이블 노드가 없습니다. CSV나 JSON 스키마를 업로드하세요.")
+            else:
+                _erd_cols = st.columns(min(len(_table_nodes), 3))
+                for idx, (nid, attrs) in enumerate(_table_nodes.items()):
+                    _ttype = attrs.get("type", "default")
+                    _color = {"master_table": "#7C3AED", "fact_table": "#2563EB", "csv_table": "#0D9488"}.get(_ttype, "#6B7280")
+                    _label = {"master_table": "MASTER", "fact_table": "FACT", "csv_table": "CSV"}.get(_ttype, "TABLE")
+                    _cols = attrs.get("columns", [])
+                    _fk_cols = attrs.get("fk_cols", [])
+                    # FK edges
+                    _out = [(t, kg.graph[nid][t].get("relation", "")) for t in kg.graph.successors(nid)]
+                    _in  = [(s, kg.graph[s][nid].get("relation", "")) for s in kg.graph.predecessors(nid)]
+
+                    col_html = ""
+                    for c in _cols[:20]:
+                        is_fk = c in _fk_cols
+                        col_html += f'<div style="padding:1px 6px;font-size:.78rem;color:{"#fbbf24" if is_fk else "#e2e8f0"}">{c}{"  🔑" if is_fk else ""}</div>'
+                    if len(_cols) > 20:
+                        col_html += f'<div style="font-size:.72rem;color:#64748b">... 외 {len(_cols)-20}개</div>'
+
+                    edge_html = ""
+                    for tgt, rel in _out:
+                        edge_html += f'<div style="font-size:.75rem;color:#6ee7b7">→ {tgt} <span style="color:#475569">({rel})</span></div>'
+                    for src, rel in _in:
+                        edge_html += f'<div style="font-size:.75rem;color:#93c5fd">← {src} <span style="color:#475569">({rel})</span></div>'
+
+                    with _erd_cols[idx % min(len(_table_nodes), 3)]:
+                        st.markdown(
+                            f'<div style="background:#0f172a;border:2px solid {_color};border-radius:8px;'
+                            f'padding:.6rem;margin-bottom:.5rem">'
+                            f'<div style="font-weight:700;color:white;font-size:.9rem;border-bottom:1px solid #1e293b;padding-bottom:4px;margin-bottom:4px">{nid}</div>'
+                            f'<span style="background:{_color};color:white;border-radius:4px;padding:1px 6px;font-size:.65rem;font-weight:700">{_label}</span>'
+                            f'<div style="margin-top:6px">{col_html}</div>'
+                            f'{"<div style=\"margin-top:6px;border-top:1px solid #1e293b;padding-top:4px\">" + edge_html + "</div>" if edge_html else ""}'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                        if st.button(f"{nid} 분석", key=f"erd_chat_{nid}", use_container_width=True):
+                            st.session_state.pending_chat_message = f"{nid} 테이블 설명해줘"
+                            st.rerun()
+
+        with kg_tab_flow:
+            _mst_nodes = [nid for nid, attrs in kg.graph.nodes(data=True)
+                          if attrs.get("type") == "master_table"]
+            _fact_nodes = [nid for nid, attrs in kg.graph.nodes(data=True)
+                           if attrs.get("type") == "fact_table"]
+            if not _mst_nodes and not _fact_nodes:
+                st.info("MST/FACT 테이블 구조가 없습니다.")
+            else:
+                # MST → FACT 방향 흐름도 (HTML)
+                flow_lines = []
+                for src in _mst_nodes:
+                    for tgt in kg.graph.successors(src):
+                        if tgt in _fact_nodes:
+                            rel = kg.graph[src][tgt].get("relation", "")
+                            flow_lines.append(f'<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'
+                                f'<span style="background:#7C3AED;color:white;padding:4px 10px;border-radius:6px;font-size:.82rem;font-weight:600;min-width:140px;text-align:center">{src}</span>'
+                                f'<span style="color:#64748b;font-size:1.2rem">→</span>'
+                                f'<span style="background:#475569;color:#e2e8f0;padding:2px 8px;border-radius:10px;font-size:.72rem">{rel}</span>'
+                                f'<span style="color:#64748b;font-size:1.2rem">→</span>'
+                                f'<span style="background:#2563EB;color:white;padding:4px 10px;border-radius:6px;font-size:.82rem;font-weight:600;min-width:180px;text-align:center">{tgt}</span>'
+                                f'</div>')
+                for src in _fact_nodes:
+                    for tgt in kg.graph.successors(src):
+                        if tgt in _mst_nodes:
+                            rel = kg.graph[src][tgt].get("relation", "")
+                            flow_lines.append(f'<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'
+                                f'<span style="background:#2563EB;color:white;padding:4px 10px;border-radius:6px;font-size:.82rem;font-weight:600;min-width:180px;text-align:center">{src}</span>'
+                                f'<span style="color:#64748b;font-size:1.2rem">→</span>'
+                                f'<span style="background:#475569;color:#e2e8f0;padding:2px 8px;border-radius:10px;font-size:.72rem">{rel}</span>'
+                                f'<span style="color:#64748b;font-size:1.2rem">→</span>'
+                                f'<span style="background:#7C3AED;color:white;padding:4px 10px;border-radius:6px;font-size:.82rem;font-weight:600;min-width:140px;text-align:center">{tgt}</span>'
+                                f'</div>')
+                if flow_lines:
+                    st.markdown(
+                        '<div style="display:flex;gap:12px;margin-bottom:8px">'
+                        '<span style="background:#7C3AED;color:white;padding:2px 10px;border-radius:4px;font-size:.75rem">MST (마스터)</span>'
+                        '<span style="background:#2563EB;color:white;padding:2px 10px;border-radius:4px;font-size:.75rem">FACT (팩트)</span>'
+                        '</div>',
+                        unsafe_allow_html=True)
+                    st.markdown("".join(flow_lines), unsafe_allow_html=True)
+                else:
+                    st.info("MST ↔ FACT 간 직접 연결이 없습니다.")
 
         with st.expander("특정 문서 그래프 재추출"):
             sel_doc = st.selectbox("문서 선택", list(st.session_state.documents.keys()),
@@ -1312,7 +1400,7 @@ elif step == 3:
             if st.button("재추출", key="btn_reextract"):
                 with st.spinner("재추출 중..."):
                     _extract_kg_with_domain(st.session_state.documents[sel_doc])
-                st.success(f"✅ 완료! 노드 {kg.get_stats()['nodes']}개")
+                st.success(f"완료! 노드 {kg.get_stats()['nodes']}개")
                 st.rerun()
 
     st.divider()
@@ -1322,6 +1410,10 @@ elif step == 3:
 
     with tab_ai:
         from modules.prompt_loader import load_prompt
+
+        _ai_exhausted = st.session_state.chat_api_calls >= _DEMO_LIMIT
+        if _ai_exhausted:
+            st.warning("🚫 데모 사용량 초과 — AI 분석 기능이 비활성화되었습니다.")
 
         doc_names = list(st.session_state.documents.keys())
         sel = st.selectbox("분석 문서", ["📚 전체 합치기"] + doc_names, key="ai_sel")
@@ -1337,19 +1429,21 @@ elif step == 3:
         s1, s2, s3, s4 = st.tabs(["요약", "액션 아이템", "원인 분석", "보고서"])
 
         with s1:
-            if st.button("요약 생성", key="btn_sum"):
+            if st.button("요약 생성", key="btn_sum", disabled=_ai_exhausted):
                 with st.spinner("요약 중..."):
                     r = st.session_state.claude.generate(
                         load_prompt("summarize", document=atxt, domain_context=domain_context))
+                st.session_state.chat_api_calls += 1
                 st.markdown(r)
                 st.download_button("💾 다운로드", r,
                     f"summary_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
 
         with s2:
-            if st.button("액션 아이템 추출", key="btn_act"):
+            if st.button("액션 아이템 추출", key="btn_act", disabled=_ai_exhausted):
                 with st.spinner("추출 중..."):
                     r = st.session_state.claude.generate(
                         load_prompt("action_items", document=atxt, domain_context=domain_context))
+                st.session_state.chat_api_calls += 1
                 st.markdown(r)
                 st.download_button("💾 다운로드", r,
                     f"actions_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
@@ -1388,27 +1482,29 @@ elif step == 3:
                                 st.session_state.qp_input  = r[:200]
                                 st.session_state.qp_result = _act_plan
                                 st.rerun()
-                    except Exception:
+                    except (ImportError, ValueError, KeyError):
                         pass
 
         with s3:
             issue = st.text_input("특정 문제 (선택)", placeholder="예: 납기 지연 원인", key="issue_h")
-            if st.button("원인 분석", key="btn_root"):
+            if st.button("원인 분석", key="btn_root", disabled=_ai_exhausted):
                 doc = f"[분석초점: {issue}]\n\n{atxt}" if issue else atxt
                 with st.spinner("분석 중..."):
                     r = st.session_state.claude.generate(
                         load_prompt("root_cause", document=doc, domain_context=domain_context))
+                st.session_state.chat_api_calls += 1
                 st.markdown(r)
                 st.download_button("💾 다운로드", r,
                     f"rootcause_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
 
         with s4:
             rdate = st.date_input("날짜", value=datetime.today(), key="rpt_dt")
-            if st.button("보고서 초안", key="btn_rpt"):
+            if st.button("보고서 초안", key="btn_rpt", disabled=_ai_exhausted):
                 with st.spinner("작성 중..."):
                     r = st.session_state.claude.generate(
                         load_prompt("report_draft", document=atxt,
                             date=rdate.strftime("%Y년 %m월 %d일"), domain_context=domain_context))
+                st.session_state.chat_api_calls += 1
                 st.markdown(r, unsafe_allow_html=True)
                 st.download_button("💾 다운로드", r,
                     f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")

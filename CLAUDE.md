@@ -9,14 +9,14 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-API key resolution order: `st.secrets` (Streamlit Cloud) → `.env` file → environment variable.
+API key resolution order: `st.secrets` (Streamlit Cloud) -> `.env` file -> environment variable.
 Set `ANTHROPIC_API_KEY` in `.env` for local dev.
 
 ## Architecture Overview
 
 Single-file Streamlit app (`app.py`) orchestrating a 3-step flow:
 
-**Step 1** Domain Setup → **Step 2** File Upload → **Step 3** Results
+**Step 1** Domain Setup -> **Step 2** File Upload -> **Step 3** Results
 
 All UI state lives in `st.session_state` (initialized in `_init_session()`). Modules in `modules/` contain pure business logic with no Streamlit dependency.
 
@@ -28,12 +28,12 @@ All UI state lives in `st.session_state` (initialized in `_init_session()`). Mod
 
 `domains/__init__.py` exposes `ALL_PRESETS` (dict) and `get_preset(name)` (keyword-matched lookup).
 
-`app.py._build_domain_from_name(name)` → if name matches a preset, returns `DomainConfig` from preset; otherwise calls `DomainAdapter.analyze_domain()` (one Claude call) to generate config dynamically.
+`app.py._build_domain_from_name(name)` -> if name matches a preset, returns `DomainConfig` from preset; otherwise calls `DomainAdapter.analyze_domain()` (one Claude call) to generate config dynamically.
 
 `DomainConfig` (in `domain_adapter.py`) drives everything domain-specific:
-- `.collection_name` → per-domain ChromaDB collection (prevents data mixing across domains)
-- `.to_context_string()` → injected as `{domain_context}` into every Claude prompt
-- `.get_entity_types_description()` → used in KG extraction prompt
+- `.collection_name` -> per-domain ChromaDB collection (prevents data mixing across domains)
+- `.to_context_string()` -> injected as `{domain_context}` into every Claude prompt
+- `.get_entity_types_description()` -> used in KG extraction prompt
 
 ---
 
@@ -41,21 +41,26 @@ All UI state lives in `st.session_state` (initialized in `_init_session()`). Mod
 
 ```
 upload / sample load
-  → document_parser.py
-      parse_file()           → PDF/DOCX/TXT/MD → plain text
-      extract_csv_schema()   → column names, types, FK candidates → dict
-      extract_python_graph_data() → AST → {nodes, edges}
-  → RAGEngine.add_document() → chunk → ChromaDB
-  → KnowledgeGraph.build_*() → NetworkX → pyvis HTML
+  -> _process_file_contents(entries)   # unified handler for both upload and disk files
+      -> document_parser.py
+          parse_file()           -> PDF/DOCX/TXT/MD -> plain text
+          extract_csv_schema()   -> column names, types, FK candidates -> dict
+          extract_python_graph_data() -> AST -> {nodes, edges}
+      -> RAGEngine.add_document() -> chunk -> ChromaDB (dedup: deletes existing chunks first)
+      -> KnowledgeGraph.build_*() -> NetworkX -> pyvis HTML
+      -> ThreadPoolExecutor for parallel Claude KG extraction
 ```
 
 `KnowledgeGraph` has four build paths:
-- `build_from_claude_extraction()` — general docs (Claude returns JSON with nodes/edges)
-- `build_from_schema_json()` — `SCHEMA_DEFINITION.json` (tables→nodes, FK→edges)
-- `build_from_csv_schema()` — 2-pass: add table node first, then FK edges after all tables loaded
-- `build_from_python_ast()` — Python files (classes/functions/imports)
+- `build_from_claude_json()` -- general docs (Claude returns JSON with nodes/edges)
+- `build_from_schema_json()` -- `SCHEMA_DEFINITION.json` (tables->nodes, FK->edges)
+- `build_from_csv_schema()` -- 2-pass: add table node first, then FK edges after all tables loaded
+- `build_from_python_ast()` -- Python files (classes/functions/imports)
 
-`render_html()` uses `net.generate_html()` (NOT `save_graph()` — that omits encoding on Windows) then writes with `encoding="utf-8"`, then `_inject_ui()` injects drill-down JS (Level 1→2→3).
+KG visualization has 3 tabs:
+- **Node Graph**: pyvis with drill-down (Level 1->2->3), `render_html()` uses `net.generate_html()` (NOT `save_graph()`) then writes with `encoding="utf-8"`, then `_inject_ui()` injects drill-down JS.
+- **ERD Table View**: Card-based table schema display
+- **Data Flow View**: MST -> FACT directional flow
 
 ---
 
@@ -66,8 +71,12 @@ upload / sample load
 `detect_route(msg)` classifies into `"data"` | `"doc"` | `"combined"` by keyword matching.
 
 `respond()` dispatches:
-- `"doc"` → `_handle_doc()` — RAG + KG lookup → Claude with `rag_query.txt` prompt
-- `"data"` / `"combined"` → **delegates to `data_chat_engine.analyze()`**
+- `"doc"` -> RAG + KG lookup -> Claude with `rag_query.txt` prompt
+- `"data"` / `"combined"` -> **delegates to `data_chat_engine.analyze()`**
+
+`respond_stream()` provides streaming support:
+- `"doc"` -> streams Claude response via `claude.stream()`
+- `"data"` / `"combined"` -> yields full text at once (pandas analysis required first)
 
 Returns `ChatResult(text, route, charts, datasets, documents, kg_nodes, metrics)`.
 
@@ -78,75 +87,56 @@ Returns `ChatResult(text, route, charts, datasets, documents, kg_nodes, metrics)
 | Type | Trigger | Output |
 |------|---------|--------|
 | `CHART` | Product code `FG-XXX` / chart keywords | Plotly line/bar chart |
-| `RANKING` | TOP / 잘팔리 / 계절 | Horizontal bar + ranking |
-| `COMPARISON` | 비교 / YoY / 전년 | Year-over-year bar chart |
-| `RISK` | 위험 / 품절 / CRITICAL | Coverage chart + reorder status |
+| `RANKING` | TOP / best-selling / seasonal | Horizontal bar + ranking |
+| `COMPARISON` | compare / YoY | Year-over-year bar chart |
+| `RISK` | risk / stockout / CRITICAL | Coverage chart + reorder status |
 | `DESCRIPTION` | everything else | RAG + KG combined |
 
-All types call `_claude_interpret()` which appends a `## 다음 할 일` section (오늘/이번 주/이번 달) to every answer.
+All types call `_claude_interpret()` which appends a "next actions" section (today/this week/this month).
 
 ### Query Planner (`query_planner.py`)
 
-`plan(text, rag, kg, claude, domain_context)` → `QueryPlan`:
-- Pass 1: keyword match against `_SCHEMA_REGISTRY` (13 table schemas)
+`plan(text, rag, kg, claude, domain_context)` -> `QueryPlan`:
+- Pass 1: keyword match against `_SCHEMA_REGISTRY` (14 table schemas)
 - Pass 2a: FK-chain expansion (related tables added at 50% confidence)
-- Pass 2b: Claude refines reasons → returns `{table: {reason, check_question, next_action}}`
+- Pass 2b: Claude refines reasons -> returns `{table: {reason, check_question, next_action}}`
 - Pass 3: RAG document recommendations
 
-`DatasetRecommendation` fields: `table_name`, `confidence`, `reason`, `check_question`, `next_action`, `is_expanded`.
+---
+
+## Prompt System
+
+All prompts in `prompts/*.txt`. `prompt_loader.load_prompt("name", key=value)` loads and substitutes placeholders.
+
+`system_base.txt` contains shared role definition, domain_context injection, and formatting rules (tilde, Korean). Other prompts use `{system_base}` placeholder which is auto-injected by `load_prompt()`.
 
 ---
 
-## Session State Keys
+## Security
 
-Managed in `_init_session()`:
+- Prompt injection: `sanitize_input()` in `chat_copilot.py` strips role-override patterns
+- XSS: `json.dumps(ensure_ascii=True)` in `knowledge_graph.py` for JS embedding
+- Path traversal: `_safe_csv_path()` in `data_analyst.py` restricts to DATA_DIR
+- Demo limit: 20 API calls per session (chat + AI analysis tabs)
 
-| Key | Type | Purpose |
-|-----|------|---------|
-| `documents` | `dict[str, str]` | filename → parsed text |
-| `rag` | `RAGEngine` | recreated on domain change |
-| `claude` | `ClaudeClient` | Anthropic SDK wrapper |
-| `kg` | `KnowledgeGraph` | NetworkX graph |
-| `domain_config` | `dict \| None` | serialized DomainConfig |
-| `step` | `int` | current UI step (1/2/3) |
-| `chat_history` | `list` | `{role, content, charts, datasets, documents, kg_nodes, route, metrics}` |
-| `chat_api_calls` | `int` | increments each LLM call; demo limit = 20 |
-| `chat_preset_input` | `str \| None` | set by chat preset buttons, consumed once |
-| `pending_chat_message` | `str \| None` | set by briefing/planner buttons for auto-send |
-| `qp_input` | `str` | last query planner input text |
-| `qp_result` | `QueryPlan \| None` | last query planner result |
-| `briefing_cards` | `list \| None` | 4-card daily briefing data |
+## API Client (`claude_client.py`)
 
-`pending_chat_message` and `chat_preset_input` are both consumed via `st.session_state.pop()` before `st.chat_input`, used as `user_input` fallback for auto-send behavior.
+- `generate()`: single prompt -> text (with exponential backoff retry for 429/529)
+- `generate_with_system()`: system + user prompt
+- `stream()`: generator yielding text chunks for streaming
+- `TOKENS` dict: recommended max_tokens per use case (summary: 1500, chat: 2000, briefing: 2500, kg: 1000)
+- API key via `config._get_secret()` (unified, no duplication)
 
----
+## Performance
 
-## Step 3 Layout
-
-```
-expander: 업무 문장 → 데이터 추천  (query planner)
-expander: 일일 브리핑  (2×2 grid of 4 cards)
-divider
-col_main (3/5) | col_chat (2/5)
-  KG (pyvis HTML)   |  chat header + preset buttons
-  reextract expander|  chat history container (height=460)
-  divider           |  exhausted banner
-  tabs: AI분석 / 문서검색(RAG) / 번호조회
-    sub-tabs: 요약 / 액션아이템 / 원인분석 / 보고서
-```
-
----
-
-## Prompt Templates
-
-All in `prompts/*.txt` with `{placeholder}` syntax. Load with `prompt_loader.load_prompt("name", key=value)`. All accept `{domain_context}` injected from `DomainConfig.to_context_string()`.
-
----
+- KG extraction: `ThreadPoolExecutor(max_workers=3)` for parallel Claude calls
+- Combined route: parallel RAG/KG/CSV data fetching via ThreadPoolExecutor
+- ChromaDB: `delete_document()` before `add_document()` prevents duplicate chunks
 
 ## Persistent Storage
 
-- `./data/vector_store/` — ChromaDB (persists between sessions)
-- `./data/graph.html` — overwritten on each `render_html()` call
-- `./data/` — sample CSVs (`FACT_MONTHLY_SALES`, `FACT_INVENTORY`, `FACT_REPLENISHMENT_ORDER`, `MST_PRODUCT`, `MST_CHANNEL`, `SCHEMA_DEFINITION.json`)
+- `./data/vector_store/` -- ChromaDB (persists between sessions)
+- `./data/graph.html` -- overwritten on each `render_html()` call
+- `./data/` -- sample CSVs, `SCHEMA_DEFINITION.json`
 
 Directories are auto-created by `config.py` at import time.

@@ -145,13 +145,12 @@ def _handle_data(msg: str, claude, domain_context: str) -> ChatResult:
         )
 
     if ctx:
+        from modules.prompt_loader import load_prompt
         data_summary = "\n\n".join(ctx)
-        prompt = (
-            f"{domain_context}\n\n"
-            f"[데이터 요약]\n{data_summary}\n\n"
-            f"[질문] {msg}\n\n"
-            "위 데이터를 바탕으로 질문에 간결하게 답변하세요."
-        )
+        prompt = load_prompt("chat_routing",
+                             domain_context=domain_context,
+                             data_summary=data_summary,
+                             question=msg)
         text = claude.generate(prompt, max_tokens=1000)
     else:
         text = "차트를 생성했습니다."
@@ -160,22 +159,25 @@ def _handle_data(msg: str, claude, domain_context: str) -> ChatResult:
                       datasets=list(set(datasets)))
 
 
+def _build_kg_context(msg: str, kg) -> tuple:
+    """KG에서 노드/엣지 컨텍스트를 추출합니다. Returns (kg_context_str, kg_nodes_count)."""
+    if not kg:
+        return "", 0
+    first_word = msg.split()[0] if msg.split() else ""
+    result = kg.query_by_id(first_word)
+    if not result["matched_nodes"]:
+        return "", 0
+    kg_nodes = len(result["matched_nodes"])
+    nodes_str = ", ".join(f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5])
+    edges_str = "; ".join(
+        f"{e['source']}→{e['relation']}→{e['target']}" for e in result["edges"][:5])
+    return f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n", kg_nodes
+
+
 def _handle_doc(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
     from modules.prompt_loader import load_prompt
 
-    kg_context = ""
-    kg_nodes   = 0
-    if kg:
-        first_word = msg.split()[0] if msg.split() else ""
-        result = kg.query_by_id(first_word)
-        if result["matched_nodes"]:
-            kg_nodes   = len(result["matched_nodes"])
-            nodes_str  = ", ".join(f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5])
-            edges_str  = "; ".join(
-                f"{e['source']}→{e['relation']}→{e['target']}"
-                for e in result["edges"][:5]
-            )
-            kg_context = f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n"
+    kg_context, kg_nodes = _build_kg_context(msg, kg)
 
     doc_files: List[str] = []
     rag_context = ""
@@ -197,38 +199,44 @@ def _handle_doc(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
 
 def _handle_combined(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
     from modules.data_analyst import season_top_products, inventory_risk_summary
-    from modules.prompt_loader import load_prompt
+    from concurrent.futures import ThreadPoolExecutor
 
     m             = msg.lower()
-    data_parts    : List[str] = []
-    all_datasets  : List[str] = []
     charts        : List[Any] = []
 
-    season = _detect_season(m)
-    if season or any(k in m for k in ["판매", "매출", "수요"]):
-        summary, ds = season_top_products(season, top_n=3)
-        data_parts.append(summary); all_datasets.extend(ds)
-    if any(k in m for k in ["재고", "품절"]):
-        summary, ds = inventory_risk_summary()
-        data_parts.append(summary); all_datasets.extend(ds)
+    # 병렬로 RAG/KG/CSV 데이터 수집
+    def _fetch_data():
+        data_parts, datasets = [], []
+        season = _detect_season(m)
+        if season or any(k in m for k in ["판매", "매출", "수요"]):
+            summary, ds = season_top_products(season, top_n=3)
+            data_parts.append(summary); datasets.extend(ds)
+        if any(k in m for k in ["재고", "품절"]):
+            summary, ds = inventory_risk_summary()
+            data_parts.append(summary); datasets.extend(ds)
+        return data_parts, datasets
 
-    doc_files: List[str] = []
-    rag_context = ""
-    if rag:
+    def _fetch_rag():
+        if not rag:
+            return [], ""
         hits = rag.query(msg, n_results=3)
         if hits:
-            doc_files   = list(dict.fromkeys(h["filename"] for h in hits))
-            rag_context = "\n\n".join(f"[{h['filename']}]\n{h['text']}" for h in hits)
+            doc_files = list(dict.fromkeys(h["filename"] for h in hits))
+            rag_ctx = "\n\n".join(f"[{h['filename']}]\n{h['text']}" for h in hits)
+            return doc_files, rag_ctx
+        return [], ""
 
-    kg_nodes   = 0
-    kg_prefix  = ""
-    if kg:
-        first_word = msg.split()[0] if msg.split() else ""
-        result = kg.query_by_id(first_word)
-        if result["matched_nodes"]:
-            kg_nodes  = len(result["matched_nodes"])
-            nodes_str = ", ".join(f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5])
-            kg_prefix = f"[지식그래프 노드: {nodes_str}]\n\n"
+    def _fetch_kg():
+        return _build_kg_context(msg, kg)
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_data = executor.submit(_fetch_data)
+        f_rag = executor.submit(_fetch_rag)
+        f_kg = executor.submit(_fetch_kg)
+
+    data_parts, all_datasets = f_data.result()
+    doc_files, rag_context = f_rag.result()
+    kg_prefix, kg_nodes = f_kg.result()
 
     data_section = "\n\n".join(data_parts)
     combined_ctx = "\n\n".join(filter(None, [data_section, kg_prefix + rag_context]))
@@ -273,4 +281,50 @@ def respond(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
         documents = answer.documents,
         kg_nodes  = answer.kg_nodes,
         metrics   = answer.metrics,
+    )
+
+
+def respond_stream(msg: str, claude, rag, kg, domain_context: str):
+    """스트리밍 응답 — 텍스트는 generator로, 나머지 메타는 ChatResult로 반환.
+    Returns (text_generator, partial_result_fn)
+    partial_result_fn()을 스트리밍 완료 후 호출하면 ChatResult(text='')를 반환합니다.
+    """
+    msg   = sanitize_input(msg)
+    route = detect_route(msg)
+
+    # doc 라우트는 RAG 컨텍스트 수집 후 스트리밍
+    if route == "doc":
+        from modules.prompt_loader import load_prompt
+        kg_context, kg_nodes = "", 0
+        if kg:
+            first_word = msg.split()[0] if msg.split() else ""
+            result = kg.query_by_id(first_word)
+            if result["matched_nodes"]:
+                kg_nodes = len(result["matched_nodes"])
+                nodes_str = ", ".join(f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5])
+                edges_str = "; ".join(
+                    f"{e['source']}→{e['relation']}→{e['target']}" for e in result["edges"][:5])
+                kg_context = f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n"
+        doc_files = []
+        rag_context = ""
+        if rag:
+            hits = rag.query(msg, n_results=4)
+            if hits:
+                doc_files = list(dict.fromkeys(h["filename"] for h in hits))
+                rag_context = "\n\n".join(f"[{h['filename']}]\n{h['text']}" for h in hits)
+        combined = (kg_context + rag_context) or "관련 문서를 찾지 못했습니다."
+        prompt = load_prompt("rag_query", question=msg, context=combined,
+                             domain_context=domain_context)
+        gen = claude.stream(prompt, max_tokens=1000)
+        meta = ChatResult(text="", route="doc", documents=doc_files, kg_nodes=kg_nodes)
+        return gen, meta
+
+    # data / combined → 동기 처리 (pandas 분석 필요) 후 결과 반환
+    result = respond(msg, claude, rag, kg, domain_context)
+    def _text_gen():
+        yield result.text
+    return _text_gen(), ChatResult(
+        text="", route=result.route, charts=result.charts,
+        datasets=result.datasets, documents=result.documents,
+        kg_nodes=result.kg_nodes, metrics=result.metrics,
     )

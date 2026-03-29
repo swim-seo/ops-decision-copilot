@@ -53,9 +53,8 @@ _SCHEMA_REGISTRY: Dict[str, Dict] = {
         "description": "상품 마스터 (SKU·카테고리·시즌·라이프사이클)",
         "csv_file":    "MST_PRODUCT.csv",
         "key_columns": ["PRODUCT_ID", "PRODUCT_NAME", "CATEGORY", "SEASONAL_PEAK", "STATUS"],
-        "keywords":    ["상품", "제품", "sku", "선크림", "립스틱", "스킨케어", "화장품",
-                        "카테고리", "시즌", "신제품", "단종", "성장기", "성숙기", "세럼",
-                        "에센스", "클렌징", "마스크"],
+        "keywords":    ["상품", "제품", "sku", "product",
+                        "카테고리", "시즌", "신제품", "단종", "성장기", "성숙기"],
         "domains":     ["product", "marketing", "commerce"],
         "related":     ["MST_SUPPLIER", "FACT_MONTHLY_SALES", "FACT_INVENTORY"],
         "reason_template": "상품 정보·SKU 매핑 필요",
@@ -158,9 +157,8 @@ _SCHEMA_REGISTRY: Dict[str, Dict] = {
 # ── 엔티티 패턴 (도메인 확장 가능) ───────────────────────────────────────────
 _ENTITY_PATTERNS: Dict[str, List[str]] = {
     "channel":   ["틱톡샵", "틱톡", "tiktok", "쿠팡", "coupang", "네이버", "naver",
-                  "오프라인", "온라인", "D2C", "로컬", "글로벌"],
-    "product":   ["선크림", "sun", "spf", "립스틱", "클렌징", "스킨케어", "에센스",
-                  "세럼", "마스크팩", "토너", "로션", "크림", "파운데이션"],
+                  "오프라인", "온라인", "D2C", "로컬", "글로벌", "아마존", "amazon"],
+    "product":   [],  # 도메인별 동적 설정 — _load_domain_products()로 확장 가능
     "geography": ["글로벌", "해외", "국내", "KR", "US", "SEA", "동남아", "미국", "유럽"],
     "time":      ["작년", "올해", "이번", "다음", "분기", "상반기", "하반기",
                   "동기", "전년", "YoY", "MoM", "전월", "전분기", "월별", "연간"],

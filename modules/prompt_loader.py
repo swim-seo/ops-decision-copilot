@@ -11,13 +11,26 @@ from typing import Dict
 PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "..", "prompts")
 
 
+def _load_system_base() -> str:
+    """system_base.txt의 공통 프롬프트를 로드합니다 (캐시)."""
+    if not hasattr(_load_system_base, "_cache"):
+        base_path = os.path.join(PROMPTS_DIR, "system_base.txt")
+        if os.path.exists(base_path):
+            with open(base_path, "r", encoding="utf-8") as f:
+                _load_system_base._cache = f.read()
+        else:
+            _load_system_base._cache = ""
+    return _load_system_base._cache
+
+
 def load_prompt(name: str, **kwargs) -> str:
     """
     prompts/{name}.txt 파일을 읽고 플레이스홀더를 치환합니다.
+    {system_base} 플레이스홀더가 있으면 system_base.txt 내용으로 치환합니다.
 
     사용 예:
-        load_prompt("summarize", document="...")
-        load_prompt("rag_query", question="...", context="...")
+        load_prompt("summarize", document="...", domain_context="...")
+        load_prompt("rag_query", question="...", context="...", domain_context="...")
     """
     path = os.path.join(PROMPTS_DIR, f"{name}.txt")
     if not os.path.exists(path):
@@ -25,6 +38,10 @@ def load_prompt(name: str, **kwargs) -> str:
 
     with open(path, "r", encoding="utf-8") as f:
         template = f.read()
+
+    # system_base 주입
+    if "{system_base}" in template:
+        template = template.replace("{system_base}", _load_system_base())
 
     for key, value in kwargs.items():
         template = template.replace("{" + key + "}", str(value))
