@@ -36,11 +36,33 @@ class KnowledgeGraph:
           "relationships": [{"from": "...", "to": "...", "join_key": "...", "relation": "JOIN"}]
         }
         """
-        tables = schema.get("tables", [])
+        raw_tables = schema.get("tables", [])
         relationships = schema.get("relationships", [])
 
-        if not tables and not relationships:
+        if not raw_tables and not relationships:
             return False
+
+        # tables가 dict({"MST_XX": {...}}) 또는 list([{"table_name": "..."}]) 둘 다 지원
+        if isinstance(raw_tables, dict):
+            tables = []
+            for tname, tdata in raw_tables.items():
+                entry = {"table_name": tname}
+                if isinstance(tdata, dict):
+                    entry["description"] = tdata.get("description", "")
+                    entry["table_type"] = "master_table" if tname.startswith("MST") else (
+                        "fact_table" if tname.startswith("FACT") else "default")
+                    # columns가 dict면 list로 변환
+                    raw_cols = tdata.get("columns", {})
+                    if isinstance(raw_cols, dict):
+                        entry["columns"] = [
+                            {"name": cname, "type": cdata.get("type", ""), "pk": cname == tdata.get("primary_key", "")}
+                            for cname, cdata in raw_cols.items()
+                        ]
+                    else:
+                        entry["columns"] = raw_cols
+                tables.append(entry)
+        else:
+            tables = raw_tables
 
         for table in tables:
             table_name = table.get("table_name", "")
