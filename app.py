@@ -1196,7 +1196,7 @@ padding:.8rem 1rem;margin-top:.8rem">
 왼쪽 사이드바 채팅창에 이런 질문을 해보세요</p>
 <p style="margin:0;font-size:.85rem;color:#64748b">
 <code style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-size:.85rem">
-FG-002 선크림 최근 수요 추이 그래프 그려줘</code>
+FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
 &nbsp;&larr; 복사해서 바로 입력해 보세요
 </p>
 </div>
