@@ -242,12 +242,33 @@ def _load_modules() -> bool:
 # ── 헬퍼: 파일 처리 ──────────────────────────────────────────────────────────
 def _schema_to_text(schema: dict) -> str:
     lines = []
-    for t in schema.get("tables", []):
-        lines.append(f"[테이블] {t['table_name']} — {t.get('description','')}")
-        for c in t.get("columns", []):
-            pk = " (PK)" if c.get("pk") else ""
-            lines.append(f"  컬럼: {c['name']} ({c.get('type','')}){pk}")
-    for r in schema.get("relationships", []):
+    tables = schema.get("tables", {})
+    # tables가 dict인 경우 (SCHEMA_DEFINITION.json 형식)
+    if isinstance(tables, dict):
+        for tname, tinfo in tables.items():
+            desc = tinfo.get("description", "") if isinstance(tinfo, dict) else ""
+            lines.append(f"[테이블] {tname} — {desc}")
+            cols = tinfo.get("columns", {}) if isinstance(tinfo, dict) else {}
+            if isinstance(cols, dict):
+                for cname, cinfo in cols.items():
+                    pk = " (PK)" if cname == tinfo.get("primary_key") else ""
+                    ctype = cinfo.get("type", "") if isinstance(cinfo, dict) else ""
+                    lines.append(f"  컬럼: {cname} ({ctype}){pk}")
+            else:
+                for c in cols:
+                    pk = " (PK)" if c.get("pk") else ""
+                    lines.append(f"  컬럼: {c['name']} ({c.get('type','')}){pk}")
+    # tables가 list인 경우 (기존 형식)
+    else:
+        for t in tables:
+            lines.append(f"[테이블] {t['table_name']} — {t.get('description','')}")
+            for c in t.get("columns", []):
+                pk = " (PK)" if c.get("pk") else ""
+                lines.append(f"  컬럼: {c['name']} ({c.get('type','')}){pk}")
+    rels = schema.get("relationships", [])
+    if isinstance(rels, dict):
+        rels = list(rels.values()) if rels else []
+    for r in rels:
         lines.append(f"[JOIN] {r['from']} → {r['to']}  키: {r.get('join_key','')}")
     return "\n".join(lines)
 
