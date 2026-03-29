@@ -747,6 +747,28 @@ if step == 1:
             st.session_state.step = 2; st.rerun()
 
     else:
+        # ── 안내 가이드 ──────────────────────────────────────────────────
+        st.markdown("""
+<div style="background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;
+border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1.5rem">
+<p style="font-size:1.05rem;font-weight:700;margin:0 0 .6rem 0">3단계만 따라오세요</p>
+<table style="width:100%;border:none;border-collapse:collapse;font-size:.92rem">
+<tr>
+<td style="padding:6px 10px;border:none;vertical-align:top;white-space:nowrap"><strong>Step 1</strong></td>
+<td style="padding:6px 10px;border:none">아래에서 <strong>도메인을 선택</strong>하세요. 잘 모르겠으면 "설정 없이 시작"을 눌러도 됩니다.</td>
+</tr>
+<tr>
+<td style="padding:6px 10px;border:none;vertical-align:top;white-space:nowrap"><strong>Step 2</strong></td>
+<td style="padding:6px 10px;border:none">파일을 업로드하거나 <strong>"샘플 데이터로 시작"</strong>을 누르면 바로 체험할 수 있습니다.</td>
+</tr>
+<tr>
+<td style="padding:6px 10px;border:none;vertical-align:top;white-space:nowrap"><strong>Step 3</strong></td>
+<td style="padding:6px 10px;border:none">지식그래프와 분석 결과가 자동 생성됩니다. <strong>왼쪽 사이드바 채팅</strong>으로 자유롭게 질문하세요.</td>
+</tr>
+</table>
+</div>
+""", unsafe_allow_html=True)
+
         # ── 일반 도메인 선택 화면 ──────────────────────────────────────────
         st.markdown("### 어떤 도메인의 문서를 분석하시나요?")
         st.caption("도메인을 선택하면 AI가 해당 분야 용어·관계를 파악해 더 정확하게 분석합니다.")
@@ -1165,6 +1187,20 @@ elif step == 3:
                             st.rerun()
                 if row == 0 and len(cards) > 2:
                     st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
+
+        # ── 브리핑 아래 채팅 예시 안내 ────────────────────────────
+        st.markdown("""
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
+padding:.8rem 1rem;margin-top:.8rem">
+<p style="margin:0 0 .4rem 0;font-size:.88rem;font-weight:600;color:#475569">
+왼쪽 사이드바 채팅창에 이런 질문을 해보세요</p>
+<p style="margin:0;font-size:.85rem;color:#64748b">
+<code style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-size:.85rem">
+FG-002 선크림 최근 수요 추이 그래프 그려줘</code>
+&nbsp;&larr; 복사해서 바로 입력해 보세요
+</p>
+</div>
+""", unsafe_allow_html=True)
 
     st.divider()
 
