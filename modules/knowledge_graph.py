@@ -242,7 +242,8 @@ class KnowledgeGraph:
         except OSError:
             return
 
-        node_meta_json = json.dumps(node_meta, ensure_ascii=False)
+        # ensure_ascii=True: 한글을 \uXXXX 이스케이프로 변환 → JS 임베딩 안전
+        node_meta_json = json.dumps(node_meta, ensure_ascii=True)
 
         CSS_HTML = """<style>
 /* 네트워크 캔버스를 툴바 높이만큼 아래로 밀기 */
@@ -576,7 +577,7 @@ function showD(id){
         else:
             html += inject
 
-        with open(html_path, "w", encoding="utf-8") as f:
+        with open(html_path, "w", encoding="utf-8", errors="replace") as f:
             f.write(html)
 
     def get_stats(self) -> Dict[str, Any]:

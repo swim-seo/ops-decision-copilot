@@ -18,7 +18,7 @@ st.set_page_config(
     page_title="AI 운영 코파일럿",
     page_icon="⬡",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -61,7 +61,8 @@ div[data-testid="metric-container"] {{
 .badge {{ display:inline-block; padding:2px 8px; border-radius:4px;
           font-size:.75em; font-weight:600; margin:2px; }}
 section[data-testid="stSidebar"] {{ background:#f8fafc !important;
-  border-right:1px solid #e2e8f0 !important; }}
+  border-right:1px solid #e2e8f0 !important;
+  width:380px !important; min-width:380px !important; }}
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] span,
 section[data-testid="stSidebar"] label,
@@ -526,48 +527,41 @@ def _generate_briefing_cards():
 _apply_css(_get_theme_color())
 
 
-# ── 사이드바 (최소화) ─────────────────────────────────────────────────────────
-with st.sidebar:
-    dc = st.session_state.domain_config
-    dname = dc["name"] if dc else "AI 운영 코파일럿"
-    st.markdown(f"### {dname}")
-    st.divider()
-
-    if st.session_state.documents:
-        st.markdown(f"**로드된 문서 {len(st.session_state.documents)}개**")
-        for fname in list(st.session_state.documents.keys())[:8]:
-            st.caption(f"• {fname}")
-        if len(st.session_state.documents) > 8:
-            st.caption(f"  ... 외 {len(st.session_state.documents)-8}개")
+# ── 사이드바: Step 1/2는 최소 정보, Step 3는 채팅 (아래에서 추가) ───────────
+if st.session_state.step != 3:
+    with st.sidebar:
+        dc = st.session_state.domain_config
+        dname = dc["name"] if dc else "AI 운영 코파일럿"
+        st.markdown(f"### {dname}")
         st.divider()
-        if st.button("초기화", use_container_width=True):
-            st.session_state.documents = {}
-            if st.session_state.rag:
-                try: st.session_state.rag.delete_collection()
-                except Exception: pass
-            if st.session_state.kg:
-                st.session_state.kg.clear()
-            st.session_state.update({
-                "step": 1, "domain_config": None,
-                "domain_suggestion": None, "suggest_countdown": None,
-            })
-            st.rerun()
-    else:
-        st.info("아직 문서 없음")
 
-    st.divider()
-    if st.session_state.kg:
-        s = st.session_state.kg.get_stats()
-        st.caption(f"노드 {s['nodes']} / 엣지 {s['edges']}")
-    if st.session_state.rag:
-        try: st.caption(f"RAG 청크 {st.session_state.rag.document_count()}개")
-        except Exception: pass
+        if st.session_state.documents:
+            st.markdown(f"**로드된 문서 {len(st.session_state.documents)}개**")
+            for fname in list(st.session_state.documents.keys())[:6]:
+                st.caption(f"• {fname}")
+            if len(st.session_state.documents) > 6:
+                st.caption(f"  ... 외 {len(st.session_state.documents)-6}개")
+            st.divider()
+            if st.button("초기화", use_container_width=True):
+                st.session_state.documents = {}
+                if st.session_state.rag:
+                    try: st.session_state.rag.delete_collection()
+                    except Exception: pass
+                if st.session_state.kg:
+                    st.session_state.kg.clear()
+                st.session_state.update({
+                    "step": 1, "domain_config": None,
+                    "domain_suggestion": None, "suggest_countdown": None,
+                })
+                st.rerun()
+        else:
+            st.info("아직 문서 없음")
 
-    st.divider()
-    st.markdown("**단계 이동**")
-    for lbl, n in [("도메인 설정", 1), ("파일 업로드", 2), ("결과 보기", 3)]:
-        if st.button(lbl, use_container_width=True, key=f"nav_{n}"):
-            st.session_state.step = n; st.rerun()
+        st.divider()
+        st.markdown("**단계 이동**")
+        for lbl, n in [("도메인 설정", 1), ("파일 업로드", 2), ("결과 보기", 3)]:
+            if st.button(lbl, use_container_width=True, key=f"nav_{n}"):
+                st.session_state.step = n; st.rerun()
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -1070,249 +1064,15 @@ elif step == 3:
 
     st.divider()
 
-    # ── 2컬럼 레이아웃: 왼쪽(KG+분석탭) / 오른쪽(채팅) ─────────────────────
-    col_main, col_chat = st.columns([3, 2], gap="medium")
-
-    # ════════════════════════════════════════════════════════
-    # 왼쪽: 지식그래프 + AI 분석 탭
-    # ════════════════════════════════════════════════════════
-    with col_main:
-        # ── 지식그래프 ───────────────────────────────────────
-        st.markdown("#### 🕸️ 지식 그래프")
-
-        if stats["nodes"] == 0:
-            st.info("📂 CSV·JSON·TXT·PDF 문서를 업로드하면 엔티티 관계 그래프가 나타납니다.")
-        else:
-            if stats["entity_types"]:
-                legend_html = "".join(
-                    f'<span class="badge" style="background:{entity_colors.get(t,"#9E9E9E")};color:white">'
-                    f'{t} ({cnt})</span>'
-                    for t, cnt in stats["entity_types"].items()
-                )
-                st.markdown(legend_html, unsafe_allow_html=True)
-
-            html_path = kg.render_html(entity_colors=entity_colors)
-            if html_path and os.path.exists(html_path):
-                with open(html_path, "r", encoding="utf-8") as f:
-                    html_content = f.read()
-                components.html(html_content, height=620, scrolling=False)
-            else:
-                st.error("그래프 렌더링 실패")
-
-            with st.expander("특정 문서 그래프 재추출"):
-                sel_doc = st.selectbox("문서 선택", list(st.session_state.documents.keys()),
-                                        key="kg_re_sel")
-                if st.button("재추출", key="btn_reextract"):
-                    with st.spinner("재추출 중..."):
-                        _extract_kg_with_domain(st.session_state.documents[sel_doc])
-                    st.success(f"✅ 완료! 노드 {kg.get_stats()['nodes']}개")
-                    st.rerun()
-
-        st.divider()
-
-        # ── 하단 탭 ──────────────────────────────────────────
-        tab_ai, tab_rag, tab_num = st.tabs(["AI 분석", "문서 검색 (RAG)", "번호 조회"])
-
-        with tab_ai:
-            from modules.prompt_loader import load_prompt
-
-            doc_names = list(st.session_state.documents.keys())
-            sel = st.selectbox("분석 문서", ["📚 전체 합치기"] + doc_names, key="ai_sel")
-            if sel == "📚 전체 합치기":
-                atxt = "\n\n---\n\n".join(f"[{k}]\n{v}" for k, v in st.session_state.documents.items())
-            else:
-                atxt = st.session_state.documents[sel]
-            MAX_C = 8000
-            if len(atxt) > MAX_C:
-                st.caption(f"ℹ️ 처음 {MAX_C:,}자만 분석합니다.")
-                atxt = atxt[:MAX_C]
-
-            s1, s2, s3, s4 = st.tabs(["요약", "액션 아이템", "원인 분석", "보고서"])
-
-            with s1:
-                if st.button("요약 생성", key="btn_sum"):
-                    with st.spinner("요약 중..."):
-                        r = st.session_state.claude.generate(
-                            load_prompt("summarize", document=atxt, domain_context=domain_context))
-                    st.markdown(r)
-                    st.download_button("💾 다운로드", r,
-                        f"summary_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
-
-            with s2:
-                if st.button("액션 아이템 추출", key="btn_act"):
-                    with st.spinner("추출 중..."):
-                        r = st.session_state.claude.generate(
-                            load_prompt("action_items", document=atxt, domain_context=domain_context))
-                    st.markdown(r)
-                    st.download_button("💾 다운로드", r,
-                        f"actions_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
-
-                    # ── 연관 데이터셋 badge 표시 ─────────────────────────
-                    with st.spinner("연관 데이터셋 분석 중..."):
-                        try:
-                            from modules.query_planner import plan as _qp_plan, _SCHEMA_REGISTRY
-                            _act_plan = _qp_plan(
-                                r[:500],  # 액션 아이템 텍스트 첫 500자 기준
-                                rag=None, kg=None, claude=None,  # rule-only (빠르게)
-                                domain_context=domain_context,
-                            )
-                            if _act_plan.datasets:
-                                st.markdown("---\n**📊 이 액션과 관련된 데이터셋**")
-                                _ds_badges = []
-                                for _ds in _act_plan.datasets[:6]:
-                                    _c = "#10b981" if _ds.confidence >= 0.5 else "#f59e0b"
-                                    _ds_badges.append(
-                                        f'<span style="background:{_c}1a;color:{_c};'
-                                        f'border:1px solid {_c}55;border-radius:12px;'
-                                        f'padding:2px 10px;font-size:.78rem;margin:2px;'
-                                        f'display:inline-block">'
-                                        f'📊 {_ds.table_name} '
-                                        f'<span style="opacity:.7">{int(_ds.confidence*100)}%</span></span>'
-                                    )
-                                    if _ds.next_action:
-                                        _ds_badges.append(
-                                            f'<div style="font-size:.73rem;color:#475569;'
-                                            f'margin:1px 0 4px 8px">⚡ {_ds.next_action}</div>'
-                                        )
-                                st.markdown("".join(_ds_badges), unsafe_allow_html=True)
-                                # 쿼리 플래너로 보내기
-                                if st.button("데이터 추천 자세히 보기",
-                                             key="act_to_qp", use_container_width=False):
-                                    st.session_state.qp_input  = r[:200]
-                                    st.session_state.qp_result = _act_plan
-                                    st.rerun()
-                        except Exception:
-                            pass
-
-            with s3:
-                issue = st.text_input("특정 문제 (선택)", placeholder="예: 납기 지연 원인", key="issue_h")
-                if st.button("원인 분석", key="btn_root"):
-                    doc = f"[분석초점: {issue}]\n\n{atxt}" if issue else atxt
-                    with st.spinner("분석 중..."):
-                        r = st.session_state.claude.generate(
-                            load_prompt("root_cause", document=doc, domain_context=domain_context))
-                    st.markdown(r)
-                    st.download_button("💾 다운로드", r,
-                        f"rootcause_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
-
-            with s4:
-                rdate = st.date_input("날짜", value=datetime.today(), key="rpt_dt")
-                if st.button("보고서 초안", key="btn_rpt"):
-                    with st.spinner("작성 중..."):
-                        r = st.session_state.claude.generate(
-                            load_prompt("report_draft", document=atxt,
-                                date=rdate.strftime("%Y년 %m월 %d일"), domain_context=domain_context))
-                    st.markdown(r, unsafe_allow_html=True)
-                    st.download_button("💾 다운로드", r,
-                        f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
-
-        with tab_rag:
-            from modules.prompt_loader import load_prompt
-            q = st.text_area("질문 입력", placeholder="업로드한 문서에 대해 질문하세요.",
-                              height=80, key="rag_q")
-            rc1, rc2 = st.columns([1, 3])
-            with rc1: top_k = st.slider("검색 수", 1, 10, 5, key="rag_k")
-            with rc2: show_src = st.checkbox("출처 청크 보기", value=True, key="rag_src")
-
-            if st.button("검색 및 답변", type="primary", key="btn_rag") and q.strip():
-                with st.spinner("검색 중..."):
-                    hits = st.session_state.rag.query(q, n_results=top_k)
-                if not hits:
-                    st.warning("검색 결과 없음")
-                else:
-                    context = "\n\n---\n\n".join(f"[출처 {i+1}: {h['filename']}]\n{h['text']}"
-                                                  for i, h in enumerate(hits))
-                    with st.spinner("답변 생성 중..."):
-                        ans = st.session_state.claude.generate(
-                            load_prompt("rag_query", question=q, context=context,
-                                        domain_context=domain_context))
-                    st.markdown("#### 💬 답변")
-                    st.markdown(ans)
-                    if show_src:
-                        st.markdown("#### 📎 출처")
-                        for i, h in enumerate(hits, 1):
-                            with st.expander(f"출처 {i}: `{h['filename']}` (유사도: {h['score']:.3f})"):
-                                st.write(h["text"])
-
-        with tab_num:
-            if stats["nodes"] == 0:
-                st.info("지식그래프가 필요합니다. CSV·JSON·문서를 업로드하세요.")
-            else:
-                qi = st.text_input("번호 또는 이름 입력",
-                    placeholder="예: PRD001, FG-002, order_id, 주문테이블...", key="num_q")
-                nc1, nc2 = st.columns([1, 3])
-                with nc1: depth = st.selectbox("탐색 깊이", [1, 2, 3], key="num_d")
-                with nc2: use_rag = st.checkbox("문서에서도 검색 (RAG)", value=True, key="num_r")
-
-                if st.button("조회", type="primary", key="btn_num") and qi.strip():
-                    query = qi.strip()
-                    visited, frontier = set(), set()
-                    init_r = kg.query_by_id(query)
-
-                    if not init_r["matched_nodes"]:
-                        st.warning(f"'{query}' 와 일치하는 노드가 없습니다.")
-                        st.caption(f"현재 노드: {', '.join(list(kg.graph.nodes)[:20])}")
-                    else:
-                        for n in init_r["matched_nodes"]: frontier.add(n["id"])
-                        visited.update(frontier)
-                        all_nodes = list(init_r["matched_nodes"])
-                        all_edges = list(init_r["edges"])
-
-                        for _ in range(depth - 1):
-                            nxt = set()
-                            for nid in frontier:
-                                sub = kg.query_by_id(nid)
-                                for n in sub["connected_nodes"] + sub["matched_nodes"]:
-                                    if n["id"] not in visited:
-                                        visited.add(n["id"]); nxt.add(n["id"]); all_nodes.append(n)
-                                for e in sub["edges"]:
-                                    if e not in all_edges: all_edges.append(e)
-                            frontier = nxt
-
-                        st.markdown(f"##### 🔵 연결 노드 {len(all_nodes)}개")
-                        ncols = st.columns(min(len(all_nodes), 3))
-                        for i, node in enumerate(all_nodes):
-                            color = entity_colors.get(node.get("type", "default"), "#9E9E9E")
-                            with ncols[i % 3]:
-                                st.markdown(
-                                    f'<div class="card">'
-                                    f'<span class="badge" style="background:{color};color:white">'
-                                    f'{node.get("type","?")}</span><br>'
-                                    f'<b>{node["label"]}</b><br><code>{node["id"]}</code></div>',
-                                    unsafe_allow_html=True
-                                )
-                        if all_edges:
-                            st.markdown("##### ↔️ 관계")
-                            for e in all_edges[:20]:
-                                st.caption(f"  {e['source']} → **{e['relation']}** → {e['target']}")
-
-                        if use_rag and st.session_state.rag:
-                            from modules.prompt_loader import load_prompt
-                            hits = st.session_state.rag.query(query, n_results=3)
-                            if hits:
-                                ctx = "\n\n".join(f"[{h['filename']}]\n{h['text']}" for h in hits)
-                                with st.spinner("문서 검색 중..."):
-                                    ans = st.session_state.claude.generate(
-                                        load_prompt("rag_query",
-                                            question=f"{query}에 대한 정보를 알려주세요",
-                                            context=ctx, domain_context=domain_context))
-                                st.markdown("##### 📄 관련 문서 내용")
-                                st.markdown(ans)
-
-    # ════════════════════════════════════════════════════════
-    # 오른쪽: 데이터 채팅
-    # ════════════════════════════════════════════════════════
-    _DEMO_LIMIT = _DEMO_LIMIT_BRIEF  # 위에서 정의
-
-    # 라우트 배지 설정
+    # ── Step 3 사이드바: 채팅 패널 ─────────────────────────────────────────────
+    _DEMO_LIMIT = 20
     _ROUTE_BADGE = {
         "data":     ("📊", "#0284c7", "데이터 기반"),
         "doc":      ("📄", "#7c3aed", "문서 기반"),
         "combined": ("🔗", "#059669", "결합 분석"),
         "briefing": ("📋", "#d97706", "일일 브리핑"),
     }
-
-    with col_chat:
+    with st.sidebar:
         used      = st.session_state.chat_api_calls
         left      = _DEMO_LIMIT - used
         exhausted = used >= _DEMO_LIMIT
@@ -1462,3 +1222,229 @@ elif step == 3:
                 "metrics":   getattr(result, "metrics", []),
             })
             st.rerun()
+
+    # ════════════════════════════════════════════════════════
+    # 메인: 지식그래프 + AI 분석 탭 (full width)
+    # ════════════════════════════════════════════════════════
+    # ── 지식그래프 ───────────────────────────────────────
+    st.markdown("#### 🕸️ 지식 그래프")
+
+    if stats["nodes"] == 0:
+        st.info("📂 CSV·JSON·TXT·PDF 문서를 업로드하면 엔티티 관계 그래프가 나타납니다.")
+    else:
+        if stats["entity_types"]:
+            legend_html = "".join(
+                f'<span class="badge" style="background:{entity_colors.get(t,"#9E9E9E")};color:white">'
+                f'{t} ({cnt})</span>'
+                for t, cnt in stats["entity_types"].items()
+            )
+            st.markdown(legend_html, unsafe_allow_html=True)
+
+        html_path = kg.render_html(entity_colors=entity_colors)
+        if html_path and os.path.exists(html_path):
+            with open(html_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+            components.html(html_content, height=620, scrolling=False)
+        else:
+            st.error("그래프 렌더링 실패")
+
+        with st.expander("특정 문서 그래프 재추출"):
+            sel_doc = st.selectbox("문서 선택", list(st.session_state.documents.keys()),
+                                    key="kg_re_sel")
+            if st.button("재추출", key="btn_reextract"):
+                with st.spinner("재추출 중..."):
+                    _extract_kg_with_domain(st.session_state.documents[sel_doc])
+                st.success(f"✅ 완료! 노드 {kg.get_stats()['nodes']}개")
+                st.rerun()
+
+    st.divider()
+
+    # ── 하단 탭 ──────────────────────────────────────────
+    tab_ai, tab_rag, tab_num = st.tabs(["AI 분석", "문서 검색 (RAG)", "번호 조회"])
+
+    with tab_ai:
+        from modules.prompt_loader import load_prompt
+
+        doc_names = list(st.session_state.documents.keys())
+        sel = st.selectbox("분석 문서", ["📚 전체 합치기"] + doc_names, key="ai_sel")
+        if sel == "📚 전체 합치기":
+            atxt = "\n\n---\n\n".join(f"[{k}]\n{v}" for k, v in st.session_state.documents.items())
+        else:
+            atxt = st.session_state.documents[sel]
+        MAX_C = 8000
+        if len(atxt) > MAX_C:
+            st.caption(f"ℹ️ 처음 {MAX_C:,}자만 분석합니다.")
+            atxt = atxt[:MAX_C]
+
+        s1, s2, s3, s4 = st.tabs(["요약", "액션 아이템", "원인 분석", "보고서"])
+
+        with s1:
+            if st.button("요약 생성", key="btn_sum"):
+                with st.spinner("요약 중..."):
+                    r = st.session_state.claude.generate(
+                        load_prompt("summarize", document=atxt, domain_context=domain_context))
+                st.markdown(r)
+                st.download_button("💾 다운로드", r,
+                    f"summary_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+
+        with s2:
+            if st.button("액션 아이템 추출", key="btn_act"):
+                with st.spinner("추출 중..."):
+                    r = st.session_state.claude.generate(
+                        load_prompt("action_items", document=atxt, domain_context=domain_context))
+                st.markdown(r)
+                st.download_button("💾 다운로드", r,
+                    f"actions_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+
+                # ── 연관 데이터셋 badge 표시 ─────────────────────────
+                with st.spinner("연관 데이터셋 분석 중..."):
+                    try:
+                        from modules.query_planner import plan as _qp_plan, _SCHEMA_REGISTRY
+                        _act_plan = _qp_plan(
+                            r[:500],  # 액션 아이템 텍스트 첫 500자 기준
+                            rag=None, kg=None, claude=None,  # rule-only (빠르게)
+                            domain_context=domain_context,
+                        )
+                        if _act_plan.datasets:
+                            st.markdown("---\n**📊 이 액션과 관련된 데이터셋**")
+                            _ds_badges = []
+                            for _ds in _act_plan.datasets[:6]:
+                                _c = "#10b981" if _ds.confidence >= 0.5 else "#f59e0b"
+                                _ds_badges.append(
+                                    f'<span style="background:{_c}1a;color:{_c};'
+                                    f'border:1px solid {_c}55;border-radius:12px;'
+                                    f'padding:2px 10px;font-size:.78rem;margin:2px;'
+                                    f'display:inline-block">'
+                                    f'📊 {_ds.table_name} '
+                                    f'<span style="opacity:.7">{int(_ds.confidence*100)}%</span></span>'
+                                )
+                                if _ds.next_action:
+                                    _ds_badges.append(
+                                        f'<div style="font-size:.73rem;color:#475569;'
+                                        f'margin:1px 0 4px 8px">⚡ {_ds.next_action}</div>'
+                                    )
+                            st.markdown("".join(_ds_badges), unsafe_allow_html=True)
+                            # 쿼리 플래너로 보내기
+                            if st.button("데이터 추천 자세히 보기",
+                                         key="act_to_qp", use_container_width=False):
+                                st.session_state.qp_input  = r[:200]
+                                st.session_state.qp_result = _act_plan
+                                st.rerun()
+                    except Exception:
+                        pass
+
+        with s3:
+            issue = st.text_input("특정 문제 (선택)", placeholder="예: 납기 지연 원인", key="issue_h")
+            if st.button("원인 분석", key="btn_root"):
+                doc = f"[분석초점: {issue}]\n\n{atxt}" if issue else atxt
+                with st.spinner("분석 중..."):
+                    r = st.session_state.claude.generate(
+                        load_prompt("root_cause", document=doc, domain_context=domain_context))
+                st.markdown(r)
+                st.download_button("💾 다운로드", r,
+                    f"rootcause_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+
+        with s4:
+            rdate = st.date_input("날짜", value=datetime.today(), key="rpt_dt")
+            if st.button("보고서 초안", key="btn_rpt"):
+                with st.spinner("작성 중..."):
+                    r = st.session_state.claude.generate(
+                        load_prompt("report_draft", document=atxt,
+                            date=rdate.strftime("%Y년 %m월 %d일"), domain_context=domain_context))
+                st.markdown(r, unsafe_allow_html=True)
+                st.download_button("💾 다운로드", r,
+                    f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+
+    with tab_rag:
+        from modules.prompt_loader import load_prompt
+        q = st.text_area("질문 입력", placeholder="업로드한 문서에 대해 질문하세요.",
+                          height=80, key="rag_q")
+        rc1, rc2 = st.columns([1, 3])
+        with rc1: top_k = st.slider("검색 수", 1, 10, 5, key="rag_k")
+        with rc2: show_src = st.checkbox("출처 청크 보기", value=True, key="rag_src")
+
+        if st.button("검색 및 답변", type="primary", key="btn_rag") and q.strip():
+            with st.spinner("검색 중..."):
+                hits = st.session_state.rag.query(q, n_results=top_k)
+            if not hits:
+                st.warning("검색 결과 없음")
+            else:
+                context = "\n\n---\n\n".join(f"[출처 {i+1}: {h['filename']}]\n{h['text']}"
+                                              for i, h in enumerate(hits))
+                with st.spinner("답변 생성 중..."):
+                    ans = st.session_state.claude.generate(
+                        load_prompt("rag_query", question=q, context=context,
+                                    domain_context=domain_context))
+                st.markdown("#### 💬 답변")
+                st.markdown(ans)
+                if show_src:
+                    st.markdown("#### 📎 출처")
+                    for i, h in enumerate(hits, 1):
+                        with st.expander(f"출처 {i}: `{h['filename']}` (유사도: {h['score']:.3f})"):
+                            st.write(h["text"])
+
+    with tab_num:
+        if stats["nodes"] == 0:
+            st.info("지식그래프가 필요합니다. CSV·JSON·문서를 업로드하세요.")
+        else:
+            qi = st.text_input("번호 또는 이름 입력",
+                placeholder="예: PRD001, FG-002, order_id, 주문테이블...", key="num_q")
+            nc1, nc2 = st.columns([1, 3])
+            with nc1: depth = st.selectbox("탐색 깊이", [1, 2, 3], key="num_d")
+            with nc2: use_rag = st.checkbox("문서에서도 검색 (RAG)", value=True, key="num_r")
+
+            if st.button("조회", type="primary", key="btn_num") and qi.strip():
+                query = qi.strip()
+                visited, frontier = set(), set()
+                init_r = kg.query_by_id(query)
+
+                if not init_r["matched_nodes"]:
+                    st.warning(f"'{query}' 와 일치하는 노드가 없습니다.")
+                    st.caption(f"현재 노드: {', '.join(list(kg.graph.nodes)[:20])}")
+                else:
+                    for n in init_r["matched_nodes"]: frontier.add(n["id"])
+                    visited.update(frontier)
+                    all_nodes = list(init_r["matched_nodes"])
+                    all_edges = list(init_r["edges"])
+
+                    for _ in range(depth - 1):
+                        nxt = set()
+                        for nid in frontier:
+                            sub = kg.query_by_id(nid)
+                            for n in sub["connected_nodes"] + sub["matched_nodes"]:
+                                if n["id"] not in visited:
+                                    visited.add(n["id"]); nxt.add(n["id"]); all_nodes.append(n)
+                            for e in sub["edges"]:
+                                if e not in all_edges: all_edges.append(e)
+                        frontier = nxt
+
+                    st.markdown(f"##### 🔵 연결 노드 {len(all_nodes)}개")
+                    ncols = st.columns(min(len(all_nodes), 3))
+                    for i, node in enumerate(all_nodes):
+                        color = entity_colors.get(node.get("type", "default"), "#9E9E9E")
+                        with ncols[i % 3]:
+                            st.markdown(
+                                f'<div class="card">'
+                                f'<span class="badge" style="background:{color};color:white">'
+                                f'{node.get("type","?")}</span><br>'
+                                f'<b>{node["label"]}</b><br><code>{node["id"]}</code></div>',
+                                unsafe_allow_html=True
+                            )
+                    if all_edges:
+                        st.markdown("##### ↔️ 관계")
+                        for e in all_edges[:20]:
+                            st.caption(f"  {e['source']} → **{e['relation']}** → {e['target']}")
+
+                    if use_rag and st.session_state.rag:
+                        from modules.prompt_loader import load_prompt
+                        hits = st.session_state.rag.query(query, n_results=3)
+                        if hits:
+                            ctx = "\n\n".join(f"[{h['filename']}]\n{h['text']}" for h in hits)
+                            with st.spinner("문서 검색 중..."):
+                                ans = st.session_state.claude.generate(
+                                    load_prompt("rag_query",
+                                        question=f"{query}에 대한 정보를 알려주세요",
+                                        context=ctx, domain_context=domain_context))
+                            st.markdown("##### 📄 관련 문서 내용")
+                            st.markdown(ans)
+
