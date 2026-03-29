@@ -431,7 +431,7 @@ def _build_description(
             if result["matched_nodes"]:
                 kg_nodes += len(result["matched_nodes"])
                 nodes_str = ", ".join(
-                    f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5]
+                    f"{n.get('label', n.get('id',''))}({n.get('type','')})" for n in result["matched_nodes"][:5]
                 )
                 kg_ctx = f"[지식그래프]\n{nodes_str}\n\n"
                 break

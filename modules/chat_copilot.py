@@ -168,7 +168,7 @@ def _build_kg_context(msg: str, kg) -> tuple:
     if not result["matched_nodes"]:
         return "", 0
     kg_nodes = len(result["matched_nodes"])
-    nodes_str = ", ".join(f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5])
+    nodes_str = ", ".join(f"{n.get('label', n.get('id',''))}({n.get('type','')})" for n in result["matched_nodes"][:5])
     edges_str = "; ".join(
         f"{e['source']}→{e['relation']}→{e['target']}" for e in result["edges"][:5])
     return f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n", kg_nodes
@@ -301,7 +301,7 @@ def respond_stream(msg: str, claude, rag, kg, domain_context: str):
             result = kg.query_by_id(first_word)
             if result["matched_nodes"]:
                 kg_nodes = len(result["matched_nodes"])
-                nodes_str = ", ".join(f"{n['label']}({n['type']})" for n in result["matched_nodes"][:5])
+                nodes_str = ", ".join(f"{n.get('label', n.get('id',''))}({n.get('type','')})" for n in result["matched_nodes"][:5])
                 edges_str = "; ".join(
                     f"{e['source']}→{e['relation']}→{e['target']}" for e in result["edges"][:5])
                 kg_context = f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n"
