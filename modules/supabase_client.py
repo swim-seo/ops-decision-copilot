@@ -45,7 +45,8 @@ def get_client():
     try:
         from supabase import create_client
         _client = create_client(url, key)
-        # 연결 확인: 간단한 쿼리
+        # 연결 확인: 실제 존재하는 테이블로 테스트하거나, 없는 테이블이라도
+        # 인증이 통과하면 PGRST205(테이블 없음) 에러가 오고, 인증 실패면 401/403
         _client.table("_health_check_dummy").select("*").limit(0).execute()
         _connected = True
         _error_msg = ""
@@ -56,13 +57,13 @@ def get_client():
         logger.warning(_error_msg)
         _client = None
     except Exception as e:
-        # 테이블이 없어도 연결 자체는 성공 (404는 OK, 401/network error는 실패)
         err_str = str(e)
-        if "404" in err_str or "relation" in err_str.lower():
+        # 테이블 없음 = 연결 자체는 성공 (인증 통과)
+        if any(k in err_str for k in ["PGRST205", "404", "relation", "could not find"]):
             _connected = True
             _error_msg = ""
-            logger.info("Supabase connected (health check table not found, but connection OK)")
-        elif "401" in err_str or "403" in err_str:
+            logger.info("Supabase connected (health check table not found, but auth OK)")
+        elif "401" in err_str or "403" in err_str or "Invalid API key" in err_str:
             _connected = False
             _error_msg = f"Supabase 인증 실패: {e}"
             logger.warning(_error_msg)
@@ -150,8 +151,17 @@ def upsert_dataframe(table_name: str, df: pd.DataFrame, chunk_size: int = 500) -
     if client is None:
         raise ConnectionError("Supabase에 연결되지 않았습니다.")
 
-    # NaN → None 변환 (JSON 직렬화 호환)
-    records = df.where(df.notna(), None).to_dict(orient="records")
+    # NaN/NaT → None 변환 (JSON 직렬화 호환)
+    import math
+    records = df.to_dict(orient="records")
+    for rec in records:
+        for k, v in rec.items():
+            if v is None:
+                continue
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                rec[k] = None
+            elif pd.isna(v):
+                rec[k] = None
     total = 0
 
     for i in range(0, len(records), chunk_size):

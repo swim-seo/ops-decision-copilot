@@ -581,7 +581,7 @@ def _render_db_status():
     try:
         from modules.supabase_client import get_status
         status = get_status()
-    except ImportError:
+    except Exception:
         status = {"connected": False, "mode": "CSV (로컬)", "error": ""}
 
     if status["connected"]:

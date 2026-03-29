@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 [역할] data/ 폴더의 CSV 파일을 Supabase PostgreSQL 테이블로 업로드
 
@@ -83,23 +84,24 @@ def generate_create_sql(csv_path: Path) -> str:
     table_name = csv_to_table(csv_path.name)
     pk_cols = _detect_pk(df, table_name)
 
-    lines = [f"CREATE TABLE IF NOT EXISTS {table_name} ("]
+    lines = [f"DROP TABLE IF EXISTS {table_name} CASCADE;"]
+    lines.append(f"CREATE TABLE {table_name} (")
     col_defs = []
     for col in df.columns:
         pg_type = _pg_type(df[col].dtype, col)
-        col_defs.append(f"  {col.lower()} {pg_type}")
+        # 대문자 컬럼명은 따옴표로 감싸서 PostgreSQL이 대소문자 유지
+        col_defs.append(f'  "{col}" {pg_type}')
 
     lines.append(",\n".join(col_defs))
 
     if pk_cols:
-        pk_str = ", ".join(c.lower() for c in pk_cols)
+        pk_str = ", ".join(f'"{c}"' for c in pk_cols)
         lines.append(f"  , PRIMARY KEY ({pk_str})")
 
     lines.append(");")
     lines.append("")
-    lines.append(f"-- RLS 비활성화 (서비스 키 사용 시 필요)")
     lines.append(f"ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;")
-    lines.append(f"CREATE POLICY \"Allow service access\" ON {table_name}")
+    lines.append(f'CREATE POLICY "Allow all" ON {table_name}')
     lines.append(f"  FOR ALL USING (true) WITH CHECK (true);")
     lines.append("")
 
@@ -165,9 +167,9 @@ def main():
 
     # CREATE TABLE SQL 출력 모드
     if args.create_sql:
-        print("-- ═══════════════════════════════════════════════════════")
+        print("-- " + "=" * 57)
         print("-- Supabase SQL Editor에서 실행하세요")
-        print("-- ═══════════════════════════════════════════════════════")
+        print("-- " + "=" * 57)
         print()
         for csv_path in csv_files:
             print(f"-- {csv_path.name}")
@@ -188,17 +190,17 @@ def main():
         results.append(result)
 
         if result["status"] == "success":
-            print(f"✓ {result['rows']}행 업로드 완료")
+            print(f"OK {result['rows']} rows uploaded")
         elif result["status"] == "dry_run":
-            print(f"  {result['rows']}행, {len(result['columns'])}컬럼")
+            print(f"   {result['rows']} rows, {len(result['columns'])} cols")
         else:
-            print(f"✗ {result.get('message', '알 수 없는 오류')}")
+            print(f"FAIL {result.get('message', 'unknown error')}")
 
     # 결과 요약
     success = sum(1 for r in results if r["status"] == "success")
     errors = sum(1 for r in results if r["status"] == "error")
     print(f"\n{'=' * 60}")
-    print(f"  완료: 성공 {success}개 / 실패 {errors}개 / 전체 {len(results)}개")
+    print(f"  Done: success {success} / fail {errors} / total {len(results)}")
     print(f"{'=' * 60}\n")
 
 
