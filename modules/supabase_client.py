@@ -1,93 +1,85 @@
 """
-[역할] Supabase PostgreSQL 연결 클라이언트
-  - get_client()       : Supabase 클라이언트 싱글톤 반환
+[역할] Supabase PostgreSQL 연결 클라이언트 (REST API 경량 방식)
   - is_connected()     : 연결 상태 확인
   - query_table()      : 테이블 전체 조회 → pandas DataFrame
-  - table_exists()     : 테이블 존재 여부 확인
   - upsert_dataframe() : DataFrame → Supabase 테이블 업로드
+  - get_status()       : 연결 상태 정보 반환
 
+supabase-py 패키지 없이 REST API로 직접 통신합니다.
 연결 실패 시 CSV fallback 모드로 자동 전환됩니다.
 """
+import json
 import logging
+import math
 from typing import Optional
 
 import pandas as pd
+import requests
 
 logger = logging.getLogger(__name__)
 
 # ── 싱글톤 상태 ──────────────────────────────────────────────────────────────
-_client = None
-_connected: Optional[bool] = None  # None=미확인, True/False=확인됨
+_url: str = ""
+_key: str = ""
+_connected: Optional[bool] = None
 _error_msg: str = ""
 
 
 def _get_credentials() -> tuple:
-    """SUPABASE_URL, SUPABASE_KEY를 반환합니다."""
     from config import _get_secret
-    url = _get_secret("SUPABASE_URL")
-    key = _get_secret("SUPABASE_KEY")
-    return url, key
+    return _get_secret("SUPABASE_URL"), _get_secret("SUPABASE_KEY")
 
 
-def get_client():
-    """Supabase 클라이언트 싱글톤. 연결 불가 시 None 반환."""
-    global _client, _connected, _error_msg
+def _headers() -> dict:
+    return {
+        "apikey": _key,
+        "Authorization": f"Bearer {_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    }
+
+
+def _init():
+    """최초 연결 확인. 한 번만 실행됩니다."""
+    global _url, _key, _connected, _error_msg
     if _connected is not None:
-        return _client
+        return
 
-    url, key = _get_credentials()
-    if not url or not key:
+    _url, _key = _get_credentials()
+    if not _url or not _key:
         _connected = False
-        _error_msg = "SUPABASE_URL 또는 SUPABASE_KEY가 설정되지 않았습니다."
-        logger.info("Supabase credentials not found — CSV fallback mode")
-        return None
+        _error_msg = "SUPABASE_URL 또는 SUPABASE_KEY 미설정"
+        return
 
+    # 연결 테스트: 임의 테이블 조회 → 인증 성공 여부 확인
     try:
-        from supabase import create_client
-        _client = create_client(url, key)
-        # 연결 확인: 실제 존재하는 테이블로 테스트하거나, 없는 테이블이라도
-        # 인증이 통과하면 PGRST205(테이블 없음) 에러가 오고, 인증 실패면 401/403
-        _client.table("_health_check_dummy").select("*").limit(0).execute()
-        _connected = True
-        _error_msg = ""
-        logger.info("Supabase connected successfully")
-    except ImportError:
-        _connected = False
-        _error_msg = "supabase 패키지가 설치되지 않았습니다. pip install supabase"
-        logger.warning(_error_msg)
-        _client = None
-    except Exception as e:
-        err_str = str(e)
-        # 테이블 없음 = 연결 자체는 성공 (인증 통과)
-        if any(k in err_str for k in ["PGRST205", "404", "relation", "could not find"]):
+        r = requests.get(
+            f"{_url}/rest/v1/?limit=0",
+            headers=_headers(),
+            timeout=5,
+        )
+        if r.status_code in (200, 404):
             _connected = True
             _error_msg = ""
-            logger.info("Supabase connected (health check table not found, but auth OK)")
-        elif "401" in err_str or "403" in err_str or "Invalid API key" in err_str:
+            logger.info("Supabase connected via REST API")
+        elif r.status_code in (401, 403):
             _connected = False
-            _error_msg = f"Supabase 인증 실패: {e}"
-            logger.warning(_error_msg)
-            _client = None
+            _error_msg = f"Supabase 인증 실패 (HTTP {r.status_code})"
         else:
             _connected = False
-            _error_msg = f"Supabase 연결 실패: {e}"
-            logger.warning(_error_msg)
-            _client = None
-
-    return _client
+            _error_msg = f"Supabase 응답 오류 (HTTP {r.status_code})"
+    except requests.RequestException as e:
+        _connected = False
+        _error_msg = f"Supabase 연결 실패: {e}"
 
 
 def is_connected() -> bool:
-    """Supabase 연결 여부 반환. 최초 호출 시 연결을 시도합니다."""
-    if _connected is None:
-        get_client()
+    _init()
     return bool(_connected)
 
 
 def get_status() -> dict:
-    """연결 상태 정보를 반환합니다."""
-    if _connected is None:
-        get_client()
+    _init()
     return {
         "connected": bool(_connected),
         "mode": "Supabase" if _connected else "CSV (로컬)",
@@ -96,26 +88,26 @@ def get_status() -> dict:
 
 
 def query_table(table_name: str) -> Optional[pd.DataFrame]:
-    """Supabase 테이블에서 전체 데이터를 조회합니다.
-    연결 실패 또는 테이블 없으면 None 반환.
-    """
-    client = get_client()
-    if client is None:
+    """Supabase 테이블에서 전체 데이터를 조회합니다."""
+    _init()
+    if not _connected:
         return None
 
     try:
-        # Supabase REST API는 기본 1000행 제한 → 페이지네이션
         all_rows = []
         page_size = 1000
         offset = 0
         while True:
-            response = (
-                client.table(table_name)
-                .select("*")
-                .range(offset, offset + page_size - 1)
-                .execute()
+            r = requests.get(
+                f"{_url}/rest/v1/{table_name}",
+                headers={**_headers(), "Range": f"{offset}-{offset + page_size - 1}"},
+                params={"select": "*"},
+                timeout=15,
             )
-            rows = response.data
+            if r.status_code == 404 or r.status_code == 406:
+                return None
+            r.raise_for_status()
+            rows = r.json()
             if not rows:
                 break
             all_rows.extend(rows)
@@ -131,28 +123,13 @@ def query_table(table_name: str) -> Optional[pd.DataFrame]:
         return None
 
 
-def table_exists(table_name: str) -> bool:
-    """테이블이 존재하고 조회 가능한지 확인합니다."""
-    client = get_client()
-    if client is None:
-        return False
-    try:
-        response = client.table(table_name).select("*").limit(1).execute()
-        return True
-    except Exception:
-        return False
-
-
 def upsert_dataframe(table_name: str, df: pd.DataFrame, chunk_size: int = 500) -> int:
-    """DataFrame을 Supabase 테이블에 upsert합니다.
-    Returns: 업로드된 행 수. 실패 시 0.
-    """
-    client = get_client()
-    if client is None:
+    """DataFrame을 Supabase 테이블에 upsert합니다."""
+    _init()
+    if not _connected:
         raise ConnectionError("Supabase에 연결되지 않았습니다.")
 
-    # NaN/NaT → None 변환 (JSON 직렬화 호환)
-    import math
+    # NaN/NaT → None
     records = df.to_dict(orient="records")
     for rec in records:
         for k, v in rec.items():
@@ -162,15 +139,20 @@ def upsert_dataframe(table_name: str, df: pd.DataFrame, chunk_size: int = 500) -
                 rec[k] = None
             elif pd.isna(v):
                 rec[k] = None
+
     total = 0
+    headers = {**_headers(), "Prefer": "resolution=merge-duplicates"}
 
     for i in range(0, len(records), chunk_size):
         chunk = records[i:i + chunk_size]
-        try:
-            client.table(table_name).upsert(chunk).execute()
-            total += len(chunk)
-        except Exception as e:
-            logger.error("Upsert failed for %s (chunk %d): %s", table_name, i, e)
-            raise
+        r = requests.post(
+            f"{_url}/rest/v1/{table_name}",
+            headers=headers,
+            data=json.dumps(chunk, ensure_ascii=False, default=str),
+            timeout=30,
+        )
+        if r.status_code not in (200, 201, 204):
+            raise RuntimeError(f"Upsert failed for {table_name} (chunk {i}): {r.text}")
+        total += len(chunk)
 
     return total
