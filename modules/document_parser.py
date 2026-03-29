@@ -12,7 +12,7 @@ import io
 import re
 from typing import Dict, List, Any
 
-import PyPDF2
+import pypdf as PyPDF2  # pypdf>=4.0.0 (PyPDF2 대체, API 호환)
 import docx
 
 

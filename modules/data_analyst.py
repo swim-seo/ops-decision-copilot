@@ -17,10 +17,20 @@ DATA_DIR = "./data"
 
 # ── 공통 로더 ─────────────────────────────────────────────────────────────────
 
+def _safe_csv_path(filename: str) -> Optional[str]:
+    """Path traversal 방어: DATA_DIR 벗어나는 경로 차단."""
+    from pathlib import Path
+    base = Path(DATA_DIR).resolve()
+    target = (base / Path(filename).name).resolve()  # .name으로 디렉토리 컴포넌트 제거
+    if not str(target).startswith(str(base)):
+        return None
+    return str(target)
+
+
 def load_csv(filename: str) -> Optional[pd.DataFrame]:
-    """data/ 폴더에서 CSV를 DataFrame으로 로드합니다."""
-    path = os.path.join(DATA_DIR, filename)
-    if os.path.exists(path):
+    """data/ 폴더에서 CSV를 DataFrame으로 로드합니다 (path traversal 방어)."""
+    path = _safe_csv_path(filename)
+    if path and os.path.exists(path):
         try:
             return pd.read_csv(path, encoding="utf-8-sig")
         except Exception:

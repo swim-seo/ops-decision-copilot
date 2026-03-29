@@ -76,6 +76,58 @@ section[data-testid="stSidebar"] .stButton>button {{
 # ── 도메인 프리셋 (domains/ 패키지에서 로드) ─────────────────────────────────
 from domains import ALL_PRESETS as _PRESETS
 
+# ── 도메인별 채팅 예시 질문 ────────────────────────────────────────────────────
+_DOMAIN_CHAT_PRESETS = {
+    "뷰티":    [("수요 분석",  "FG-002 선크림 수요 그래프 그려줘"),
+                ("재고 위험",  "재고 위험 상품 알려줘"),
+                ("판매 TOP3", "여름에 잘 팔리는 상품 TOP3"),
+                ("채널 비교",  "채널별 판매 현황 비교해줘"),
+                ("품절 위험",  "품절 위험 상품 있어?")],
+    "공급망":  [("수요 예측",  "주요 상품 수요 그래프 그려줘"),
+                ("재고 위험",  "재고 위험 상품 알려줘"),
+                ("발주 현황",  "발주가 필요한 상품 알려줘"),
+                ("채널 비교",  "채널별 판매 현황 비교해줘"),
+                ("품절 위험",  "품절 위험 상품 있어?")],
+    "에너지":  [("소비 분석",  "에너지 소비 추이 그려줘"),
+                ("위험 설비",  "위험 설비 현황 알려줘"),
+                ("피크 시간",  "피크 소비 시간대 알려줘"),
+                ("비용 분석",  "에너지 비용 분석해줘"),
+                ("이상 감지",  "이상 소비 있어?")],
+    "제조":    [("생산 현황",  "생산 실적 그래프 그려줘"),
+                ("불량 현황",  "불량률 높은 라인 알려줘"),
+                ("설비 위험",  "설비 위험 현황 알려줘"),
+                ("납기 분석",  "납기 지연 현황 분석해줘"),
+                ("가동률",     "라인별 가동률 비교해줘")],
+    "물류":    [("배송 현황",  "배송 현황 그래프 그려줘"),
+                ("지연 위험",  "납기 지연 위험 알려줘"),
+                ("재고 현황",  "창고별 재고 현황 알려줘"),
+                ("비용 분석",  "운송 비용 분석해줘"),
+                ("SLA 현황",   "SLA 달성률 알려줘")],
+    "금융":    [("수익 분석",  "포트폴리오 수익 그래프 그려줘"),
+                ("리스크",     "고위험 자산 알려줘"),
+                ("수익 TOP3",  "수익률 TOP3 알려줘"),
+                ("VaR 현황",   "VaR 현황 분석해줘"),
+                ("이상 감지",  "이상 변동 있어?")],
+}
+_DEFAULT_CHAT_PRESETS = [
+    ("데이터 분석",  "핵심 데이터 현황 분석해줘"),
+    ("위험 파악",   "현재 위험 요소 알려줘"),
+    ("TOP 항목",   "상위 항목 TOP3 알려줘"),
+    ("비교 분석",   "카테고리별 현황 비교해줘"),
+    ("이상 감지",   "이상 변화 있어?"),
+]
+
+def _get_chat_presets() -> list:
+    """현재 도메인에 맞는 채팅 예시 질문 목록을 반환합니다."""
+    dc = st.session_state.get("domain_config")
+    if not dc:
+        return _DEFAULT_CHAT_PRESETS
+    name = dc.get("name", "")
+    for key, presets in _DOMAIN_CHAT_PRESETS.items():
+        if key in name:
+            return presets
+    return _DEFAULT_CHAT_PRESETS
+
 _DEFAULT_DOMAIN_CONTEXT = (
     "도메인: 일반 비즈니스\n핵심 용어: 전략, 목표, 성과, 리스크, 의사결정\n"
     "주요 문서: 회의록, 보고서, 정책 문서\n분석 포커스: 핵심 의사결정, 리스크, 성과 지표"
@@ -216,8 +268,10 @@ def _extract_kg_with_domain(text: str):
         )
         domain_ctx_header = ""
     template = build_entity_extraction_prompt(entity_types_desc)
-    # ── Issue#1: 도메인 컨텍스트를 프롬프트 앞에 주입 ──────────────────────
-    prompt = domain_ctx_header + template.replace("{document}", text[:3000])
+    # 프롬프트 인젝션 방어: 문서 내 역할 덮어쓰기 패턴 필터링
+    from modules.chat_copilot import sanitize_input
+    safe_text = sanitize_input(text, max_len=3000)
+    prompt = domain_ctx_header + template.replace("{document}", safe_text)
     response = st.session_state.claude.generate(prompt, max_tokens=4096)
     st.session_state.kg.build_from_claude_json(response)
 
@@ -718,7 +772,7 @@ elif step == 2:
         sample_clicked = st.button(
             "샘플 데이터로 시작",
             use_container_width=True,
-            help="data/ 폴더의 바닐라코 데모 데이터를 자동으로 불러옵니다",
+            help="data/ 폴더의 샘플 데이터를 자동으로 불러옵니다",
         )
 
     if sample_clicked:
@@ -836,7 +890,7 @@ elif step == 3:
                 "업무 문장 입력",
                 value=st.session_state.qp_input,
                 height=80,
-                placeholder="예: 다음 분기 틱톡샵 선크림 프로모션 준비. 재고 현황 파악하고 작년 동기 판매량 비교 필요.",
+                placeholder="예: 다음 분기 신제품 프로모션 준비. 재고 현황 파악하고 작년 동기 판매량 비교 필요.",
                 label_visibility="collapsed",
                 key="qp_text",
             )
@@ -956,8 +1010,12 @@ elif step == 3:
                     if st.session_state.get(f"qp_preview_{i}", False):
                         import os
                         import pandas as _pd
-                        csv_path = os.path.join("./data", ds.csv_file)
-                        if os.path.exists(csv_path):
+                        from pathlib import Path as _Path
+                        # Path traversal 방어: DATA_DIR 밖으로 나가는 경로 차단
+                        _base = _Path("./data").resolve()
+                        _target = (_base / _Path(ds.csv_file).name).resolve()
+                        csv_path = str(_target) if str(_target).startswith(str(_base)) else None
+                        if csv_path and os.path.exists(csv_path):
                             try:
                                 _df = _pd.read_csv(csv_path, encoding="utf-8-sig", nrows=20)
                                 st.caption(
@@ -1090,14 +1148,8 @@ elif step == 3:
         )
         st.caption("질문만 입력하면 문서·데이터·지식그래프를 자동으로 결합해 답변합니다.")
 
-        # ── 예시 질문 버튼 ────────────────────────────────────
-        _PRESETS_Q = [
-            ("수요 분석",  "FG-002 선크림 수요 그래프 그려줘"),
-            ("재고 위험",  "재고 위험 상품 알려줘"),
-            ("판매 TOP3", "여름에 잘 팔리는 상품 TOP3"),
-            ("채널 비교",  "채널별 판매 현황 비교해줘"),
-            ("품절 위험",  "품절 위험 상품 있어?"),
-        ]
+        # ── 예시 질문 버튼 (도메인에 따라 동적) ─────────────
+        _PRESETS_Q = _get_chat_presets()
         cols_q = st.columns(len(_PRESETS_Q))
         for i, (label, prompt) in enumerate(_PRESETS_Q):
             with cols_q[i]:
@@ -1185,32 +1237,38 @@ elif step == 3:
             or st.session_state.pop("chat_preset_input", None)
         )
         user_input = st.chat_input(
-            "예: FG-002 선크림 수요 그래프 그려줘",
+            "예: 재고 위험 상품 알려줘, 판매 TOP3는?",
             key="chat_in",
             disabled=exhausted,
         ) or preset
 
         if user_input and not exhausted:
+            # 사용자 메시지 즉시 히스토리에 추가
             st.session_state.chat_history.append(
                 {"role": "user", "content": user_input,
                  "charts": [], "datasets": [], "documents": [], "kg_nodes": 0, "route": ""}
             )
-            with st.spinner("답변 생성 중..."):
+            _chat_success = False
+            with st.spinner("분석 중..."):
                 try:
-                    from modules.chat_copilot import respond
+                    from modules.chat_copilot import respond, detect_route
+                    from modules.claude_client import TOKENS
                     result = respond(
                         user_input,
-                        claude       = st.session_state.claude,
-                        rag          = st.session_state.rag,
-                        kg           = st.session_state.kg,
+                        claude         = st.session_state.claude,
+                        rag            = st.session_state.rag,
+                        kg             = st.session_state.kg,
                         domain_context = domain_context,
                     )
+                    _chat_success = True
                 except Exception as e:
                     from modules.chat_copilot import ChatResult
                     result = ChatResult(
                         text=f"오류가 발생했습니다: {e}", route="combined"
                     )
-            st.session_state.chat_api_calls += 1
+            # 성공 시에만 카운트 증가
+            if _chat_success:
+                st.session_state.chat_api_calls += 1
             st.session_state.chat_history.append({
                 "role":      "assistant",
                 "content":   result.text,
@@ -1388,7 +1446,7 @@ elif step == 3:
             st.info("지식그래프가 필요합니다. CSV·JSON·문서를 업로드하세요.")
         else:
             qi = st.text_input("번호 또는 이름 입력",
-                placeholder="예: PRD001, FG-002, order_id, 주문테이블...", key="num_q")
+                placeholder="예: PRD001, order_id, 고객테이블, 제품코드...", key="num_q")
             nc1, nc2 = st.columns([1, 3])
             with nc1: depth = st.selectbox("탐색 깊이", [1, 2, 3], key="num_d")
             with nc2: use_rag = st.checkbox("문서에서도 검색 (RAG)", value=True, key="num_r")

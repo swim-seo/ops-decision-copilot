@@ -13,6 +13,25 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
+# ── 보안: 프롬프트 인젝션 방어 ─────────────────────────────────────────────────
+
+_INJECTION_PATTERNS = re.compile(
+    r"(ignore\s+(all\s+)?previous\s+instructions?"
+    r"|forget\s+(all\s+)?previous"
+    r"|you\s+are\s+now"
+    r"|새로운\s+지시"
+    r"|이전\s+지시.*무시"
+    r"|역할.*변경"
+    r"|system\s*:",
+    re.IGNORECASE | re.DOTALL,
+)
+
+def sanitize_input(text: str, max_len: int = 2000) -> str:
+    """사용자 입력에서 역할 덮어쓰기 패턴을 제거하고 길이를 제한합니다."""
+    text = text[:max_len]
+    text = _INJECTION_PATTERNS.sub("[필터됨]", text)
+    return text
+
 
 # ── 결과 데이터클래스 ─────────────────────────────────────────────────────────
 
@@ -36,7 +55,8 @@ _DATA_KW  = _GRAPH_KW + [
     "top", "채널", "품절", "stockout",
 ]
 _DOC_KW   = ["회의록", "보고서", "정책", "분석자료", "문서", "의사결정", "액션", "요약"]
-_PROD_RE  = re.compile(r"(FG-\d+|PRD\d+)", re.IGNORECASE)
+# 범용 제품/코드 패턴: FG-001, SKU-123, PRD001, P-001, ITEM-99 등 도메인 무관하게 매칭
+_PROD_RE  = re.compile(r"\b([A-Z]{1,5}-\d+|[A-Z]{2,5}\d{2,})\b", re.IGNORECASE)
 _SEASON   = {"여름": [6,7,8], "봄": [3,4,5], "가을": [9,10,11], "겨울": [12,1,2]}
 
 
@@ -234,6 +254,7 @@ def _handle_combined(msg: str, claude, rag, kg, domain_context: str) -> ChatResu
 
 def respond(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
     """사용자 질문 → ChatResult 반환 (라우팅 자동 결정)."""
+    msg   = sanitize_input(msg)
     route = detect_route(msg)
     if route == "doc":
         return _handle_doc(msg, claude, rag, kg, domain_context)

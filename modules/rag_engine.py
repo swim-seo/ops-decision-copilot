@@ -30,8 +30,19 @@ class RAGEngine:
             metadata={"hnsw:space": "cosine"},
         )
 
+    def delete_document(self, filename: str) -> None:
+        """특정 파일의 청크를 모두 삭제합니다 (재업로드 전 중복 방지용)."""
+        try:
+            existing = self.collection.get(where={"filename": filename})
+            if existing and existing.get("ids"):
+                self.collection.delete(ids=existing["ids"])
+        except Exception:
+            pass
+
     def add_document(self, text: str, filename: str) -> int:
-        """문서를 청킹하여 벡터 DB에 저장합니다. 저장된 청크 수를 반환합니다."""
+        """문서를 청킹하여 벡터 DB에 저장합니다.
+        같은 파일이 이미 있으면 기존 청크를 삭제하고 재삽입합니다."""
+        self.delete_document(filename)  # 중복 방지
         chunks = chunk_text(text)
         if not chunks:
             return 0
