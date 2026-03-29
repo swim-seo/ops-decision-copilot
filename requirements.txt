@@ -9,3 +9,4 @@ pyvis>=0.3.2
 python-dotenv>=1.0.1
 pandas>=2.2.0
 plotly>=5.19.0
+supabase>=2.0.0

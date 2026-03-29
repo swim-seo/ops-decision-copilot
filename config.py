@@ -37,6 +37,10 @@ ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY")
 MODEL_NAME = "claude-sonnet-4-6"
 MAX_TOKENS = 4096
 
+# ── Supabase (선택사항 — 없으면 CSV fallback) ─────────────────────────────────
+SUPABASE_URL = _get_secret("SUPABASE_URL")
+SUPABASE_KEY = _get_secret("SUPABASE_KEY")
+
 # ── Document Processing ───────────────────────────────────────────────────────
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 150

@@ -575,12 +575,40 @@ def _generate_briefing_cards():
 _apply_css(_get_theme_color())
 
 
+# ── DB 연결 상태 표시 헬퍼 ────────────────────────────────────────────────────
+def _render_db_status():
+    """사이드바에 Supabase/CSV 연결 상태를 표시합니다."""
+    try:
+        from modules.supabase_client import get_status
+        status = get_status()
+    except ImportError:
+        status = {"connected": False, "mode": "CSV (로컬)", "error": ""}
+
+    if status["connected"]:
+        st.markdown(
+            '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;'
+            'padding:4px 10px;font-size:.78rem;margin-bottom:.5rem">'
+            '🟢 <b>Supabase</b> 연결됨</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;'
+            'padding:4px 10px;font-size:.78rem;margin-bottom:.5rem">'
+            '🟡 <b>CSV 모드</b> (로컬 파일)</div>',
+            unsafe_allow_html=True,
+        )
+        if status.get("error"):
+            st.caption(f"DB: {status['error'][:80]}")
+
+
 # ── 사이드바: Step 1/2는 최소 정보, Step 3는 채팅 (아래에서 추가) ───────────
 if st.session_state.step != 3:
     with st.sidebar:
         dc = st.session_state.domain_config
         dname = dc["name"] if dc else "AI 운영 코파일럿"
         st.markdown(f"### {dname}")
+        _render_db_status()
         st.divider()
 
         if st.session_state.documents:
@@ -1128,6 +1156,7 @@ elif step == 3:
         "briefing": ("📋", "#d97706", "일일 브리핑"),
     }
     with st.sidebar:
+        _render_db_status()
         used      = st.session_state.chat_api_calls
         left      = _DEMO_LIMIT - used
         exhausted = used >= _DEMO_LIMIT

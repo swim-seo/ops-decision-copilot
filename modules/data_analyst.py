@@ -1,10 +1,15 @@
 """
-[역할] CSV/pandas 기반 데이터 분석 함수 모음
+[역할] 데이터 분석 함수 모음 (Supabase + CSV fallback)
 채팅 코파일럿·일일 브리핑에서 사용하는 순수 데이터 분석 함수입니다.
 Streamlit에 의존하지 않으므로 독립적으로 테스트·재사용 가능합니다.
 
+데이터 로드 우선순위:
+  1) Supabase PostgreSQL 테이블 조회
+  2) data/ 폴더 CSV 파일 (fallback)
+
 반환 규칙: 모든 함수는 (결과값, 사용된_파일_목록) 형태로 반환합니다.
 """
+import logging
 import os
 import re
 from typing import Any, List, Optional, Tuple
@@ -12,7 +17,19 @@ from typing import Any, List, Optional, Tuple
 import pandas as pd
 import plotly.express as px
 
+logger = logging.getLogger(__name__)
+
 DATA_DIR = "./data"
+
+# ── 테이블명 매핑: CSV 파일명 → Supabase 테이블명 (소문자) ───────────────────
+_CSV_TO_TABLE = {}  # 런타임에 자동 구축
+
+
+def _csv_to_table_name(filename: str) -> str:
+    """CSV 파일명을 Supabase 테이블명으로 변환합니다.
+    예: 'FACT_MONTHLY_SALES.csv' → 'fact_monthly_sales'
+    """
+    return filename.replace(".csv", "").replace(".CSV", "").lower()
 
 
 # ── 공통 로더 ─────────────────────────────────────────────────────────────────
@@ -21,21 +38,52 @@ def _safe_csv_path(filename: str) -> Optional[str]:
     """Path traversal 방어: DATA_DIR 벗어나는 경로 차단."""
     from pathlib import Path
     base = Path(DATA_DIR).resolve()
-    target = (base / Path(filename).name).resolve()  # .name으로 디렉토리 컴포넌트 제거
+    target = (base / Path(filename).name).resolve()
     if not str(target).startswith(str(base)):
         return None
     return str(target)
 
 
-def load_csv(filename: str) -> Optional[pd.DataFrame]:
-    """data/ 폴더에서 CSV를 DataFrame으로 로드합니다 (path traversal 방어)."""
+def _load_from_csv(filename: str) -> Optional[pd.DataFrame]:
+    """data/ 폴더에서 CSV를 DataFrame으로 로드합니다."""
     path = _safe_csv_path(filename)
     if path and os.path.exists(path):
         try:
             return pd.read_csv(path, encoding="utf-8-sig")
-        except Exception:
+        except (ValueError, IOError):
             return None
     return None
+
+
+def _load_from_supabase(filename: str) -> Optional[pd.DataFrame]:
+    """Supabase 테이블에서 데이터를 로드합니다."""
+    try:
+        from modules.supabase_client import is_connected, query_table
+        if not is_connected():
+            return None
+        table_name = _csv_to_table_name(filename)
+        return query_table(table_name)
+    except ImportError:
+        return None
+
+
+def load_csv(filename: str) -> Optional[pd.DataFrame]:
+    """데이터 로드: Supabase 우선, CSV fallback.
+
+    Supabase 연결이 가능하면 테이블에서 조회하고,
+    실패 시 data/ 폴더의 CSV 파일로 자동 전환합니다.
+    """
+    # 1차: Supabase
+    df = _load_from_supabase(filename)
+    if df is not None and not df.empty:
+        logger.debug("Loaded %s from Supabase (%d rows)", filename, len(df))
+        return df
+
+    # 2차: CSV fallback
+    df = _load_from_csv(filename)
+    if df is not None:
+        logger.debug("Loaded %s from CSV (%d rows)", filename, len(df))
+    return df
 
 
 def _resolve_product_name(product_id: str, parts_df: Optional[pd.DataFrame]) -> str:
