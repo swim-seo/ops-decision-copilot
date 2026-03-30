@@ -1,0 +1,9 @@
+﻿WAREHOUSE_ID,WAREHOUSE_NAME,WAREHOUSE_TYPE,REGION,CAPACITY_UNITS,MANAGER_NAME,STATUS
+WH001,평택 중앙물류센터,중앙물류센터,수도권,500000,김정훈,ACTIVE
+WH002,인천 물류허브,중앙물류센터,수도권,300000,이민수,ACTIVE
+WH003,부산 지역창고,지역창고,부산,150000,박진영,ACTIVE
+WH004,대구 지역창고,지역창고,대구,120000,최성훈,ACTIVE
+WH005,광주 지역창고,지역창고,광주,100000,정민지,ACTIVE
+WH006,대전 AS센터,직영AS센터,대전,50000,한상원,ACTIVE
+WH007,서울 딜러창고,딜러창고,수도권,30000,조현우,ACTIVE
+WH008,싱가포르 해외거점,지역창고,해외,80000,David Kim,ACTIVE

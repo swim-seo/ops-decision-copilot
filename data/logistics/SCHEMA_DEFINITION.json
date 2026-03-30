@@ -1,0 +1,379 @@
+{
+  "domain": "logistics",
+  "description": "물류·배송 운영 관리 데모 데이터셋",
+  "tables": {
+    "MST_HUB": {
+      "description": "물류 허브(거점) 마스터",
+      "primary_key": "HUB_ID",
+      "columns": {
+        "HUB_ID": {
+          "type": "VARCHAR(6)",
+          "description": "허브 고유 ID (HUBxxx)"
+        },
+        "HUB_NAME": {
+          "type": "VARCHAR(50)",
+          "description": "허브명"
+        },
+        "HUB_TYPE": {
+          "type": "VARCHAR(10)",
+          "description": "허브 유형: 메가허브/지역허브/서브허브/픽업포인트"
+        },
+        "REGION": {
+          "type": "VARCHAR(10)",
+          "description": "소재 광역 행정구역"
+        },
+        "ADDRESS": {
+          "type": "VARCHAR(100)",
+          "description": "도로명 주소"
+        },
+        "CAPACITY_PACKAGES_DAILY": {
+          "type": "INTEGER",
+          "description": "일일 최대 처리 패키지 수"
+        },
+        "DOCK_COUNT": {
+          "type": "INTEGER",
+          "description": "하역 도크 수"
+        },
+        "OPERATING_HOURS": {
+          "type": "VARCHAR(15)",
+          "description": "운영 시간 (HH:MM-HH:MM)"
+        },
+        "MANAGER_NAME": {
+          "type": "VARCHAR(20)",
+          "description": "허브 관리자 이름"
+        },
+        "STATUS": {
+          "type": "VARCHAR(10)",
+          "description": "운영 상태: ACTIVE/EXPANSION/INACTIVE"
+        }
+      }
+    },
+    "MST_VEHICLE": {
+      "description": "배송 차량 마스터",
+      "primary_key": "VEHICLE_ID",
+      "foreign_keys": {
+        "HUB_ID": "MST_HUB.HUB_ID"
+      },
+      "columns": {
+        "VEHICLE_ID": {
+          "type": "VARCHAR(6)",
+          "description": "차량 고유 ID (VHCxxx)"
+        },
+        "VEHICLE_NAME": {
+          "type": "VARCHAR(30)",
+          "description": "차량 이름"
+        },
+        "VEHICLE_TYPE": {
+          "type": "VARCHAR(10)",
+          "description": "차량 유형: 5톤트럭/11톤트럭/1톤트럭/냉동차/오토바이/전기밴"
+        },
+        "LICENSE_PLATE": {
+          "type": "VARCHAR(15)",
+          "description": "차량 번호판"
+        },
+        "HUB_ID": {
+          "type": "VARCHAR(6)",
+          "description": "소속 허브 FK"
+        },
+        "CAPACITY_KG": {
+          "type": "DECIMAL(8,1)",
+          "description": "최대 적재 중량 (kg)"
+        },
+        "CAPACITY_VOLUME_M3": {
+          "type": "DECIMAL(6,2)",
+          "description": "최대 적재 부피 (m³)"
+        },
+        "FUEL_TYPE": {
+          "type": "VARCHAR(5)",
+          "description": "연료 유형: 경유/LNG/전기"
+        },
+        "FUEL_EFFICIENCY_KM_PER_L": {
+          "type": "DECIMAL(5,1)",
+          "description": "연비 (km/L 또는 km/kWh)"
+        },
+        "DRIVER_NAME": {
+          "type": "VARCHAR(20)",
+          "description": "전담 기사 이름"
+        },
+        "STATUS": {
+          "type": "VARCHAR(15)",
+          "description": "차량 상태: ACTIVE/MAINTENANCE/RETIRED"
+        },
+        "PURCHASE_DATE": {
+          "type": "DATE",
+          "description": "구매일"
+        },
+        "MILEAGE_KM": {
+          "type": "INTEGER",
+          "description": "누적 주행 거리 (km)"
+        }
+      }
+    },
+    "MST_ROUTE": {
+      "description": "배송 노선 마스터",
+      "primary_key": "ROUTE_ID",
+      "foreign_keys": {
+        "ORIGIN_HUB_ID": "MST_HUB.HUB_ID",
+        "DEST_HUB_ID": "MST_HUB.HUB_ID"
+      },
+      "columns": {
+        "ROUTE_ID": {
+          "type": "VARCHAR(6)",
+          "description": "노선 고유 ID (RTExxx)"
+        },
+        "ROUTE_NAME": {
+          "type": "VARCHAR(50)",
+          "description": "노선명"
+        },
+        "ORIGIN_HUB_ID": {
+          "type": "VARCHAR(6)",
+          "description": "출발 허브 FK"
+        },
+        "DEST_HUB_ID": {
+          "type": "VARCHAR(6)",
+          "description": "도착 허브 FK"
+        },
+        "DISTANCE_KM": {
+          "type": "DECIMAL(6,1)",
+          "description": "노선 거리 (km)"
+        },
+        "STANDARD_TIME_HOURS": {
+          "type": "DECIMAL(4,1)",
+          "description": "표준 소요 시간 (시간)"
+        },
+        "ROUTE_TYPE": {
+          "type": "VARCHAR(10)",
+          "description": "노선 유형: 간선/지선/라스트마일/국제"
+        },
+        "TOLL_KRW": {
+          "type": "INTEGER",
+          "description": "편도 통행료 (원)"
+        },
+        "VEHICLE_TYPE_REQUIRED": {
+          "type": "VARCHAR(10)",
+          "description": "필요 차량 유형"
+        },
+        "FREQUENCY": {
+          "type": "VARCHAR(10)",
+          "description": "운행 빈도"
+        },
+        "STATUS": {
+          "type": "VARCHAR(10)",
+          "description": "노선 상태: ACTIVE/SUSPENDED/SEASONAL"
+        }
+      }
+    },
+    "FACT_DELIVERY": {
+      "description": "배송 실적 팩트 (2023-2024, ~15,000건)",
+      "primary_key": "DELIVERY_ID",
+      "foreign_keys": {
+        "VEHICLE_ID": "MST_VEHICLE.VEHICLE_ID",
+        "ROUTE_ID": "MST_ROUTE.ROUTE_ID",
+        "HUB_ID": "MST_HUB.HUB_ID"
+      },
+      "columns": {
+        "DELIVERY_ID": {
+          "type": "VARCHAR(10)",
+          "description": "배송 고유 ID (DLVxxxxxxx)"
+        },
+        "VEHICLE_ID": {
+          "type": "VARCHAR(6)",
+          "description": "차량 ID FK"
+        },
+        "ROUTE_ID": {
+          "type": "VARCHAR(6)",
+          "description": "노선 ID FK"
+        },
+        "HUB_ID": {
+          "type": "VARCHAR(6)",
+          "description": "출발 허브 ID FK"
+        },
+        "DELIVERY_DATE": {
+          "type": "DATE",
+          "description": "배송일"
+        },
+        "DEPARTURE_TIME": {
+          "type": "VARCHAR(5)",
+          "description": "출발 시각 (HH:MM)"
+        },
+        "ARRIVAL_TIME": {
+          "type": "VARCHAR(5)",
+          "nullable": true,
+          "description": "도착 시각 (HH:MM); NULL이면 운행 중"
+        },
+        "PACKAGE_COUNT": {
+          "type": "INTEGER",
+          "description": "배송 패키지 수"
+        },
+        "TOTAL_WEIGHT_KG": {
+          "type": "DECIMAL(8,1)",
+          "description": "총 배송 중량 (kg)"
+        },
+        "TOTAL_VOLUME_M3": {
+          "type": "DECIMAL(6,2)",
+          "description": "총 배송 부피 (m³)"
+        },
+        "DELIVERY_SUCCESS_COUNT": {
+          "type": "INTEGER",
+          "description": "성공 건수"
+        },
+        "DELIVERY_FAIL_COUNT": {
+          "type": "INTEGER",
+          "description": "실패 건수"
+        },
+        "FAIL_REASON": {
+          "type": "VARCHAR(15)",
+          "nullable": true,
+          "description": "실패 사유: 수취인부재/주소불명/배송불가지역/반송요청"
+        },
+        "DRIVER_NAME": {
+          "type": "VARCHAR(20)",
+          "description": "기사 이름"
+        },
+        "STATUS": {
+          "type": "VARCHAR(10)",
+          "description": "상태: COMPLETED/IN_TRANSIT/FAILED/PARTIAL"
+        }
+      }
+    },
+    "FACT_DELAY": {
+      "description": "배송 지연 이벤트 팩트 (2023-2024, ~3,000건)",
+      "primary_key": "DELAY_ID",
+      "foreign_keys": {
+        "DELIVERY_ID": "FACT_DELIVERY.DELIVERY_ID",
+        "VEHICLE_ID": "MST_VEHICLE.VEHICLE_ID",
+        "ROUTE_ID": "MST_ROUTE.ROUTE_ID"
+      },
+      "columns": {
+        "DELAY_ID": {
+          "type": "VARCHAR(9)",
+          "description": "지연 고유 ID (DLYxxxxxx)"
+        },
+        "DELIVERY_ID": {
+          "type": "VARCHAR(10)",
+          "description": "배송 ID FK"
+        },
+        "VEHICLE_ID": {
+          "type": "VARCHAR(6)",
+          "description": "차량 ID FK"
+        },
+        "ROUTE_ID": {
+          "type": "VARCHAR(6)",
+          "description": "노선 ID FK"
+        },
+        "DELAY_DATE": {
+          "type": "DATE",
+          "description": "지연 발생일"
+        },
+        "SCHEDULED_ARRIVAL": {
+          "type": "VARCHAR(5)",
+          "description": "예정 도착 시각"
+        },
+        "ACTUAL_ARRIVAL": {
+          "type": "VARCHAR(5)",
+          "nullable": true,
+          "description": "실제 도착 시각; NULL이면 미도착"
+        },
+        "DELAY_MINUTES": {
+          "type": "INTEGER",
+          "description": "지연 시간 (분)"
+        },
+        "DELAY_CAUSE": {
+          "type": "VARCHAR(10)",
+          "description": "지연 원인"
+        },
+        "SEVERITY": {
+          "type": "VARCHAR(10)",
+          "description": "지연 등급: MINOR/MODERATE/SEVERE"
+        },
+        "CUSTOMER_COMPLAINT": {
+          "type": "CHAR(1)",
+          "description": "고객 불만 여부: Y/N"
+        },
+        "COMPENSATION_KRW": {
+          "type": "INTEGER",
+          "nullable": true,
+          "description": "보상금 (원); NULL이면 보상 없음"
+        },
+        "RESOLUTION_STATUS": {
+          "type": "VARCHAR(10)",
+          "description": "처리 상태: RESOLVED/PENDING/ESCALATED"
+        }
+      }
+    },
+    "FACT_COST": {
+      "description": "월별 차량 비용 팩트 (2022-2024, 36개월 × 25대)",
+      "primary_key": "COST_ID",
+      "foreign_keys": {
+        "VEHICLE_ID": "MST_VEHICLE.VEHICLE_ID",
+        "ROUTE_ID": "MST_ROUTE.ROUTE_ID"
+      },
+      "columns": {
+        "COST_ID": {
+          "type": "VARCHAR(10)",
+          "description": "비용 고유 ID (CSTxxxxxxx)"
+        },
+        "VEHICLE_ID": {
+          "type": "VARCHAR(6)",
+          "description": "차량 ID FK"
+        },
+        "ROUTE_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": true,
+          "description": "노선 ID FK; NULL이면 월간 합산"
+        },
+        "YEAR_MONTH": {
+          "type": "VARCHAR(7)",
+          "description": "연월 (YYYY-MM)"
+        },
+        "FUEL_COST_KRW": {
+          "type": "INTEGER",
+          "description": "연료비 (원)"
+        },
+        "TOLL_COST_KRW": {
+          "type": "INTEGER",
+          "description": "통행료 (원)"
+        },
+        "MAINTENANCE_COST_KRW": {
+          "type": "INTEGER",
+          "nullable": true,
+          "description": "정비비 (원); NULL이면 정비 없음"
+        },
+        "DRIVER_WAGE_KRW": {
+          "type": "INTEGER",
+          "description": "기사 인건비 (원)"
+        },
+        "INSURANCE_KRW": {
+          "type": "INTEGER",
+          "description": "보험료 (원)"
+        },
+        "DEPRECIATION_KRW": {
+          "type": "INTEGER",
+          "description": "감가상각비 (원)"
+        },
+        "OTHER_COST_KRW": {
+          "type": "INTEGER",
+          "nullable": true,
+          "description": "기타 비용 (원); NULL 약 25%"
+        },
+        "TOTAL_COST_KRW": {
+          "type": "INTEGER",
+          "description": "총 비용 (원)"
+        },
+        "REVENUE_KRW": {
+          "type": "INTEGER",
+          "description": "매출 (원)"
+        },
+        "PROFIT_KRW": {
+          "type": "INTEGER",
+          "description": "영업이익 (원)"
+        },
+        "COST_PER_KM_KRW": {
+          "type": "DECIMAL(8,1)",
+          "nullable": true,
+          "description": "km당 비용 (원); NULL 약 15%"
+        }
+      }
+    }
+  }
+}

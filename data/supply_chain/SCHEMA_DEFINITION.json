@@ -1,0 +1,536 @@
+{
+  "domain": "자동차 부품 공급망 재고관리 (Automotive Parts SCM)",
+  "data_range": "2022-01 ~ 2024-12 (3년)",
+  "tables": [
+    {
+      "table_name": "MST_PART",
+      "table_type": "master_table",
+      "description": "자동차 부품 마스터 — 30종 부품의 기본 정보, ABC 등급, 수요유형, 단가",
+      "row_count_approx": 30,
+      "columns": [
+        {
+          "name": "PART_ID",
+          "type": "VARCHAR(10)",
+          "pk": true,
+          "nullable": false,
+          "description": "부품 고유 ID (PK). PT001~PT030"
+        },
+        {
+          "name": "PART_NAME",
+          "type": "VARCHAR(100)",
+          "pk": false,
+          "nullable": false,
+          "description": "부품명 (한국어)"
+        },
+        {
+          "name": "PART_CLASS",
+          "type": "CHAR(1)",
+          "pk": false,
+          "nullable": false,
+          "description": "ABC 등급. A=고가/고중요, B=중간, C=소모성"
+        },
+        {
+          "name": "PART_TYPE",
+          "type": "VARCHAR(20)",
+          "pk": false,
+          "nullable": false,
+          "description": "부품 유형: 완성품부품/소모품/AS전용"
+        },
+        {
+          "name": "DEMAND_TYPE",
+          "type": "VARCHAR(20)",
+          "pk": false,
+          "nullable": false,
+          "description": "수요 패턴 유형: SEASONAL/REORDER/INTERMITTENT/KIT"
+        },
+        {
+          "name": "CATEGORY",
+          "type": "VARCHAR(20)",
+          "pk": false,
+          "nullable": false,
+          "description": "부품 계통: 엔진/변속기/샤시/전장/차체"
+        },
+        {
+          "name": "UNIT_COST_KRW",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "부품 단가 (원)"
+        },
+        {
+          "name": "STD_MONTHLY_DEMAND",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "기준 월 수요량 (전사 합계 기준)"
+        },
+        {
+          "name": "LEAD_TIME_DAYS",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "조달 리드타임 (일)"
+        },
+        {
+          "name": "MOQ",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "최소 발주 수량 (Minimum Order Quantity)"
+        },
+        {
+          "name": "SUPPLIER_ID",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "주 공급업체 ID (FK → MST_SUPPLIER.SUPPLIER_ID)"
+        },
+        {
+          "name": "STATUS",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "부품 상태: ACTIVE/OBSOLETE"
+        }
+      ]
+    },
+    {
+      "table_name": "MST_SUPPLIER",
+      "table_type": "master_table",
+      "description": "공급업체 마스터 — 10개 공급사의 국가, 리드타임, 신뢰도",
+      "row_count_approx": 10,
+      "columns": [
+        {
+          "name": "SUPPLIER_ID",
+          "type": "VARCHAR(10)",
+          "pk": true,
+          "nullable": false,
+          "description": "공급업체 ID (PK). SUP001~SUP010"
+        },
+        {
+          "name": "SUPPLIER_NAME",
+          "type": "VARCHAR(100)",
+          "pk": false,
+          "nullable": false,
+          "description": "공급업체명"
+        },
+        {
+          "name": "SUPPLIER_TYPE",
+          "type": "VARCHAR(5)",
+          "pk": false,
+          "nullable": false,
+          "description": "공급 단계: 1차/2차/3차"
+        },
+        {
+          "name": "COUNTRY",
+          "type": "CHAR(2)",
+          "pk": false,
+          "nullable": false,
+          "description": "소재 국가: KR/JP/DE/CN"
+        },
+        {
+          "name": "LEAD_TIME_DAYS",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "평균 조달 리드타임 (일)"
+        },
+        {
+          "name": "MOQ",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "최소 발주 수량"
+        },
+        {
+          "name": "RELIABILITY_PCT",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "납기 신뢰도 (%). 범위: 85~99"
+        },
+        {
+          "name": "PAYMENT_TERMS",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "결제 조건: NET30/NET45/NET60/NET90"
+        }
+      ]
+    },
+    {
+      "table_name": "MST_WAREHOUSE",
+      "table_type": "master_table",
+      "description": "창고/물류센터 마스터 — 8개 거점의 유형, 지역, 용량",
+      "row_count_approx": 8,
+      "columns": [
+        {
+          "name": "WAREHOUSE_ID",
+          "type": "VARCHAR(10)",
+          "pk": true,
+          "nullable": false,
+          "description": "창고 ID (PK). WH001~WH008"
+        },
+        {
+          "name": "WAREHOUSE_NAME",
+          "type": "VARCHAR(100)",
+          "pk": false,
+          "nullable": false,
+          "description": "창고명"
+        },
+        {
+          "name": "WAREHOUSE_TYPE",
+          "type": "VARCHAR(20)",
+          "pk": false,
+          "nullable": false,
+          "description": "창고 유형: 중앙물류센터/지역창고/직영AS센터/딜러창고"
+        },
+        {
+          "name": "REGION",
+          "type": "VARCHAR(20)",
+          "pk": false,
+          "nullable": false,
+          "description": "권역: 수도권/부산/대구/광주/대전/해외"
+        },
+        {
+          "name": "CAPACITY_UNITS",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "총 보관 가능 수량 (단위)"
+        },
+        {
+          "name": "MANAGER_NAME",
+          "type": "VARCHAR(50)",
+          "pk": false,
+          "nullable": false,
+          "description": "담당 관리자명"
+        },
+        {
+          "name": "STATUS",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "운영 상태: ACTIVE/INACTIVE"
+        }
+      ]
+    },
+    {
+      "table_name": "FACT_MONTHLY_DEMAND",
+      "table_type": "fact_table",
+      "description": "월별 수요 실적 팩트 — 부품×창고별 월간 수요량, 예측량, 수요금액 (2022-2024)",
+      "columns": [
+        {
+          "name": "DEMAND_ID",
+          "type": "VARCHAR(12)",
+          "pk": true,
+          "nullable": false,
+          "description": "수요 레코드 ID (PK). DMD + 6자리"
+        },
+        {
+          "name": "PART_ID",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "부품 ID (FK → MST_PART.PART_ID)"
+        },
+        {
+          "name": "WAREHOUSE_ID",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "창고 ID (FK → MST_WAREHOUSE.WAREHOUSE_ID)"
+        },
+        {
+          "name": "YEAR_MONTH",
+          "type": "VARCHAR(7)",
+          "pk": false,
+          "nullable": false,
+          "description": "집계 연월 (YYYY-MM)"
+        },
+        {
+          "name": "DEMAND_TYPE_ACTUAL",
+          "type": "VARCHAR(15)",
+          "pk": false,
+          "nullable": false,
+          "description": "실제 수요 유형: REGULAR/AS/KIT/EMERGENCY"
+        },
+        {
+          "name": "DEMAND_QTY",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "실수요 수량"
+        },
+        {
+          "name": "FORECAST_QTY",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": true,
+          "description": "예측 수량. NULL=예측 미수행(약 20%)"
+        },
+        {
+          "name": "FORECAST_ERROR_PCT",
+          "type": "DECIMAL(6,2)",
+          "pk": false,
+          "nullable": true,
+          "description": "예측 오차율(%). |예측-실수요|/실수요×100. NULL 가능"
+        },
+        {
+          "name": "UNIT_COST_KRW",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "부품 단가 (원)"
+        },
+        {
+          "name": "DEMAND_AMOUNT_KRW",
+          "type": "BIGINT",
+          "pk": false,
+          "nullable": false,
+          "description": "수요 금액 = DEMAND_QTY × UNIT_COST_KRW"
+        }
+      ]
+    },
+    {
+      "table_name": "FACT_INVENTORY",
+      "table_type": "fact_table",
+      "description": "분기별 재고 스냅샷 팩트 — 분기말 기준 부품×창고별 재고량, 안전재고, 재고상태",
+      "columns": [
+        {
+          "name": "INVENTORY_ID",
+          "type": "VARCHAR(12)",
+          "pk": true,
+          "nullable": false,
+          "description": "재고 스냅샷 ID (PK). INV + 6자리"
+        },
+        {
+          "name": "PART_ID",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "부품 ID (FK → MST_PART.PART_ID)"
+        },
+        {
+          "name": "WAREHOUSE_ID",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "창고 ID (FK → MST_WAREHOUSE.WAREHOUSE_ID)"
+        },
+        {
+          "name": "SNAPSHOT_DATE",
+          "type": "DATE",
+          "pk": false,
+          "nullable": false,
+          "description": "스냅샷 기준일 (분기말: 3/31, 6/30, 9/30, 12/31)"
+        },
+        {
+          "name": "STOCK_QTY",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "현재고 수량"
+        },
+        {
+          "name": "SAFETY_STOCK_QTY",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "안전재고 수량. SS = z × σ_daily × √(LT + T)"
+        },
+        {
+          "name": "REORDER_POINT",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "재주문점 = SAFETY_STOCK + 일평균수요 × LT"
+        },
+        {
+          "name": "STOCK_STATUS",
+          "type": "VARCHAR(15)",
+          "pk": false,
+          "nullable": false,
+          "description": "재고상태: OVERSTOCK/NORMAL/LOW/CRITICAL/STOCKOUT"
+        },
+        {
+          "name": "INVENTORY_VALUE_KRW",
+          "type": "BIGINT",
+          "pk": false,
+          "nullable": false,
+          "description": "재고 금액 = STOCK_QTY × UNIT_COST_KRW"
+        },
+        {
+          "name": "LAST_MOVEMENT_DATE",
+          "type": "DATE",
+          "pk": false,
+          "nullable": true,
+          "description": "최근 입출고 일자. NULL=이력 없음(약 15%)"
+        }
+      ]
+    },
+    {
+      "table_name": "FACT_ORDER",
+      "table_type": "fact_table",
+      "description": "구매발주 이력 팩트 — 2022~2024 발주/납품 이력, 지연일수, 상태 (~3500건)",
+      "columns": [
+        {
+          "name": "ORDER_ID",
+          "type": "VARCHAR(12)",
+          "pk": true,
+          "nullable": false,
+          "description": "발주 ID (PK). ORD + 6자리"
+        },
+        {
+          "name": "PART_ID",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "부품 ID (FK → MST_PART.PART_ID)"
+        },
+        {
+          "name": "SUPPLIER_ID",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "공급업체 ID (FK → MST_SUPPLIER.SUPPLIER_ID)"
+        },
+        {
+          "name": "WAREHOUSE_ID",
+          "type": "VARCHAR(10)",
+          "pk": false,
+          "nullable": false,
+          "description": "납품 창고 ID (FK → MST_WAREHOUSE.WAREHOUSE_ID)"
+        },
+        {
+          "name": "ORDER_DATE",
+          "type": "DATE",
+          "pk": false,
+          "nullable": false,
+          "description": "발주일"
+        },
+        {
+          "name": "PROMISED_DATE",
+          "type": "DATE",
+          "pk": false,
+          "nullable": false,
+          "description": "약정 납기일 = ORDER_DATE + LEAD_TIME_DAYS"
+        },
+        {
+          "name": "ACTUAL_DATE",
+          "type": "DATE",
+          "pk": false,
+          "nullable": true,
+          "description": "실제 납품일. NULL=PENDING 또는 CANCELLED"
+        },
+        {
+          "name": "ORDER_QTY",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "발주 수량"
+        },
+        {
+          "name": "RECEIVED_QTY",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "실제 입고 수량. PARTIAL이면 ORDER_QTY 미만"
+        },
+        {
+          "name": "UNIT_COST_KRW",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "발주 단가 (원). 기준가 ±5% 변동"
+        },
+        {
+          "name": "ORDER_AMOUNT_KRW",
+          "type": "BIGINT",
+          "pk": false,
+          "nullable": false,
+          "description": "발주 금액 = ORDER_QTY × UNIT_COST_KRW"
+        },
+        {
+          "name": "DELAY_DAYS",
+          "type": "INTEGER",
+          "pk": false,
+          "nullable": false,
+          "description": "납기 지연일수. 0=정시납품"
+        },
+        {
+          "name": "ORDER_TYPE",
+          "type": "VARCHAR(15)",
+          "pk": false,
+          "nullable": false,
+          "description": "발주 유형: REGULAR/EMERGENCY/BLANKET"
+        },
+        {
+          "name": "STATUS",
+          "type": "VARCHAR(15)",
+          "pk": false,
+          "nullable": false,
+          "description": "발주 상태: DELIVERED/DELAYED/PARTIAL/PENDING/CANCELLED"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "MST_PART",
+      "to": "MST_SUPPLIER",
+      "join_key": "SUPPLIER_ID",
+      "relation": "N:1",
+      "description": "부품 → 주 공급업체"
+    },
+    {
+      "from": "FACT_MONTHLY_DEMAND",
+      "to": "MST_PART",
+      "join_key": "PART_ID",
+      "relation": "N:1",
+      "description": "월별 수요 → 부품 마스터"
+    },
+    {
+      "from": "FACT_MONTHLY_DEMAND",
+      "to": "MST_WAREHOUSE",
+      "join_key": "WAREHOUSE_ID",
+      "relation": "N:1",
+      "description": "월별 수요 → 창고 마스터"
+    },
+    {
+      "from": "FACT_INVENTORY",
+      "to": "MST_PART",
+      "join_key": "PART_ID",
+      "relation": "N:1",
+      "description": "재고 스냅샷 → 부품 마스터"
+    },
+    {
+      "from": "FACT_INVENTORY",
+      "to": "MST_WAREHOUSE",
+      "join_key": "WAREHOUSE_ID",
+      "relation": "N:1",
+      "description": "재고 스냅샷 → 창고 마스터"
+    },
+    {
+      "from": "FACT_ORDER",
+      "to": "MST_PART",
+      "join_key": "PART_ID",
+      "relation": "N:1",
+      "description": "발주 이력 → 부품 마스터"
+    },
+    {
+      "from": "FACT_ORDER",
+      "to": "MST_SUPPLIER",
+      "join_key": "SUPPLIER_ID",
+      "relation": "N:1",
+      "description": "발주 이력 → 공급업체 마스터"
+    },
+    {
+      "from": "FACT_ORDER",
+      "to": "MST_WAREHOUSE",
+      "join_key": "WAREHOUSE_ID",
+      "relation": "N:1",
+      "description": "발주 이력 → 납품 창고 마스터"
+    }
+  ]
+}

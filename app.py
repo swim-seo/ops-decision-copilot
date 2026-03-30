@@ -53,7 +53,12 @@ def _apply_css(primary: str = "#2563EB"):
                     font-size:.85rem !important; transition:all .1s !important; }}
 div[data-testid="metric-container"] {{
   background:white; border-radius:6px;
-  border:1px solid #e2e8f0; border-left:3px solid {primary}; padding:.75rem; }}
+  border:1px solid #e2e8f0; border-left:3px solid {primary};
+  padding:.4rem .6rem; overflow:visible; min-width:0; }}
+div[data-testid="metric-container"] [data-testid="stMetricValue"] {{
+  font-size:1.05rem !important; overflow:visible; white-space:nowrap; }}
+div[data-testid="metric-container"] [data-testid="stMetricLabel"] {{
+  font-size:.68rem !important; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
 .stTabs [data-baseweb="tab"] {{ color:#64748b; font-weight:500; font-size:.875rem; }}
 .stTabs [aria-selected="true"] {{ border-bottom:2px solid {primary}; color:{primary}; font-weight:600; }}
 [data-testid="stFileUploader"] {{
@@ -152,25 +157,29 @@ _init_session()
 
 # ── 헬퍼: 도메인 ─────────────────────────────────────────────────────────────
 def _get_domain_context() -> str:
-    if st.session_state.domain_config:
+    dc = st.session_state.get("domain_config")
+    if dc:
         from modules.domain_adapter import DomainConfig
-        return DomainConfig.from_dict(st.session_state.domain_config).to_context_string()
+        return DomainConfig.from_dict(dc).to_context_string()
     return _DEFAULT_DOMAIN_CONTEXT
 
 def _get_entity_colors() -> dict:
-    if st.session_state.domain_config:
-        return st.session_state.domain_config.get("entity_types", DEFAULT_ENTITY_COLORS)
+    dc = st.session_state.get("domain_config")
+    if dc:
+        return dc.get("entity_types", DEFAULT_ENTITY_COLORS)
     return DEFAULT_ENTITY_COLORS
 
 def _get_theme_color() -> str:
-    if st.session_state.domain_config:
-        return st.session_state.domain_config.get("theme_color", "#2563EB")
+    dc = st.session_state.get("domain_config")
+    if dc:
+        return dc.get("theme_color", "#2563EB")
     return "#2563EB"
 
 def _get_collection_name() -> str:
-    if st.session_state.domain_config:
+    dc = st.session_state.get("domain_config")
+    if dc:
         from modules.domain_adapter import DomainConfig
-        return DomainConfig.from_dict(st.session_state.domain_config).collection_name
+        return DomainConfig.from_dict(dc).collection_name
     from config import DEFAULT_COLLECTION_NAME
     return DEFAULT_COLLECTION_NAME
 
@@ -265,14 +274,17 @@ def _schema_to_text(schema: dict) -> str:
         lines.append(f"[JOIN] {r['from']} → {r['to']}  키: {r.get('join_key','')}")
     return "\n".join(lines)
 
-def _extract_kg_with_domain(text: str):
-    """도메인 컨텍스트를 포함해 Claude로 엔티티·관계 추출 (Issue#1 수정)."""
+def _extract_kg_with_domain(text: str, _dc=None):
+    """도메인 컨텍스트를 포함해 Claude로 엔티티·관계 추출.
+    _dc: 스레드 안전을 위해 domain_config dict를 직접 전달 (없으면 session_state에서 읽음).
+    """
     from modules.knowledge_graph import build_entity_extraction_prompt
-    if st.session_state.domain_config:
+    dc = _dc if _dc is not None else st.session_state.get("domain_config")
+    if dc:
         from modules.domain_adapter import DomainConfig
-        dc_obj = DomainConfig.from_dict(st.session_state.domain_config)
+        dc_obj = DomainConfig.from_dict(dc)
         entity_types_desc = dc_obj.get_entity_types_description()
-        domain_ctx_header = f"[도메인 컨텍스트]\n{_get_domain_context()}\n\n"
+        domain_ctx_header = f"[도메인 컨텍스트]\n{dc_obj.to_context_string()}\n\n"
     else:
         entity_types_desc = (
             "- person: 사람, 담당자\n- organization: 조직, 팀\n"
@@ -353,12 +365,14 @@ def _process_file_contents(entries: list) -> int:
         st.session_state.rag.add_document(st.session_state.documents[fname], fname)
 
     # Claude KG 추출 (TXT/PDF/DOCX — 도메인 컨텍스트 포함, 병렬화)
+    # ※ 스레드 안전: domain_config를 메인 스레드에서 캡처해 전달
+    _captured_dc = st.session_state.get("domain_config")
     kg_targets = [fname for fname in new_files if fname not in kg_direct]
     if kg_targets:
         from concurrent.futures import ThreadPoolExecutor, as_completed
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = {
-                executor.submit(_extract_kg_with_domain, st.session_state.documents[fname]): fname
+                executor.submit(_extract_kg_with_domain, st.session_state.documents[fname], _captured_dc): fname
                 for fname in kg_targets
             }
             for future in as_completed(futures):
@@ -382,10 +396,98 @@ def _process_uploaded_files(uploaded_files) -> int:
     return _process_file_contents(entries)
 
 
+# ── 도메인별 Supabase 접두어 / 서브디렉터리 / 테이블 매핑 ─────────────────────
+_DOMAIN_PREFIX_MAP = {
+    "뷰티": "beauty", "이커머스": "beauty",
+    "공급망": "supply", "재고": "supply",
+    "에너지": "energy",
+    "제조": "manufacturing", "생산": "manufacturing",
+    "물류": "logistics",
+    "금융": "finance",
+}
+_DOMAIN_DIR_MAP = {
+    "beauty":        ".",               # data/ 루트
+    "supply":        "supply_chain",
+    "energy":        "energy",
+    "manufacturing": "manufacturing",
+    "logistics":     "logistics",
+    "finance":       "finance",
+}
+_DOMAIN_TABLES = {
+    "beauty":        ["MST_SUPPLIER","MST_CHANNEL","MST_PRODUCT","MST_LOCATION",
+                      "FACT_MONTHLY_SALES","FACT_INVENTORY"],
+    "supply":        ["MST_PART","MST_SUPPLIER","MST_WAREHOUSE",
+                      "FACT_MONTHLY_DEMAND","FACT_INVENTORY","FACT_ORDER"],
+    "energy":        ["MST_REGION","MST_PLANT","MST_METER",
+                      "FACT_DAILY_USAGE","FACT_MONTHLY_BILL","FACT_OUTAGE"],
+    "manufacturing": ["MST_LINE","MST_EQUIPMENT","MST_PRODUCT",
+                      "FACT_PRODUCTION","FACT_DEFECT","FACT_MAINTENANCE"],
+    "logistics":     ["MST_HUB","MST_VEHICLE","MST_ROUTE",
+                      "FACT_DELIVERY","FACT_DELAY","FACT_COST"],
+    "finance":       ["MST_PRODUCT","MST_CUSTOMER","MST_BRANCH",
+                      "FACT_TRANSACTION","FACT_RISK","FACT_PERFORMANCE"],
+}
+
+def _get_domain_prefix() -> str:
+    dc = st.session_state.get("domain_config")
+    if not dc:
+        return "beauty"
+    name = dc.get("name", "")
+    for key, prefix in _DOMAIN_PREFIX_MAP.items():
+        if key in name:
+            return prefix
+    return "beauty"
+
+
 def _load_sample_data() -> int:
-    data_dir = "./data"
-    if not os.path.isdir(data_dir):
+    from modules.supabase_client import is_connected, query_table as _sb_query
+
+    prefix = _get_domain_prefix()
+
+    # ── 1) Supabase 연결 시: DB에서 도메인 테이블 로드 ──────────────────────
+    if is_connected():
+        tables = _DOMAIN_TABLES.get(prefix, [])
+        entries: list = []
+        for tbl in tables:
+            tname = f"{prefix}_{tbl.lower()}"
+            df = _sb_query(tname)
+            if df is not None and len(df) > 0:
+                csv_text = df.to_csv(index=False)
+                entries.append((f"{tbl}.csv", csv_text, "disk"))
+
+        # SCHEMA_DEFINITION.json / LOGIC_DOCUMENT.txt 는 로컬 파일에서 보완
+        sub = _DOMAIN_DIR_MAP.get(prefix, ".")
+        loaded_names = {e[0] for e in entries}
+        for meta in ["SCHEMA_DEFINITION.json", "LOGIC_DOCUMENT.txt"]:
+            if meta in loaded_names:
+                continue
+            candidates = [
+                os.path.join("./data", sub, meta),
+                os.path.join("./data", meta),
+            ]
+            for p in candidates:
+                if os.path.isfile(p):
+                    try:
+                        with open(p, encoding="utf-8", errors="replace") as f:
+                            entries.append((meta, f.read(), "disk"))
+                        break
+                    except IOError:
+                        pass
+
+        if entries:
+            return _process_file_contents(entries)
+
+    # ── 2) CSV fallback: 도메인 서브디렉터리 → data/ 루트 순 탐색 ───────────
+    sub = _DOMAIN_DIR_MAP.get(prefix, ".")
+    candidates_dirs = []
+    if sub != ".":
+        candidates_dirs.append(os.path.join("./data", sub))
+    candidates_dirs.append("./data")
+
+    data_dir = next((d for d in candidates_dirs if os.path.isdir(d)), None)
+    if not data_dir:
         return 0
+
     entries = []
     for fname in sorted(os.listdir(data_dir)):
         fpath = os.path.join(data_dir, fname)
@@ -931,13 +1033,13 @@ elif step == 3:
 
     # 통계 바
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📄 문서", len(st.session_state.documents))
-    c2.metric("🔵 노드", stats["nodes"])
-    c3.metric("↔️ 엣지", stats["edges"])
     rag_cnt = 0
     try: rag_cnt = st.session_state.rag.document_count()
     except Exception: pass
-    c4.metric("🔗 RAG 청크", rag_cnt)
+    c1.metric("📄 로드된 파일", f"{len(st.session_state.documents)}개")
+    c2.metric("🔵 테이블 연결됨", f"{stats['nodes']}개")
+    c3.metric("↔️ 관계 파악", f"{stats['edges']}개")
+    c4.metric("🔗 검색 청크", f"{rag_cnt}개")
 
     st.divider()
 
@@ -1099,6 +1201,20 @@ elif step == 3:
                 for docf in qp.documents:
                     st.caption(f"• {docf}")
 
+    # ── 업무 문장 아래 채팅 예시 안내 ─────────────────────────
+    st.markdown("""
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
+padding:.8rem 1rem;margin-top:.5rem">
+<p style="margin:0 0 .4rem 0;font-size:.88rem;font-weight:600;color:#475569">
+왼쪽 사이드바 채팅창에 이런 질문을 해보세요</p>
+<p style="margin:0;font-size:.85rem;color:#64748b">
+<code style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-size:.85rem">
+FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
+&nbsp;&larr; 복사해서 바로 입력해 보세요
+</p>
+</div>
+""", unsafe_allow_html=True)
+
     st.divider()
 
     # ════════════════════════════════════════════════════════════════════════
@@ -1181,20 +1297,6 @@ elif step == 3:
                 if row == 0 and len(cards) > 2:
                     st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
 
-        # ── 브리핑 아래 채팅 예시 안내 ────────────────────────────
-        st.markdown("""
-<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
-padding:.8rem 1rem;margin-top:.8rem">
-<p style="margin:0 0 .4rem 0;font-size:.88rem;font-weight:600;color:#475569">
-왼쪽 사이드바 채팅창에 이런 질문을 해보세요</p>
-<p style="margin:0;font-size:.85rem;color:#64748b">
-<code style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-size:.85rem">
-FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
-&nbsp;&larr; 복사해서 바로 입력해 보세요
-</p>
-</div>
-""", unsafe_allow_html=True)
-
     st.divider()
 
     # ── Step 3 사이드바: 채팅 패널 ─────────────────────────────────────────────
@@ -1224,22 +1326,22 @@ FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
         )
         st.caption("질문만 입력하면 문서·데이터·지식그래프를 자동으로 결합해 답변합니다.")
 
-        # ── 예시 질문 버튼 (도메인에 따라 동적) ─────────────
+        # ── 예시 질문 버튼 (세로 한 줄, 컴팩트) ─────────────
         _PRESETS_Q = _get_chat_presets()
-        st.markdown('<p style="margin:0 0 4px 0;font-size:.8rem;font-weight:600;color:#64748b">예시문) 클릭하면 바로 질문됩니다</p>',
-                    unsafe_allow_html=True)
-        for row in range(0, len(_PRESETS_Q), 2):
-            cols_q = st.columns(2)
-            for col in range(2):
-                idx = row + col
-                if idx >= len(_PRESETS_Q):
-                    break
-                label, prompt = _PRESETS_Q[idx]
-                with cols_q[col]:
-                    if st.button(label, key=f"qbtn_{idx}",
-                                 use_container_width=True, disabled=exhausted):
-                        st.session_state.chat_preset_input = prompt
-                        st.rerun()
+        st.markdown(
+            '<style>section[data-testid="stSidebar"] div[data-testid="stButton"]>button{'
+            'font-size:11px!important;padding:2px 8px!important;'
+            'min-height:26px!important;height:auto!important;line-height:1.3!important;'
+            'white-space:nowrap!important;overflow:hidden!important;'
+            'text-overflow:ellipsis!important;}</style>'
+            '<p style="margin:0 0 3px;font-size:.75rem;color:#94a3b8">클릭하면 바로 질문됩니다</p>',
+            unsafe_allow_html=True,
+        )
+        for idx, (label, prompt) in enumerate(_PRESETS_Q):
+            if st.button(label, key=f"qbtn_{idx}",
+                         use_container_width=True, disabled=exhausted):
+                st.session_state.chat_preset_input = prompt
+                st.rerun()
 
         # ── 채팅 히스토리 표시 ───────────────────────────────
         chat_box = st.container(height=460)
@@ -1381,7 +1483,7 @@ FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
             )
             st.markdown(legend_html, unsafe_allow_html=True)
 
-        kg_tab_graph, kg_tab_erd, kg_tab_flow = st.tabs(["노드 그래프", "ERD 테이블 뷰", "데이터 흐름 뷰"])
+        kg_tab_erd, kg_tab_graph, kg_tab_flow = st.tabs(["ERD 테이블 뷰", "노드 그래프", "데이터 흐름 뷰"])
 
         with kg_tab_graph:
             html_path = kg.render_html(entity_colors=entity_colors)
@@ -1512,88 +1614,93 @@ FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
             st.caption(f"ℹ️ 처음 {MAX_C:,}자만 분석합니다.")
             atxt = atxt[:MAX_C]
 
-        s1, s2, s3, s4 = st.tabs(["요약", "액션 아이템", "원인 분석", "보고서"])
+        # ── 4개 버튼 + 선택 입력 ──────────────────────────────
+        _opt_cols = st.columns([3, 2])
+        with _opt_cols[0]:
+            issue = st.text_input("원인분석 초점 (선택)", placeholder="예: 납기 지연 원인",
+                                   key="issue_h", label_visibility="collapsed")
+        with _opt_cols[1]:
+            rdate = st.date_input("보고서 날짜", value=datetime.today(),
+                                   key="rpt_dt", label_visibility="collapsed")
 
-        with s1:
-            if st.button("요약 생성", key="btn_sum", disabled=_ai_exhausted):
-                with st.spinner("요약 중..."):
-                    r = st.session_state.claude.generate(
-                        load_prompt("summarize", document=atxt, domain_context=domain_context))
-                st.session_state.chat_api_calls += 1
-                st.markdown(r)
-                st.download_button("💾 다운로드", r,
-                    f"summary_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+        _ab1, _ab2, _ab3, _ab4 = st.columns(4)
+        with _ab1:
+            _run_sum  = st.button("📝 요약",       use_container_width=True,
+                                   disabled=_ai_exhausted, key="btn_sum")
+        with _ab2:
+            _run_act  = st.button("✅ 액션 아이템", use_container_width=True,
+                                   disabled=_ai_exhausted, key="btn_act")
+        with _ab3:
+            _run_root = st.button("🔍 원인 분석",  use_container_width=True,
+                                   disabled=_ai_exhausted, key="btn_root")
+        with _ab4:
+            _run_rpt  = st.button("📊 보고서",     use_container_width=True,
+                                   disabled=_ai_exhausted, key="btn_rpt")
 
-        with s2:
-            if st.button("액션 아이템 추출", key="btn_act", disabled=_ai_exhausted):
-                with st.spinner("추출 중..."):
-                    r = st.session_state.claude.generate(
-                        load_prompt("action_items", document=atxt, domain_context=domain_context))
-                st.session_state.chat_api_calls += 1
-                st.markdown(r)
-                st.download_button("💾 다운로드", r,
-                    f"actions_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+        st.divider()
 
-                # ── 연관 데이터셋 badge 표시 ─────────────────────────
-                with st.spinner("연관 데이터셋 분석 중..."):
-                    try:
-                        from modules.query_planner import plan as _qp_plan, _SCHEMA_REGISTRY
-                        _act_plan = _qp_plan(
-                            r[:500],  # 액션 아이템 텍스트 첫 500자 기준
-                            rag=None, kg=None, claude=None,  # rule-only (빠르게)
-                            domain_context=domain_context,
-                        )
-                        if _act_plan.datasets:
-                            st.markdown("---\n**📊 이 액션과 관련된 데이터셋**")
-                            _ds_badges = []
-                            for _ds in _act_plan.datasets[:6]:
-                                _c = "#10b981" if _ds.confidence >= 0.5 else "#f59e0b"
-                                _ds_badges.append(
-                                    f'<span style="background:{_c}1a;color:{_c};'
-                                    f'border:1px solid {_c}55;border-radius:12px;'
-                                    f'padding:2px 10px;font-size:.78rem;margin:2px;'
-                                    f'display:inline-block">'
-                                    f'📊 {_ds.table_name} '
-                                    f'<span style="opacity:.7">{int(_ds.confidence*100)}%</span></span>'
-                                )
-                                if _ds.next_action:
-                                    _ds_badges.append(
-                                        f'<div style="font-size:.73rem;color:#475569;'
-                                        f'margin:1px 0 4px 8px">⚡ {_ds.next_action}</div>'
-                                    )
-                            st.markdown("".join(_ds_badges), unsafe_allow_html=True)
-                            # 쿼리 플래너로 보내기
-                            if st.button("데이터 추천 자세히 보기",
-                                         key="act_to_qp", use_container_width=False):
-                                st.session_state.qp_input  = r[:200]
-                                st.session_state.qp_result = _act_plan
-                                st.rerun()
-                    except (ImportError, ValueError, KeyError):
-                        pass
+        if _run_sum:
+            with st.spinner("요약 중..."):
+                r = st.session_state.claude.generate(
+                    load_prompt("summarize", document=atxt, domain_context=domain_context))
+            st.session_state.chat_api_calls += 1
+            st.markdown(r)
+            st.download_button("💾 다운로드", r,
+                f"summary_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
 
-        with s3:
-            issue = st.text_input("특정 문제 (선택)", placeholder="예: 납기 지연 원인", key="issue_h")
-            if st.button("원인 분석", key="btn_root", disabled=_ai_exhausted):
-                doc = f"[분석초점: {issue}]\n\n{atxt}" if issue else atxt
-                with st.spinner("분석 중..."):
-                    r = st.session_state.claude.generate(
-                        load_prompt("root_cause", document=doc, domain_context=domain_context))
-                st.session_state.chat_api_calls += 1
-                st.markdown(r)
-                st.download_button("💾 다운로드", r,
-                    f"rootcause_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+        elif _run_act:
+            with st.spinner("액션 아이템 추출 중..."):
+                r = st.session_state.claude.generate(
+                    load_prompt("action_items", document=atxt, domain_context=domain_context))
+            st.session_state.chat_api_calls += 1
+            st.markdown(r)
+            st.download_button("💾 다운로드", r,
+                f"actions_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+            # 연관 데이터셋 badge
+            with st.spinner("연관 데이터셋 분석 중..."):
+                try:
+                    from modules.query_planner import plan as _qp_plan
+                    _act_plan = _qp_plan(r[:500], rag=None, kg=None, claude=None,
+                                         domain_context=domain_context)
+                    if _act_plan.datasets:
+                        st.markdown("---\n**📊 이 액션과 관련된 데이터셋**")
+                        _ds_badges = []
+                        for _ds in _act_plan.datasets[:6]:
+                            _c = "#10b981" if _ds.confidence >= 0.5 else "#f59e0b"
+                            _ds_badges.append(
+                                f'<span style="background:{_c}1a;color:{_c};'
+                                f'border:1px solid {_c}55;border-radius:12px;'
+                                f'padding:2px 10px;font-size:.78rem;margin:2px;display:inline-block">'
+                                f'📊 {_ds.table_name} '
+                                f'<span style="opacity:.7">{int(_ds.confidence*100)}%</span></span>'
+                            )
+                        st.markdown("".join(_ds_badges), unsafe_allow_html=True)
+                        if st.button("데이터 추천 자세히 보기", key="act_to_qp"):
+                            st.session_state.qp_input  = r[:200]
+                            st.session_state.qp_result = _act_plan
+                            st.rerun()
+                except (ImportError, ValueError, KeyError):
+                    pass
 
-        with s4:
-            rdate = st.date_input("날짜", value=datetime.today(), key="rpt_dt")
-            if st.button("보고서 초안", key="btn_rpt", disabled=_ai_exhausted):
-                with st.spinner("작성 중..."):
-                    r = st.session_state.claude.generate(
-                        load_prompt("report_draft", document=atxt,
-                            date=rdate.strftime("%Y년 %m월 %d일"), domain_context=domain_context))
-                st.session_state.chat_api_calls += 1
-                st.markdown(r, unsafe_allow_html=True)
-                st.download_button("💾 다운로드", r,
-                    f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+        elif _run_root:
+            doc = f"[분석초점: {issue}]\n\n{atxt}" if issue.strip() else atxt
+            with st.spinner("원인 분석 중..."):
+                r = st.session_state.claude.generate(
+                    load_prompt("root_cause", document=doc, domain_context=domain_context))
+            st.session_state.chat_api_calls += 1
+            st.markdown(r)
+            st.download_button("💾 다운로드", r,
+                f"rootcause_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
+
+        elif _run_rpt:
+            with st.spinner("보고서 작성 중..."):
+                r = st.session_state.claude.generate(
+                    load_prompt("report_draft", document=atxt,
+                        date=rdate.strftime("%Y년 %m월 %d일"), domain_context=domain_context))
+            st.session_state.chat_api_calls += 1
+            st.markdown(r, unsafe_allow_html=True)
+            st.download_button("💾 다운로드", r,
+                f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.md", "text/markdown")
 
     with tab_rag:
         from modules.prompt_loader import load_prompt

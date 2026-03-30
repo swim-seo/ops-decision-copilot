@@ -1,0 +1,376 @@
+{
+  "database": "manufacturing_demo",
+  "description": "스마트팩토리 생산 관리 데모 데이터셋",
+  "tables": {
+    "MST_LINE": {
+      "description": "생산 라인 마스터",
+      "primary_key": "LINE_ID",
+      "columns": {
+        "LINE_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "라인 고유 ID"
+        },
+        "LINE_NAME": {
+          "type": "VARCHAR(30)",
+          "nullable": false,
+          "description": "라인 이름"
+        },
+        "LINE_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "라인 유형 (가공/프레스/용접/도장/조립/검사)"
+        },
+        "FACTORY_FLOOR": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "description": "공장 동 (A동/B동/C동)"
+        },
+        "SHIFT_COUNT": {
+          "type": "INT",
+          "nullable": false,
+          "description": "교대 횟수 (1/2/3)"
+        },
+        "DESIGN_CAPACITY_DAILY": {
+          "type": "INT",
+          "nullable": false,
+          "description": "일 설계 생산 능력 (개)"
+        },
+        "STATUS": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "description": "운영 상태 (OPERATING/MAINTENANCE/SETUP)"
+        },
+        "LINE_MANAGER": {
+          "type": "VARCHAR(20)",
+          "nullable": false,
+          "description": "라인 담당자"
+        }
+      }
+    },
+    "MST_EQUIPMENT": {
+      "description": "설비 마스터",
+      "primary_key": "EQUIPMENT_ID",
+      "foreign_keys": {
+        "LINE_ID": "MST_LINE.LINE_ID"
+      },
+      "columns": {
+        "EQUIPMENT_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "EQUIPMENT_NAME": {
+          "type": "VARCHAR(30)",
+          "nullable": false
+        },
+        "EQUIPMENT_TYPE": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "description": "CNC선반/프레스/용접로봇/도장설비/검사장비/조립로봇/컨베이어"
+        },
+        "LINE_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "fk": "MST_LINE.LINE_ID"
+        },
+        "MANUFACTURER": {
+          "type": "VARCHAR(30)",
+          "nullable": false
+        },
+        "INSTALL_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "DESIGN_CAPACITY_PER_HOUR": {
+          "type": "INT",
+          "nullable": false,
+          "description": "시간당 설계 생산량"
+        },
+        "OEE_TARGET_PCT": {
+          "type": "DECIMAL(5,2)",
+          "nullable": false,
+          "description": "OEE 목표 (%)"
+        },
+        "MAINTENANCE_CYCLE_DAYS": {
+          "type": "INT",
+          "nullable": false,
+          "description": "예방정비 주기 (일)"
+        },
+        "STATUS": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "description": "OPERATING/MAINTENANCE/BREAKDOWN/STANDBY"
+        },
+        "ASSET_VALUE_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "자산가치 (원)"
+        }
+      }
+    },
+    "MST_PRODUCT": {
+      "description": "제품 마스터",
+      "primary_key": "PRODUCT_ID",
+      "foreign_keys": {
+        "LINE_ID": "MST_LINE.LINE_ID"
+      },
+      "columns": {
+        "PRODUCT_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "PRODUCT_NAME": {
+          "type": "VARCHAR(40)",
+          "nullable": false
+        },
+        "PRODUCT_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "완성품/반제품/부품"
+        },
+        "CATEGORY": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "description": "엔진부품/차체부품/전장부품/인테리어/안전부품"
+        },
+        "LINE_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "fk": "MST_LINE.LINE_ID"
+        },
+        "CYCLE_TIME_SECONDS": {
+          "type": "INT",
+          "nullable": false,
+          "description": "개당 사이클 타임 (초)"
+        },
+        "STANDARD_COST_KRW": {
+          "type": "INT",
+          "nullable": false
+        },
+        "DEMAND_TYPE": {
+          "type": "VARCHAR(20)",
+          "nullable": false,
+          "description": "MASS_PRODUCTION/SMALL_BATCH/CUSTOM/DISCONTINUE"
+        },
+        "TARGET_DAILY_OUTPUT": {
+          "type": "INT",
+          "nullable": false
+        },
+        "DEFECT_THRESHOLD_PCT": {
+          "type": "DECIMAL(4,2)",
+          "nullable": false,
+          "description": "허용 불량률 (%)"
+        },
+        "LAUNCH_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "STATUS": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "ACTIVE/EOL"
+        }
+      }
+    },
+    "FACT_PRODUCTION": {
+      "description": "일별 생산 실적 (2023-01-01 ~ 2024-12-31)",
+      "primary_key": "PRODUCTION_ID",
+      "foreign_keys": {
+        "LINE_ID": "MST_LINE.LINE_ID",
+        "PRODUCT_ID": "MST_PRODUCT.PRODUCT_ID"
+      },
+      "columns": {
+        "PRODUCTION_ID": {
+          "type": "VARCHAR(15)",
+          "nullable": false
+        },
+        "LINE_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "PRODUCT_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "PRODUCTION_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "SHIFT": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "description": "주간/야간/전일"
+        },
+        "PLANNED_OUTPUT": {
+          "type": "INT",
+          "nullable": false
+        },
+        "ACTUAL_OUTPUT": {
+          "type": "INT",
+          "nullable": false
+        },
+        "UTILIZATION_RATE_PCT": {
+          "type": "DECIMAL(5,2)",
+          "nullable": false
+        },
+        "OPERATION_HOURS": {
+          "type": "DECIMAL(4,1)",
+          "nullable": false
+        },
+        "DOWNTIME_HOURS": {
+          "type": "DECIMAL(4,1)",
+          "nullable": true,
+          "description": "비가동 시간 (NULL = 비가동 없음)"
+        },
+        "DOWNTIME_REASON": {
+          "type": "VARCHAR(20)",
+          "nullable": true,
+          "description": "설비고장/원자재부족/품질문제/계획정비/라인전환"
+        },
+        "YIELD_RATE_PCT": {
+          "type": "DECIMAL(5,2)",
+          "nullable": false
+        }
+      }
+    },
+    "FACT_DEFECT": {
+      "description": "불량 기록 (2023-2024)",
+      "primary_key": "DEFECT_ID",
+      "foreign_keys": {
+        "LINE_ID": "MST_LINE.LINE_ID",
+        "EQUIPMENT_ID": "MST_EQUIPMENT.EQUIPMENT_ID",
+        "PRODUCT_ID": "MST_PRODUCT.PRODUCT_ID"
+      },
+      "columns": {
+        "DEFECT_ID": {
+          "type": "VARCHAR(15)",
+          "nullable": false
+        },
+        "LINE_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "EQUIPMENT_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "PRODUCT_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "DEFECT_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "DEFECT_TYPE": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "description": "치수불량/외관불량/기능불량/용접불량/도장불량/조립불량"
+        },
+        "INSPECTED_QTY": {
+          "type": "INT",
+          "nullable": false
+        },
+        "DEFECT_QTY": {
+          "type": "INT",
+          "nullable": false
+        },
+        "DEFECT_RATE_PCT": {
+          "type": "DECIMAL(5,2)",
+          "nullable": false
+        },
+        "SEVERITY": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "CRITICAL/MAJOR/MINOR"
+        },
+        "DISPOSITION": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "재작업/폐기/특채"
+        },
+        "REWORK_COST_KRW": {
+          "type": "INT",
+          "nullable": true,
+          "description": "재작업 비용 (재작업이 아닌 경우 NULL)"
+        },
+        "ROOT_CAUSE": {
+          "type": "VARCHAR(20)",
+          "nullable": true,
+          "description": "설비마모/원자재불량/작업자오류/공정파라미터/환경요인 (~20% NULL)"
+        }
+      }
+    },
+    "FACT_MAINTENANCE": {
+      "description": "정비 기록 (2022-2024)",
+      "primary_key": "MAINTENANCE_ID",
+      "foreign_keys": {
+        "EQUIPMENT_ID": "MST_EQUIPMENT.EQUIPMENT_ID"
+      },
+      "columns": {
+        "MAINTENANCE_ID": {
+          "type": "VARCHAR(15)",
+          "nullable": false
+        },
+        "EQUIPMENT_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "MAINTENANCE_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "MAINTENANCE_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "예방정비/사후정비/개량정비/긴급정비"
+        },
+        "STATUS": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "description": "COMPLETED/IN_PROGRESS/SCHEDULED"
+        },
+        "PLANNED_HOURS": {
+          "type": "DECIMAL(4,1)",
+          "nullable": false
+        },
+        "ACTUAL_HOURS": {
+          "type": "DECIMAL(4,1)",
+          "nullable": true,
+          "description": "SCHEDULED 상태는 NULL"
+        },
+        "TECHNICIAN_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false
+        },
+        "PARTS_COST_KRW": {
+          "type": "INT",
+          "nullable": true,
+          "description": "~15% NULL"
+        },
+        "LABOR_COST_KRW": {
+          "type": "INT",
+          "nullable": true
+        },
+        "TOTAL_COST_KRW": {
+          "type": "INT",
+          "nullable": true,
+          "description": "SCHEDULED 상태는 NULL"
+        },
+        "NEXT_MAINTENANCE_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "DOWNTIME_HOURS": {
+          "type": "DECIMAL(4,1)",
+          "nullable": false
+        },
+        "RESULT_NOTE": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "description": "~20% NULL"
+        }
+      }
+    }
+  }
+}

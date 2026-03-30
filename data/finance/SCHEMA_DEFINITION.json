@@ -1,0 +1,429 @@
+{
+  "dataset": "finance",
+  "description": "Korean bank financial risk and portfolio management demo dataset",
+  "generated_at": "2025-01-01",
+  "tables": {
+    "MST_PRODUCT": {
+      "description": "금융 상품 마스터 (25개)",
+      "primary_key": "PRODUCT_ID",
+      "columns": {
+        "PRODUCT_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "상품 고유 코드 (PRD001~PRD025)"
+        },
+        "PRODUCT_NAME": {
+          "type": "VARCHAR(50)",
+          "nullable": false,
+          "description": "상품명"
+        },
+        "PRODUCT_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "상품 유형: 예금/적금/대출/펀드/보험/카드/파생상품"
+        },
+        "CATEGORY": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "분류: 개인/기업/자산관리/리스크헤지"
+        },
+        "INTEREST_RATE_PCT": {
+          "type": "DECIMAL(5,2)",
+          "nullable": true,
+          "description": "기본 금리(%). 비이자 상품은 NULL"
+        },
+        "MIN_AMOUNT_KRW": {
+          "type": "BIGINT",
+          "nullable": true,
+          "description": "최소 가입금액(원)"
+        },
+        "MAX_AMOUNT_KRW": {
+          "type": "BIGINT",
+          "nullable": true,
+          "description": "최대 가입금액(원). 한도없음=NULL"
+        },
+        "TERM_MONTHS": {
+          "type": "INT",
+          "nullable": true,
+          "description": "계약 기간(월). 수시입출금=NULL"
+        },
+        "RISK_GRADE": {
+          "type": "INT",
+          "nullable": false,
+          "description": "리스크 등급 1(최저)~5(최고)"
+        },
+        "STATUS": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "description": "상태: ACTIVE/DISCONTINUED/SUSPENDED"
+        },
+        "LAUNCH_DATE": {
+          "type": "DATE",
+          "nullable": false,
+          "description": "출시일"
+        },
+        "REGULATOR": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "감독기관: 금융위/금감원/한은"
+        }
+      }
+    },
+    "MST_CUSTOMER": {
+      "description": "고객 마스터 (50개, 개인/법인/소호 혼합)",
+      "primary_key": "CUSTOMER_ID",
+      "columns": {
+        "CUSTOMER_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "고객 고유 코드 (CUS001~CUS050)"
+        },
+        "CUSTOMER_TYPE": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "description": "고객 유형: 개인/법인/소호"
+        },
+        "CUSTOMER_GRADE": {
+          "type": "VARCHAR(8)",
+          "nullable": false,
+          "description": "등급: VVIP/VIP/GOLD/SILVER/GENERAL"
+        },
+        "AGE_GROUP": {
+          "type": "VARCHAR(8)",
+          "nullable": true,
+          "description": "연령대 (법인=NULL)"
+        },
+        "REGION": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "description": "지역: 서울/경기/부산/대구/기타"
+        },
+        "CREDIT_SCORE": {
+          "type": "INT",
+          "nullable": true,
+          "description": "신용점수 300~950 (일부 NULL)"
+        },
+        "TOTAL_ASSETS_MILLION_KRW": {
+          "type": "BIGINT",
+          "nullable": true,
+          "description": "총자산(백만원, 일부 NULL)"
+        },
+        "RELATIONSHIP_MONTHS": {
+          "type": "INT",
+          "nullable": false,
+          "description": "거래기간(월)"
+        },
+        "RISK_APPETITE": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "description": "투자 성향: 보수/중립/적극"
+        },
+        "STATUS": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "상태: ACTIVE/DORMANT/CLOSED"
+        }
+      }
+    },
+    "MST_BRANCH": {
+      "description": "영업점 마스터 (15개)",
+      "primary_key": "BRANCH_ID",
+      "columns": {
+        "BRANCH_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "지점 코드 (BRN001~BRN015)"
+        },
+        "BRANCH_NAME": {
+          "type": "VARCHAR(30)",
+          "nullable": false,
+          "description": "지점명"
+        },
+        "BRANCH_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "유형: 본점/지점/출장소/디지털지점"
+        },
+        "REGION": {
+          "type": "VARCHAR(5)",
+          "nullable": false,
+          "description": "지역"
+        },
+        "ADDRESS": {
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "description": "주소"
+        },
+        "MANAGER_NAME": {
+          "type": "VARCHAR(10)",
+          "nullable": true,
+          "description": "지점장 이름 (디지털지점 NULL 가능)"
+        },
+        "OPEN_DATE": {
+          "type": "DATE",
+          "nullable": false,
+          "description": "개점일"
+        },
+        "EMPLOYEE_COUNT": {
+          "type": "INT",
+          "nullable": false,
+          "description": "직원 수"
+        },
+        "STATUS": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "description": "운영 상태: OPERATING/RENOVATION/CLOSED"
+        }
+      }
+    },
+    "FACT_TRANSACTION": {
+      "description": "거래 이력 (~20,000건, 2023-01-01~2024-12-31)",
+      "primary_key": "TRANSACTION_ID",
+      "foreign_keys": {
+        "CUSTOMER_ID": "MST_CUSTOMER.CUSTOMER_ID",
+        "PRODUCT_ID": "MST_PRODUCT.PRODUCT_ID",
+        "BRANCH_ID": "MST_BRANCH.BRANCH_ID"
+      },
+      "columns": {
+        "TRANSACTION_ID": {
+          "type": "VARCHAR(11)",
+          "nullable": false,
+          "description": "거래 고유 ID (TXN00000001~)"
+        },
+        "CUSTOMER_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "고객 ID (FK → MST_CUSTOMER)"
+        },
+        "PRODUCT_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "상품 ID (FK → MST_PRODUCT)"
+        },
+        "BRANCH_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": true,
+          "description": "지점 ID (온라인 거래=NULL, FK → MST_BRANCH)"
+        },
+        "TRANSACTION_DATE": {
+          "type": "DATE",
+          "nullable": false,
+          "description": "거래일"
+        },
+        "TRANSACTION_TIME": {
+          "type": "TIME",
+          "nullable": false,
+          "description": "거래 시각 (HH:MM:SS)"
+        },
+        "TRANSACTION_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "거래 유형: 입금/출금/이체/매수/매도/대출실행/대출상환/카드결제/외환거래"
+        },
+        "AMOUNT_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "거래 금액(원). 외화 거래도 원화 환산"
+        },
+        "BALANCE_AFTER_KRW": {
+          "type": "BIGINT",
+          "nullable": true,
+          "description": "거래 후 잔액(원), 일부 NULL"
+        },
+        "CHANNEL": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "채널: 영업점/ATM/인터넷뱅킹/모바일앱/자동이체"
+        },
+        "CURRENCY": {
+          "type": "VARCHAR(3)",
+          "nullable": false,
+          "description": "통화: KRW/USD/EUR/JPY"
+        },
+        "IS_ANOMALY": {
+          "type": "CHAR(1)",
+          "nullable": false,
+          "description": "이상거래 여부: Y/N"
+        },
+        "ANOMALY_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": true,
+          "description": "이상 유형 (정상=NULL): 이상금액/비정상시간/연속거래/해외거래이상/계좌분산"
+        },
+        "STATUS": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "처리 상태: COMPLETED/FAILED/REVERSED/PENDING"
+        }
+      }
+    },
+    "FACT_RISK": {
+      "description": "월별 고객 리스크 평가 (50고객 × 36개월 = 1,800행, 2022-01~2024-12)",
+      "primary_key": "RISK_ID",
+      "foreign_keys": {
+        "CUSTOMER_ID": "MST_CUSTOMER.CUSTOMER_ID"
+      },
+      "columns": {
+        "RISK_ID": {
+          "type": "VARCHAR(11)",
+          "nullable": false,
+          "description": "리스크 레코드 ID (RSK00000001~)"
+        },
+        "CUSTOMER_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "고객 ID (FK → MST_CUSTOMER)"
+        },
+        "YEAR_MONTH": {
+          "type": "VARCHAR(7)",
+          "nullable": false,
+          "description": "기준 연월 (YYYY-MM)"
+        },
+        "CREDIT_SCORE_CURRENT": {
+          "type": "INT",
+          "nullable": false,
+          "description": "당월 신용점수 (월별 변동)"
+        },
+        "PD_PCT": {
+          "type": "DECIMAL(6,4)",
+          "nullable": false,
+          "description": "부도확률 PD (%)"
+        },
+        "LGD_PCT": {
+          "type": "DECIMAL(5,2)",
+          "nullable": false,
+          "description": "부도시 손실률 LGD (%)"
+        },
+        "EAD_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "부도시 노출액 EAD (원)"
+        },
+        "EXPECTED_LOSS_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "예상손실 EL = PD × LGD × EAD (원)"
+        },
+        "RISK_GRADE": {
+          "type": "VARCHAR(3)",
+          "nullable": false,
+          "description": "내부 신용등급: AAA/AA/A/BBB/BB/B/CCC/D"
+        },
+        "RISK_GRADE_PREV": {
+          "type": "VARCHAR(3)",
+          "nullable": true,
+          "description": "전월 신용등급 (첫 월=NULL)"
+        },
+        "GRADE_CHANGE": {
+          "type": "VARCHAR(10)",
+          "nullable": true,
+          "description": "등급 변동: UPGRADE/DOWNGRADE/STABLE (첫 월=NULL)"
+        },
+        "COLLATERAL_VALUE_KRW": {
+          "type": "BIGINT",
+          "nullable": true,
+          "description": "담보 평가액 (무담보=NULL, ~35%)"
+        },
+        "MARKET_RISK_VAR_KRW": {
+          "type": "BIGINT",
+          "nullable": true,
+          "description": "시장리스크 VaR 95% 1일기준 (비투자상품=NULL, ~50%)"
+        },
+        "LIQUIDITY_RISK_SCORE": {
+          "type": "INT",
+          "nullable": false,
+          "description": "유동성 리스크 점수 1(낮음)~10(높음)"
+        }
+      }
+    },
+    "FACT_PERFORMANCE": {
+      "description": "월별 지점 성과 (15지점 × 36개월 = 540행, 2022-01~2024-12)",
+      "primary_key": "PERF_ID",
+      "foreign_keys": {
+        "BRANCH_ID": "MST_BRANCH.BRANCH_ID"
+      },
+      "columns": {
+        "PERF_ID": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "성과 레코드 ID (PFM0000001~)"
+        },
+        "BRANCH_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "지점 ID (FK → MST_BRANCH)"
+        },
+        "YEAR_MONTH": {
+          "type": "VARCHAR(7)",
+          "nullable": false,
+          "description": "기준 연월 (YYYY-MM)"
+        },
+        "NEW_CUSTOMER_COUNT": {
+          "type": "INT",
+          "nullable": false,
+          "description": "신규 고객 수"
+        },
+        "CLOSED_CUSTOMER_COUNT": {
+          "type": "INT",
+          "nullable": false,
+          "description": "해지 고객 수"
+        },
+        "TOTAL_DEPOSIT_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "총 수신 잔액(원)"
+        },
+        "TOTAL_LOAN_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "총 여신 잔액(원)"
+        },
+        "TOTAL_INVESTMENT_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "총 투자 잔액(원)"
+        },
+        "NET_INTEREST_INCOME_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "순이자이익(원)"
+        },
+        "FEE_INCOME_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "수수료 수익(원)"
+        },
+        "TOTAL_REVENUE_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "총 수익 = NII + 수수료 (원)"
+        },
+        "OPERATING_COST_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "운영 비용(원)"
+        },
+        "NET_PROFIT_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "순이익 = 수익 - 비용 (원)"
+        },
+        "NPS_SCORE": {
+          "type": "INT",
+          "nullable": true,
+          "description": "순추천고객지수 NPS (-100~100, ~15% NULL)"
+        },
+        "COMPLAINT_COUNT": {
+          "type": "INT",
+          "nullable": false,
+          "description": "민원 건수"
+        },
+        "LOAN_DEFAULT_COUNT": {
+          "type": "INT",
+          "nullable": true,
+          "description": "여신 연체/부실 건수 (~20% NULL)"
+        }
+      }
+    }
+  }
+}

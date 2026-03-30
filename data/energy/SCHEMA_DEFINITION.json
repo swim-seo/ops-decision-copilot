@@ -1,0 +1,411 @@
+{
+  "domain": "전력·가스 유틸리티 운영",
+  "generated_at": "2025-01-01",
+  "tables": {
+    "MST_REGION": {
+      "description": "지역 마스터 (9개 권역)",
+      "primary_key": "REGION_ID",
+      "columns": {
+        "REGION_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "description": "지역 고유 ID"
+        },
+        "REGION_NAME": {
+          "type": "VARCHAR(20)",
+          "nullable": false,
+          "description": "지역명"
+        },
+        "REGION_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "광역시/도 구분"
+        },
+        "POPULATION_MILLION": {
+          "type": "DECIMAL(5,1)",
+          "nullable": false,
+          "description": "인구 (백만명)"
+        },
+        "PEAK_DEMAND_MW": {
+          "type": "INTEGER",
+          "nullable": false,
+          "description": "최대 수요 (MW)"
+        },
+        "GRID_ZONE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "description": "계통 구역 (수도권/남부/북부)"
+        }
+      }
+    },
+    "MST_PLANT": {
+      "description": "발전소 마스터 (12개소)",
+      "primary_key": "PLANT_ID",
+      "foreign_keys": {
+        "REGION_ID": "MST_REGION.REGION_ID"
+      },
+      "columns": {
+        "PLANT_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false
+        },
+        "PLANT_NAME": {
+          "type": "VARCHAR(30)",
+          "nullable": false
+        },
+        "PLANT_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "values": [
+            "화력",
+            "원자력",
+            "태양광",
+            "풍력",
+            "수력",
+            "복합화력"
+          ]
+        },
+        "REGION_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "fk": "MST_REGION.REGION_ID"
+        },
+        "CAPACITY_MW": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "COMMISSION_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "STATUS": {
+          "type": "VARCHAR(15)",
+          "nullable": false,
+          "values": [
+            "OPERATING",
+            "MAINTENANCE",
+            "STANDBY",
+            "DECOMMISSIONED"
+          ]
+        },
+        "FUEL_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "values": [
+            "LNG",
+            "석탄",
+            "우라늄",
+            "태양열",
+            "바람",
+            "수력"
+          ]
+        },
+        "OPERATOR_NAME": {
+          "type": "VARCHAR(30)",
+          "nullable": false
+        },
+        "CO2_EMISSION_FACTOR": {
+          "type": "INTEGER",
+          "nullable": true,
+          "description": "gCO2/kWh, 재생에너지는 NULL"
+        }
+      }
+    },
+    "MST_METER": {
+      "description": "계량기 마스터 (20개소)",
+      "primary_key": "METER_ID",
+      "foreign_keys": {
+        "REGION_ID": "MST_REGION.REGION_ID"
+      },
+      "columns": {
+        "METER_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false
+        },
+        "METER_NAME": {
+          "type": "VARCHAR(30)",
+          "nullable": false
+        },
+        "METER_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "values": [
+            "산업용",
+            "상업용",
+            "주거용",
+            "변전소"
+          ]
+        },
+        "REGION_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "fk": "MST_REGION.REGION_ID"
+        },
+        "CUSTOMER_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "values": [
+            "제조업",
+            "서비스업",
+            "주거단지",
+            "공공기관"
+          ]
+        },
+        "CONTRACT_CAPACITY_KW": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "VOLTAGE_LEVEL": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "values": [
+            "154kV",
+            "22.9kV",
+            "380V",
+            "220V"
+          ]
+        },
+        "INSTALL_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "STATUS": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "values": [
+            "ACTIVE",
+            "INACTIVE",
+            "FAULTY"
+          ]
+        }
+      }
+    },
+    "FACT_DAILY_USAGE": {
+      "description": "일별 전력 사용량 (2023-01-01 ~ 2024-12-31, 20계량기 × 730일 = 14,600행)",
+      "primary_key": "USAGE_ID",
+      "foreign_keys": {
+        "METER_ID": "MST_METER.METER_ID"
+      },
+      "columns": {
+        "USAGE_ID": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "METER_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "fk": "MST_METER.METER_ID"
+        },
+        "USAGE_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "USAGE_KWH": {
+          "type": "DECIMAL(12,2)",
+          "nullable": false,
+          "description": "당일 총 사용량 (kWh)"
+        },
+        "PEAK_KW": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "description": "최대 수요전력 (kW)"
+        },
+        "OFFPEAK_KW": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false
+        },
+        "REACTIVE_KVARH": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false
+        },
+        "POWER_FACTOR": {
+          "type": "DECIMAL(4,3)",
+          "nullable": true,
+          "description": "역률, ~15% NULL"
+        },
+        "IS_PEAK_DAY": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "description": "피크 시즌 평일 여부"
+        },
+        "ESTIMATED_FLAG": {
+          "type": "CHAR(1)",
+          "nullable": false,
+          "description": "Y=추정검침, N=실검침, 5% Y"
+        }
+      }
+    },
+    "FACT_MONTHLY_BILL": {
+      "description": "월별 청구서 (2022-01 ~ 2024-12, 36개월 × 20계량기 = 720행)",
+      "primary_key": "BILL_ID",
+      "foreign_keys": {
+        "METER_ID": "MST_METER.METER_ID"
+      },
+      "columns": {
+        "BILL_ID": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "METER_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "fk": "MST_METER.METER_ID"
+        },
+        "YEAR_MONTH": {
+          "type": "CHAR(7)",
+          "nullable": false,
+          "description": "YYYY-MM"
+        },
+        "USAGE_KWH": {
+          "type": "DECIMAL(12,1)",
+          "nullable": false
+        },
+        "PEAK_USAGE_KWH": {
+          "type": "DECIMAL(12,1)",
+          "nullable": false
+        },
+        "OFFPEAK_USAGE_KWH": {
+          "type": "DECIMAL(12,1)",
+          "nullable": false
+        },
+        "DEMAND_CHARGE_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "기본요금 = 계약전력×7,220원/kW"
+        },
+        "ENERGY_CHARGE_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "전력량요금 (최대부하 164원, 경부하 98원)"
+        },
+        "FUEL_ADJUSTMENT_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "연료비조정요금 (±15원/kWh, 음수 가능)"
+        },
+        "TAX_KRW": {
+          "type": "BIGINT",
+          "nullable": false,
+          "description": "부가세 10%"
+        },
+        "TOTAL_BILL_KRW": {
+          "type": "BIGINT",
+          "nullable": false
+        },
+        "PAYMENT_DATE": {
+          "type": "DATE",
+          "nullable": true,
+          "description": "~10% NULL (미납)"
+        },
+        "PAYMENT_STATUS": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "values": [
+            "PAID",
+            "UNPAID",
+            "OVERDUE",
+            "PARTIAL"
+          ]
+        }
+      }
+    },
+    "FACT_OUTAGE": {
+      "description": "정전 이벤트 (2022-2024, 약 150건)",
+      "primary_key": "OUTAGE_ID",
+      "foreign_keys": {
+        "PLANT_ID": "MST_PLANT.PLANT_ID",
+        "REGION_ID": "MST_REGION.REGION_ID"
+      },
+      "columns": {
+        "OUTAGE_ID": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "PLANT_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": true,
+          "description": "~35% NULL (배전측 정전)"
+        },
+        "REGION_ID": {
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "fk": "MST_REGION.REGION_ID"
+        },
+        "OUTAGE_DATE": {
+          "type": "DATE",
+          "nullable": false
+        },
+        "START_TIME": {
+          "type": "TIME",
+          "nullable": false
+        },
+        "END_TIME": {
+          "type": "TIME",
+          "nullable": false
+        },
+        "DURATION_HOURS": {
+          "type": "DECIMAL(5,2)",
+          "nullable": false
+        },
+        "OUTAGE_TYPE": {
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "values": [
+            "계획정전",
+            "강제정전",
+            "자연재해",
+            "설비고장",
+            "수요초과"
+          ]
+        },
+        "AFFECTED_CUSTOMERS": {
+          "type": "INTEGER",
+          "nullable": false
+        },
+        "ENERGY_NOT_SUPPLIED_MWH": {
+          "type": "DECIMAL(8,1)",
+          "nullable": false
+        },
+        "CAUSE_DESCRIPTION": {
+          "type": "VARCHAR(100)",
+          "nullable": false
+        },
+        "RESTORATION_METHOD": {
+          "type": "VARCHAR(100)",
+          "nullable": false
+        },
+        "COST_KRW": {
+          "type": "BIGINT",
+          "nullable": true,
+          "description": "~20% NULL"
+        }
+      }
+    }
+  },
+  "relationships": [
+    {
+      "from": "MST_PLANT.REGION_ID",
+      "to": "MST_REGION.REGION_ID"
+    },
+    {
+      "from": "MST_METER.REGION_ID",
+      "to": "MST_REGION.REGION_ID"
+    },
+    {
+      "from": "FACT_DAILY_USAGE.METER_ID",
+      "to": "MST_METER.METER_ID"
+    },
+    {
+      "from": "FACT_MONTHLY_BILL.METER_ID",
+      "to": "MST_METER.METER_ID"
+    },
+    {
+      "from": "FACT_OUTAGE.PLANT_ID",
+      "to": "MST_PLANT.PLANT_ID"
+    },
+    {
+      "from": "FACT_OUTAGE.REGION_ID",
+      "to": "MST_REGION.REGION_ID"
+    }
+  ]
+}
