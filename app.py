@@ -274,9 +274,11 @@ def _schema_to_text(schema: dict) -> str:
         lines.append(f"[JOIN] {r['from']} → {r['to']}  키: {r.get('join_key','')}")
     return "\n".join(lines)
 
-def _extract_kg_with_domain(text: str, _dc=None):
+def _extract_kg_with_domain(text: str, _dc=None, _claude=None, _kg=None):
     """도메인 컨텍스트를 포함해 Claude로 엔티티·관계 추출.
-    _dc: 스레드 안전을 위해 domain_config dict를 직접 전달 (없으면 session_state에서 읽음).
+    _dc:     스레드 안전을 위해 domain_config dict를 직접 전달
+    _claude: ClaudeClient 인스턴스 (스레드에서 session_state 접근 불가)
+    _kg:     KnowledgeGraph 인스턴스 (동일 이유)
     """
     from modules.knowledge_graph import build_entity_extraction_prompt
     dc = _dc if _dc is not None else st.session_state.get("domain_config")
@@ -292,12 +294,13 @@ def _extract_kg_with_domain(text: str, _dc=None):
         )
         domain_ctx_header = ""
     template = build_entity_extraction_prompt(entity_types_desc)
-    # 프롬프트 인젝션 방어: 문서 내 역할 덮어쓰기 패턴 필터링
     from modules.chat_copilot import sanitize_input
     safe_text = sanitize_input(text, max_len=3000)
     prompt = domain_ctx_header + template.replace("{document}", safe_text)
-    response = st.session_state.claude.generate(prompt, max_tokens=4096)
-    st.session_state.kg.build_from_claude_json(response)
+    claude = _claude if _claude is not None else st.session_state.claude
+    kg    = _kg    if _kg    is not None else st.session_state.kg
+    response = claude.generate(prompt, max_tokens=4096)
+    kg.build_from_claude_json(response)
 
 def _process_file_contents(entries: list) -> int:
     """파일 콘텐츠 통합 처리. entries: [(filename, raw_bytes_or_text, source), ...]
@@ -365,14 +368,22 @@ def _process_file_contents(entries: list) -> int:
         st.session_state.rag.add_document(st.session_state.documents[fname], fname)
 
     # Claude KG 추출 (TXT/PDF/DOCX — 도메인 컨텍스트 포함, 병렬화)
-    # ※ 스레드 안전: domain_config를 메인 스레드에서 캡처해 전달
-    _captured_dc = st.session_state.get("domain_config")
+    # ※ 스레드 안전: session_state 객체를 메인 스레드에서 캡처해 전달
+    _captured_dc     = st.session_state.get("domain_config")
+    _captured_claude = st.session_state.claude
+    _captured_kg     = st.session_state.kg
     kg_targets = [fname for fname in new_files if fname not in kg_direct]
     if kg_targets:
         from concurrent.futures import ThreadPoolExecutor, as_completed
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = {
-                executor.submit(_extract_kg_with_domain, st.session_state.documents[fname], _captured_dc): fname
+                executor.submit(
+                    _extract_kg_with_domain,
+                    st.session_state.documents[fname],
+                    _captured_dc,
+                    _captured_claude,
+                    _captured_kg,
+                ): fname
                 for fname in kg_targets
             }
             for future in as_completed(futures):
