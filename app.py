@@ -1205,7 +1205,7 @@ elif step == 3:
     st.markdown("""
 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
 padding:.8rem 1rem;margin-top:.5rem">
-<p style="margin:0 0 .4rem 0;font-size:.88rem;font-weight:600;color:#475569">
+<p style="margin:0;font-size:.88rem;font-weight:600;color:#475569">
 왼쪽 사이드바 채팅창에 이런 질문을 해보세요</p>
 <p style="margin:0;font-size:.85rem;color:#64748b">
 <code style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-size:.85rem">
