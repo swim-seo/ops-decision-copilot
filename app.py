@@ -992,6 +992,8 @@ elif step == 2:
         )
 
     if sample_clicked:
+        if not _load_modules():
+            st.stop()
         with st.spinner("샘플 데이터를 불러오는 중..."):
             n = _load_sample_data()
         if n > 0:

@@ -19,5 +19,5 @@ PRESET = {
     "document_patterns": ["회의록", "품질보고서", "원가분석", "VOC리포트"],
     "analysis_focus":    ["제품 품질", "원가 관리", "공급망 리스크", "고객 만족"],
     "theme_color":       "#E91E63",
-    "app_icon":          "💄",
+    "app_icon":          "🛒",
 }
