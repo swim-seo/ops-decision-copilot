@@ -904,6 +904,62 @@ border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1.5rem">
 
         st.divider()
         st.caption("💡 도메인 없이 바로 파일을 올려도 됩니다. 파일 내용으로 자동 감지합니다.")
+
+        # ── 파일 형식 예시 미리보기 ───────────────────────────────────────────
+        with st.expander("📂 어떤 파일을 올릴 수 있나요? (예시 미리보기)", expanded=False):
+            tab_csv, tab_txt, tab_json, tab_py = st.tabs(["📊 CSV", "📄 TXT", "🔧 JSON", "🐍 Python"])
+
+            with tab_csv:
+                import pandas as _pd
+                _sample_csv = _pd.DataFrame({
+                    "id":         ["A001", "A002", "A003", "A004", "A005"],
+                    "name":       ["항목 Alpha", "항목 Beta", "항목 Gamma", "항목 Delta", "항목 Epsilon"],
+                    "category":   ["유형-1", "유형-2", "유형-1", "유형-3", "유형-2"],
+                    "related_id": ["A003", "A001", "A005", "A002", "A004"],
+                    "value":      [1240, 870, 3050, 420, 1980],
+                    "date":       ["2024-01", "2024-02", "2024-02", "2024-03", "2024-03"],
+                })
+                st.dataframe(_sample_csv, use_container_width=True, hide_index=True)
+                st.caption("💡 related_id처럼 다른 테이블을 참조하는 컬럼을 자동 감지해 관계를 연결합니다")
+
+            with tab_txt:
+                _sample_txt = """[2024-03-15] 주간 운영 회의록
+참석자: 김운영(팀장), 이기획, 박데이터, 최개발
+
+안건 1 — A003 항목 처리 지연 원인 분석
+  - A003은 A005와 연동되어 있어 동시 검토 필요
+  - 담당자 박데이터가 다음 주까지 원인 보고서 작성
+
+안건 2 — 신규 유형-3 카테고리 분류 기준 수립
+  - A004 항목을 기준 사례로 활용하기로 결정"""
+                st.code(_sample_txt, language=None)
+                st.caption("💡 텍스트 안의 ID·이름·관계를 추출해 기존 데이터와 연결합니다")
+
+            with tab_json:
+                _sample_json = {
+                    "entities": [
+                        {"id": "A001", "name": "항목 Alpha", "type": "유형-1", "parent_id": None,  "tags": ["핵심", "운영"]},
+                        {"id": "A002", "name": "항목 Beta",  "type": "유형-2", "parent_id": "A001", "tags": ["보조"]},
+                        {"id": "A003", "name": "항목 Gamma", "type": "유형-1", "parent_id": "A001", "tags": ["핵심", "지연"]},
+                        {"id": "A004", "name": "항목 Delta", "type": "유형-3", "parent_id": None,  "tags": ["신규"]},
+                        {"id": "A005", "name": "항목 Epsilon","type": "유형-2", "parent_id": "A002", "tags": ["보조", "연동"]},
+                    ]
+                }
+                st.json(_sample_json, expanded=1)
+                st.caption("💡 중첩 구조와 참조 키를 파악해 계층 관계를 그래프로 변환합니다")
+
+            with tab_py:
+                _sample_py = """import data_loader
+import relation_mapper
+from config import ENTITY_TYPES
+
+def build_graph(source_file):
+    records = data_loader.load(source_file)
+    entities = [e for e in records if e["type"] in ENTITY_TYPES]
+    return relation_mapper.connect(entities)"""
+                st.code(_sample_py, language="python")
+                st.caption("💡 import 관계를 분석해 모듈 간 의존성 그래프를 자동 생성합니다")
+
         if st.button("설정 없이 시작"):
             st.session_state.step = 2; st.rerun()
 
