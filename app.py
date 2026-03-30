@@ -1393,8 +1393,6 @@ FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
             f'데모 사용량: {used}/{_DEMO_LIMIT}</span></div>',
             unsafe_allow_html=True,
         )
-        st.caption("질문만 입력하면 문서·데이터·지식그래프를 자동으로 결합해 답변합니다.")
-
         # ── 예시 질문 버튼 (세로 한 줄, 컴팩트) ─────────────
         _PRESETS_Q = _get_chat_presets()
         st.markdown(
@@ -1402,8 +1400,14 @@ FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
             'font-size:11px!important;padding:2px 8px!important;'
             'min-height:26px!important;height:auto!important;line-height:1.3!important;'
             'white-space:nowrap!important;overflow:hidden!important;'
-            'text-overflow:ellipsis!important;}</style>'
-            '<p style="margin:0 0 3px;font-size:.75rem;color:#94a3b8">클릭하면 바로 질문됩니다</p>',
+            'text-overflow:ellipsis!important;}'
+            'section[data-testid="stSidebar"] div[data-testid="stButton"]{'
+            'margin-top:0!important;margin-bottom:0!important;}</style>'
+            '<p style="margin:0 0 2px;font-size:.8rem;color:#64748b">'
+            '질문만 입력하면 문서·데이터·지식그래프를 자동으로 결합해 답변합니다.</p>'
+            '<div style="margin-bottom:-1rem">'
+            '<p style="margin:0;font-size:.75rem;color:#94a3b8">클릭하면 바로 질문됩니다</p>'
+            '</div>',
             unsafe_allow_html=True,
         )
         for idx, (label, prompt) in enumerate(_PRESETS_Q):
