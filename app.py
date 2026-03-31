@@ -83,30 +83,90 @@ from domains import ALL_PRESETS as _PRESETS
 
 # ── 도메인별 채팅 예시 질문 ────────────────────────────────────────────────────
 _DOMAIN_CHAT_PRESETS = {
-    "뷰티":    [("FG-001 클렌징밤 수요 그래프 그려줘",  "FG-001 클렌징밤 수요 그래프 그려줘"),
-                ("재고 위험 상품 알려줘",              "재고 위험 상품 알려줘"),
-                ("여름에 잘 팔리는 상품 TOP3",          "여름에 잘 팔리는 상품 TOP3"),
-                ("채널별 판매 현황 비교해줘",            "채널별 판매 현황 비교해줘")],
-    "공급망":  [("주요 상품 수요 그래프 그려줘",         "주요 상품 수요 그래프 그려줘"),
-                ("재고 위험 상품 알려줘",              "재고 위험 상품 알려줘"),
-                ("발주가 필요한 상품 알려줘",            "발주가 필요한 상품 알려줘"),
-                ("채널별 판매 현황 비교해줘",            "채널별 판매 현황 비교해줘")],
-    "에너지":  [("에너지 소비 추이 그려줘",             "에너지 소비 추이 그려줘"),
-                ("위험 설비 현황 알려줘",              "위험 설비 현황 알려줘"),
-                ("피크 소비 시간대 알려줘",             "피크 소비 시간대 알려줘"),
-                ("에너지 비용 분석해줘",               "에너지 비용 분석해줘")],
-    "제조":    [("생산 실적 그래프 그려줘",             "생산 실적 그래프 그려줘"),
-                ("불량률 높은 라인 알려줘",             "불량률 높은 라인 알려줘"),
-                ("설비 위험 현황 알려줘",              "설비 위험 현황 알려줘"),
-                ("납기 지연 현황 분석해줘",             "납기 지연 현황 분석해줘")],
-    "물류":    [("배송 현황 그래프 그려줘",             "배송 현황 그래프 그려줘"),
-                ("납기 지연 위험 알려줘",              "납기 지연 위험 알려줘"),
-                ("창고별 재고 현황 알려줘",             "창고별 재고 현황 알려줘"),
-                ("운송 비용 분석해줘",                "운송 비용 분석해줘")],
-    "금융":    [("포트폴리오 수익 그래프 그려줘",        "포트폴리오 수익 그래프 그려줘"),
-                ("고위험 자산 알려줘",                "고위험 자산 알려줘"),
-                ("수익률 TOP3 알려줘",               "수익률 TOP3 알려줘"),
-                ("VaR 현황 분석해줘",                "VaR 현황 분석해줘")],
+    # ── beauty_ecommerce ─────────────────────────────────────────────────────
+    # 실제 데이터: 클린잇제로 클렌징밤(PRD001), 선프로텍터 선크림 SPF50+(PRD002),
+    #              인텐시브 수분크림(PRD003), 앰플 에센스(PRD005) / 채널 CH001=틱톡샵_KR
+    #              컬럼: SALES_QTY, NET_SALES_QTY, STOCK_QTY, SAFETY_STOCK_QTY, COVERAGE_WEEKS
+    "뷰티": [
+        ("선프로텍터 선크림(PRD002) 월별 판매량 그래프",
+         "선프로텍터 선크림 SPF50+(PRD002) 2024년 월별 SALES_QTY 추이 그래프 그려줘"),
+        ("COVERAGE_WEEKS 기준 재고 부족 위험 제품 순위",
+         "COVERAGE_WEEKS 기준으로 재고 부족 위험이 높은 제품 순위 알려줘. SAFETY_STOCK_QTY 대비 현황도 포함해줘"),
+        ("클린잇제로 클렌징밤 틱톡샵 채널 순매출 분석",
+         "클린잇제로 클렌징밤(PRD001) CH001 틱톡샵 채널의 NET_SALES_QTY 추이 분석하고 RETURN_QTY 비율도 알려줘"),
+        ("여름 시즌 SEASONAL_PEAK 제품 재고 현황 비교",
+         "SEASONAL_PEAK가 '여름'인 제품들의 현재 STOCK_QTY와 REORDER_POINT 비교해서 시즌 대비 준비 현황 알려줘"),
+    ],
+    # ── supply_chain ─────────────────────────────────────────────────────────
+    # 실제 데이터: 엔진블록 어셈블리(PT001), 트랜스미션 어셈블리(PT002),
+    #              터보차저(PT003), ECU 제어모듈(PT004), 인젝터 세트(PT005)
+    #              컬럼: STOCK_QTY, REORDER_POINT, INVENTORY_VALUE_KRW, DELAY_DAYS, ORDER_TYPE
+    "공급망": [
+        ("엔진블록 어셈블리(PT001) 창고별 재고 현황",
+         "엔진블록 어셈블리(PT001) 창고별 STOCK_QTY 현황 보여줘. SAFETY_STOCK_QTY 대비 위험도도 분석해줘"),
+        ("DELAY_DAYS 기준 납기 지연 발주 현황",
+         "DELAY_DAYS가 가장 긴 발주 건 TOP5와 해당 부품·공급업체 알려줘. 반복 지연 패턴이 있는지도 확인해줘"),
+        ("터보차저(PT003) 재발주점 도달 여부 확인",
+         "터보차저(PT003) 현재 STOCK_QTY가 REORDER_POINT에 도달했는지 확인하고 긴급 발주 필요 여부 알려줘"),
+        ("A급 부품 재고 금액 및 회전율 분석",
+         "PART_CLASS가 A인 부품들의 INVENTORY_VALUE_KRW 총액과 창고별 분포, 재고 회전율 분석해줘"),
+    ],
+    # ── energy ───────────────────────────────────────────────────────────────
+    # 실제 데이터: 서울화력(PLT001), 영동원자력(PLT002), 전남태양광단지(PLT004), 제주풍력(PLT005)
+    #              서울강남산업단지(MTR001), 수원전자공단(MTR003)
+    #              컬럼: USAGE_KWH, PEAK_KW, OFFPEAK_KW, POWER_FACTOR, IS_PEAK_DAY
+    "에너지": [
+        ("서울강남산업단지(MTR001) 월별 전력 소비 추이",
+         "서울강남산업단지(MTR001) 월별 USAGE_KWH 소비 추이 그래프 그려줘. IS_PEAK_DAY 일수도 함께 표시해줘"),
+        ("수원전자공단 피크 전력 TOP5 일자",
+         "수원전자공단(MTR003) PEAK_KW가 가장 높은 날 TOP5 알려줘. 해당 날의 OFFPEAK_KW와 비교도 해줘"),
+        ("전남태양광 vs 제주풍력 발전 설비 비교",
+         "전남태양광단지(PLT004)와 제주풍력(PLT005) CAPACITY_MW와 CO2_EMISSION_FACTOR 비교해서 친환경 효율 분석해줘"),
+        ("역률(POWER_FACTOR) 0.9 이하 계량기 현황",
+         "POWER_FACTOR가 0.9 이하인 계량기 목록과 해당 고객사 알려줘. 역률 개선 우선순위도 제안해줘"),
+    ],
+    # ── manufacturing ────────────────────────────────────────────────────────
+    # 실제 데이터: 엔진블록_V6(PRD001), 크랭크샤프트(PRD002), 실린더헤드(PRD003)
+    #              CNC선반_A1(EQP001), 프레스_B1(EQP003), 용접로봇_C1(EQP004)
+    #              컬럼: PLANNED_OUTPUT, ACTUAL_OUTPUT, UTILIZATION_RATE_PCT, DOWNTIME_HOURS, YIELD_RATE_PCT
+    "제조": [
+        ("엔진블록_V6(PRD001) LINE-01 생산 달성률 그래프",
+         "엔진블록_V6(PRD001) LINE-01의 ACTUAL_OUTPUT/PLANNED_OUTPUT 생산 달성률 추이 그래프 그려줘. SHIFT별로 구분해줘"),
+        ("CNC선반_A1 다운타임 원인 분석",
+         "CNC선반_A1(EQP001) DOWNTIME_HOURS를 DOWNTIME_REASON별로 분류해서 주요 원인 TOP3 알려줘"),
+        ("YIELD_RATE_PCT 기준 불량률 높은 라인·제품 TOP3",
+         "YIELD_RATE_PCT 기준으로 불량률이 가장 높은 라인과 제품 TOP3 알려줘. DEFECT_THRESHOLD_PCT 초과 여부도 확인해줘"),
+        ("용접로봇_C1(EQP004) 가동률 주간 추이",
+         "용접로봇_C1(EQP004) UTILIZATION_RATE_PCT 주간 추이 보여줘. OEE_TARGET_PCT 대비 달성 여부도 분석해줘"),
+    ],
+    # ── logistics ────────────────────────────────────────────────────────────
+    # 실제 데이터: 서울→부산 간선(RTE001), 서울→대구 간선(RTE002), 서울→광주 간선(RTE003)
+    #              5톤트럭 002호(VHC002), 5톤트럭 003호(VHC003)
+    #              컬럼: DELIVERY_SUCCESS_COUNT, DELIVERY_FAIL_COUNT, FAIL_REASON, PACKAGE_COUNT
+    "물류": [
+        ("서울→부산 간선(RTE001) 배송 성공률 추이",
+         "서울→부산 간선(RTE001) 월별 DELIVERY_SUCCESS_COUNT와 DELIVERY_FAIL_COUNT 추이 그래프 그려줘"),
+        ("5톤트럭 002호(VHC002) 배송 실패 원인 분석",
+         "5톤트럭 002호(VHC002) DELIVERY_FAIL_COUNT와 FAIL_REASON 현황 알려줘. 반복 실패 패턴도 확인해줘"),
+        ("DISTANCE_KM 대비 비효율 노선 탐지",
+         "DISTANCE_KM 대비 STANDARD_TIME_HOURS 비율이 높은 비효율 노선 TOP3 찾아줘. 개선 방안도 제안해줘"),
+        ("HUB001 출발 PACKAGE_COUNT 월별 트렌드",
+         "HUB001 출발 배송의 PACKAGE_COUNT 월별 트렌드 분석하고 물동량 증감 패턴 알려줘"),
+    ],
+    # ── finance ──────────────────────────────────────────────────────────────
+    # 실제 데이터: 정기예금(1년)(PRD001), 자유적금(PRD003), 주택담보대출(PRD004), 신용대출(PRD005)
+    #              CUS001(VVIP/40대/서울), CUS002(VIP/30대/경기)
+    #              컬럼: AMOUNT_KRW, BALANCE_AFTER_KRW, IS_ANOMALY, ANOMALY_TYPE, CREDIT_SCORE
+    "금융": [
+        ("정기예금(1년)(PRD001) 월별 가입 금액 추이",
+         "정기예금(1년)(PRD001) 월별 가입 건수와 AMOUNT_KRW 총액 추이 그래프 그려줘. 채널별 비중도 포함해줘"),
+        ("이상 거래(IS_ANOMALY) 유형별 분포 분석",
+         "IS_ANOMALY가 True인 거래의 ANOMALY_TYPE별 건수·금액 분포 알려줘. 고위험 유형 TOP3도 강조해줘"),
+        ("VVIP·VIP 고객 자산 및 신용점수 현황",
+         "CUSTOMER_GRADE가 VVIP·VIP인 고객의 평균 CREDIT_SCORE와 TOTAL_ASSETS_MILLION_KRW 현황 비교해줘"),
+        ("신용대출(PRD005) CREDIT_SCORE 구간별 잔액",
+         "신용대출(PRD005) CREDIT_SCORE 구간별 잔액(BALANCE_AFTER_KRW) 분포와 연체 위험 고객 비율 분석해줘"),
+    ],
 }
 _DEFAULT_CHAT_PRESETS = [
     ("핵심 데이터 현황 분석해줘",  "핵심 데이터 현황 분석해줘"),
@@ -1270,16 +1330,15 @@ elif step == 3:
                 for docf in qp.documents:
                     st.caption(f"• {docf}")
 
-    # ── 업무 문장 아래 채팅 예시 안내 ─────────────────────────
-    st.markdown("""
+    # ── 업무 문장 아래 채팅 예시 안내 (도메인별 동적 표시) ────
+    _example_presets = _get_chat_presets()
+    _example_label   = _example_presets[0][0] if _example_presets else "현재 운영 현황 요약해줘"
+    _example_prompt  = _example_presets[0][1] if _example_presets else "현재 운영 현황 요약해줘"
+    st.markdown(f"""
 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
 padding:.8rem 1rem;margin-top:.5rem">
-<p style="margin:0;font-size:.88rem;font-weight:600;color:#475569">
-왼쪽 사이드바 채팅창에 이런 질문을 해보세요</p>
 <p style="margin:0;font-size:.85rem;color:#64748b">
-<code style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-size:.85rem">
-FG-001 클렌징밤 최근 수요 추이 그래프 그려줘</code>
-&nbsp;&larr; 복사해서 바로 입력해 보세요
+<span style="font-weight:600;color:#475569">왼쪽 사이드바 채팅창에 이런 질문을 해보세요&nbsp;</span><code style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-size:.85rem">{_example_label}</code>&nbsp;&larr; 복사해서 바로 입력해 보세요
 </p>
 </div>
 """, unsafe_allow_html=True)

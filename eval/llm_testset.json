@@ -1,0 +1,62 @@
+[
+  {
+    "question": "재고 위험 상품 알려줘",
+    "reference_answer": "STOCK_STATUS가 CRITICAL 또는 LOW인 제품 목록과 각 제품의 COVERAGE_WEEKS(커버리지) 수치, 안전재고(SAFETY_STOCK_QTY) 대비 현재고(STOCK_QTY) 현황을 포함하고, 발주 필요 여부를 언급해야 한다.",
+    "required_keywords": ["CRITICAL", "커버리지", "발주"],
+    "domain": "beauty_ecommerce"
+  },
+  {
+    "question": "선프로텍터 선크림 SPF50+ 최근 판매 추이는?",
+    "reference_answer": "PRD002 선프로텍터 선크림 SPF50+의 월별 SALES_QTY 수치 변화를 언급하고, 여름(SEASONAL_PEAK) 시즌 수요 급증 패턴과 채널별 판매 비중을 포함해야 한다.",
+    "required_keywords": ["PRD002", "SALES_QTY", "여름"],
+    "domain": "beauty_ecommerce"
+  },
+  {
+    "question": "납기 지연된 부품과 원인 알려줘",
+    "reference_answer": "DELAY_DAYS가 양수인 발주 건의 부품명(PART_NAME), 공급업체(SUPPLIER_ID), 지연 일수를 구체적으로 나열하고, 반복 지연 공급업체나 A급 부품 지연에 대한 리스크를 언급해야 한다.",
+    "required_keywords": ["DELAY_DAYS", "지연", "공급업체"],
+    "domain": "supply_chain"
+  },
+  {
+    "question": "터보차저 재고가 재발주점을 넘었나?",
+    "reference_answer": "터보차저(PT003)의 현재 STOCK_QTY와 REORDER_POINT 값을 비교해서 도달 여부를 명확히 판단하고, 긴급 발주 필요 여부와 공급업체 리드타임(LEAD_TIME_DAYS)을 언급해야 한다.",
+    "required_keywords": ["PT003", "REORDER_POINT", "발주"],
+    "domain": "supply_chain"
+  },
+  {
+    "question": "서울강남산업단지 전력 소비 현황은?",
+    "reference_answer": "MTR001 서울강남산업단지의 USAGE_KWH 수치와 PEAK_KW 현황을 구체적으로 언급하고, IS_PEAK_DAY 여부와 POWER_FACTOR 수준, 계약 용량(CONTRACT_CAPACITY_KW) 대비 사용률을 포함해야 한다.",
+    "required_keywords": ["MTR001", "USAGE_KWH", "PEAK_KW"],
+    "domain": "energy"
+  },
+  {
+    "question": "역률이 낮은 계량기 알려줘",
+    "reference_answer": "POWER_FACTOR가 기준값(0.9) 이하인 계량기 목록과 METER_NAME, 고객 유형(CUSTOMER_TYPE)을 나열하고, 역률 개선 시 전기요금 절감 효과나 설비 투자 필요성을 언급해야 한다.",
+    "required_keywords": ["POWER_FACTOR", "역률", "계량기"],
+    "domain": "energy"
+  },
+  {
+    "question": "엔진블록_V6 생산 달성률은?",
+    "reference_answer": "PRD001 엔진블록_V6의 ACTUAL_OUTPUT 대비 PLANNED_OUTPUT 달성률(%)을 수치로 제시하고, LINE-01 기준 SHIFT별 차이와 DOWNTIME_HOURS로 인한 손실을 언급해야 한다.",
+    "required_keywords": ["PRD001", "ACTUAL_OUTPUT", "PLANNED_OUTPUT"],
+    "domain": "manufacturing"
+  },
+  {
+    "question": "CNC선반 다운타임 원인은 뭐야?",
+    "reference_answer": "CNC선반_A1(EQP001) 또는 CNC선반_A2(EQP002)의 DOWNTIME_HOURS 합계와 DOWNTIME_REASON별 분류를 제시하고, 가장 빈도 높은 원인과 예방 유지보수(MAINTENANCE_CYCLE_DAYS) 연관성을 언급해야 한다.",
+    "required_keywords": ["CNC선반", "DOWNTIME_HOURS", "DOWNTIME_REASON"],
+    "domain": "manufacturing"
+  },
+  {
+    "question": "서울→부산 간선 배송 성공률은?",
+    "reference_answer": "RTE001 서울→부산 간선의 DELIVERY_SUCCESS_COUNT 대비 DELIVERY_FAIL_COUNT 비율을 계산하고, FAIL_REASON 유형과 해당 노선의 DISTANCE_KM, STANDARD_TIME_HOURS 현황을 포함해야 한다.",
+    "required_keywords": ["RTE001", "DELIVERY_SUCCESS_COUNT", "DELIVERY_FAIL_COUNT"],
+    "domain": "logistics"
+  },
+  {
+    "question": "이상 거래 탐지 현황 알려줘",
+    "reference_answer": "IS_ANOMALY가 True인 거래의 ANOMALY_TYPE별 건수와 AMOUNT_KRW 총액을 제시하고, 고위험 유형과 해당 CUSTOMER_ID 또는 PRODUCT_ID를 언급하며 추가 모니터링 필요 여부를 판단해야 한다.",
+    "required_keywords": ["IS_ANOMALY", "ANOMALY_TYPE", "이상"],
+    "domain": "finance"
+  }
+]

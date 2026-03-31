@@ -1,0 +1,82 @@
+[
+  {
+    "question": "선크림 재고 현황은?",
+    "expected_source": "FACT_INVENTORY.csv"
+  },
+  {
+    "question": "가장 많이 팔린 제품은?",
+    "expected_source": "FACT_MONTHLY_SALES.csv"
+  },
+  {
+    "question": "공급업체 목록을 알려줘",
+    "expected_source": "MST_SUPPLIER.csv"
+  },
+  {
+    "question": "재발주 주문 현황은?",
+    "expected_source": "FACT_REPLENISHMENT_ORDER.csv"
+  },
+  {
+    "question": "품절 이벤트가 발생한 제품은?",
+    "expected_source": "FACT_STOCKOUT_EVENT.csv"
+  },
+  {
+    "question": "제품 카테고리별 판매 현황",
+    "expected_source": "FACT_MONTHLY_SALES.csv"
+  },
+  {
+    "question": "창고별 재고 수준",
+    "expected_source": "FACT_INVENTORY.csv"
+  },
+  {
+    "question": "리드타임이 가장 긴 공급업체",
+    "expected_source": "MST_SUPPLIER.csv"
+  },
+  {
+    "question": "채널별 매출 비교",
+    "expected_source": "MST_CHANNEL.csv"
+  },
+  {
+    "question": "제품 출시일 현황",
+    "expected_source": "MST_PRODUCT.csv"
+  },
+  {
+    "question": "보충 발주 주기는?",
+    "expected_source": "FACT_REPLENISHMENT_ORDER.csv"
+  },
+  {
+    "question": "재고 부족 위험 제품",
+    "expected_source": "FACT_INVENTORY.csv"
+  },
+  {
+    "question": "공급 루트별 배송 신뢰도",
+    "expected_source": "MST_SUPPLY_ROUTE.csv"
+  },
+  {
+    "question": "월별 수요 트렌드",
+    "expected_source": "FACT_MONTHLY_SALES.csv"
+  },
+  {
+    "question": "오피스별 리드타임",
+    "expected_source": "MST_OFFICE.csv"
+  },
+  {
+    "question": "부품 단가 현황",
+    "expected_source": "MST_PART.csv"
+  },
+  {
+    "question": "물류센터 위치 정보",
+    "expected_source": "MST_LOCATION.csv"
+  },
+  {
+    "question": "재고 스냅샷 데이터",
+    "expected_source": "FACT_INVENTORY_SNAPSHOT.csv"
+  },
+  {
+    "question": "SKU별 월간 수요량",
+    "expected_source": "FACT_MONTHLY_DEMAND.csv"
+  },
+  {
+    "question": "제품 라이프사이클 단계",
+    "expected_source": "MST_PRODUCT.csv"
+  }
+]

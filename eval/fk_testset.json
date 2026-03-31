@@ -1,0 +1,62 @@
+[
+  {
+    "files": ["FACT_MONTHLY_SALES.csv", "MST_PRODUCT.csv"],
+    "expected_edges": [
+      ["FACT_MONTHLY_SALES.PRODUCT_ID", "MST_PRODUCT.PRODUCT_ID"]
+    ]
+  },
+  {
+    "files": ["FACT_MONTHLY_SALES.csv", "MST_CHANNEL.csv"],
+    "expected_edges": [
+      ["FACT_MONTHLY_SALES.CHANNEL_ID", "MST_CHANNEL.CHANNEL_ID"]
+    ]
+  },
+  {
+    "files": ["FACT_INVENTORY.csv", "MST_PRODUCT.csv"],
+    "expected_edges": [
+      ["FACT_INVENTORY.PRODUCT_ID", "MST_PRODUCT.PRODUCT_ID"]
+    ]
+  },
+  {
+    "files": ["FACT_INVENTORY.csv", "MST_LOCATION.csv"],
+    "expected_edges": [
+      ["FACT_INVENTORY.LOCATION_ID", "MST_LOCATION.LOCATION_ID"]
+    ]
+  },
+  {
+    "files": ["FACT_REPLENISHMENT_ORDER.csv", "MST_PRODUCT.csv"],
+    "expected_edges": [
+      ["FACT_REPLENISHMENT_ORDER.PRODUCT_ID", "MST_PRODUCT.PRODUCT_ID"]
+    ]
+  },
+  {
+    "files": ["FACT_REPLENISHMENT_ORDER.csv", "MST_SUPPLIER.csv"],
+    "expected_edges": [
+      ["FACT_REPLENISHMENT_ORDER.SUPPLIER_ID", "MST_SUPPLIER.SUPPLIER_ID"]
+    ]
+  },
+  {
+    "files": ["FACT_STOCKOUT_EVENT.csv", "MST_PRODUCT.csv"],
+    "expected_edges": [
+      ["FACT_STOCKOUT_EVENT.PRODUCT_ID", "MST_PRODUCT.PRODUCT_ID"]
+    ]
+  },
+  {
+    "files": ["MST_PRODUCT.csv", "MST_SUPPLIER.csv"],
+    "expected_edges": [
+      ["MST_PRODUCT.SUPPLIER_ID", "MST_SUPPLIER.SUPPLIER_ID"]
+    ]
+  },
+  {
+    "files": ["MST_SUPPLY_ROUTE.csv", "MST_SUPPLIER.csv"],
+    "expected_edges": [
+      ["MST_SUPPLY_ROUTE.SUPPLIER_ID", "MST_SUPPLIER.SUPPLIER_ID"]
+    ]
+  },
+  {
+    "files": ["MST_SUPPLY_ROUTE.csv", "MST_OFFICE.csv"],
+    "expected_edges": [
+      ["MST_SUPPLY_ROUTE.OFFICE_CD", "MST_OFFICE.OFFICE_CD"]
+    ]
+  }
+]
