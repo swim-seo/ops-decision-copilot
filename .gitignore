@@ -16,7 +16,6 @@ dist/
 build/
 
 # ── 런타임 생성 데이터 (커밋 제외) ───────────────────────────────────────────
-data/vector_store/           # ChromaDB 벡터 인덱스 (로컬 생성)
 data/uploads/                # 사용자 업로드 임시 파일
 data/graph.html              # pyvis 렌더링 결과물
 # ※ data/*.csv, data/*.json, data/*.txt (데모 데이터)는 커밋 대상
