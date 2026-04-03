@@ -3,7 +3,7 @@
 사용자가 입력한 도메인명·설명을 Claude에게 보내 앱 전체 설정을 자동 생성합니다.
   - DomainConfig (dataclass) : 도메인별 엔티티 색상·용어·문서유형·분석포커스·테마색상 보관
       - to_context_string()  : 모든 Claude 프롬프트에 주입할 도메인 컨텍스트 문자열 생성
-      - collection_name      : ChromaDB 컬렉션명 자동 생성 (특수문자 제거)
+      - collection_name      : Supabase collection_name 자동 생성 (특수문자 제거)
   - DomainAdapter            : Claude 호출 → JSON 파싱 → DomainConfig 반환
       - 파싱 실패 시 기본 설정(general)으로 자동 폴백
 """
@@ -78,7 +78,7 @@ class DomainConfig:
 
     @property
     def collection_name(self) -> str:
-        """RAG 컬렉션 이름 (ChromaDB 최대 63자, 영숫자+언더스코어)"""
+        """RAG 컬렉션 이름 (Supabase collection_name 컬럼값, 영숫자+언더스코어)"""
         sanitized = re.sub(r"[^a-zA-Z0-9]", "_", self.name)
         sanitized = re.sub(r"_+", "_", sanitized).strip("_").lower()
         return f"domain_{sanitized or 'default'}"[:63]
