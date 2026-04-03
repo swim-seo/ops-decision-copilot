@@ -28,7 +28,7 @@ def run() -> dict:
     rag = RAGEngine(collection_name=DEFAULT_COLLECTION_NAME)
 
     if rag.document_count() == 0:
-        print("[RAG] ChromaDB에 문서가 없습니다. 먼저 앱에서 문서를 업로드하세요.")
+        print("[RAG] Supabase에 문서가 없습니다. 먼저 앱에서 문서를 업로드하세요.")
         return {"hit_rate_at_3": None, "hits": 0, "total": len(testset)}
 
     hits = 0

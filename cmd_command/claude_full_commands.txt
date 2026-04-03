@@ -1,0 +1,50 @@
+프로젝트 루트에 eval/ 폴더를 만들고 정확도 측정 스크립트를 작성해줘.
+측정 항목은 4가지야.
+
+---
+
+1. RAG 검색 정확도 (eval/test_rag.py)
+- 방법: Hit Rate@3 측정
+- 테스트셋: Q&A 쌍 20개를 eval/rag_testset.json에 직접 작성
+  예시 형태: {"question": "선크림 재고 현황은?", "expected_source": "FACT_INVENTORY.csv"}
+- 실행: 각 질문으로 RAG 검색 → 상위 3개 결과에 expected_source 포함 여부 확인
+- 출력: Hit Rate = 맞은 개수 / 20 (예: Hit Rate@3 = 85%)
+
+2. LLM 답변 품질 (eval/test_llm.py)
+- 방법: Claude API로 자동 채점 (LLM-as-judge 방식)
+- 테스트셋: 질문 + 정답 기준 10개를 eval/llm_testset.json에 작성
+  예시 형태: {"question": "...", "reference_answer": "...", "context": "..."}
+- 실행: 앱의 실제 답변 생성 → 별도 Claude 호출로 1~5점 채점
+- 출력: 평균 점수 (예: 평균 4.2 / 5.0)
+
+3. FK 자동 감지 정확도 (eval/test_fk.py)
+- 방법: Precision / Recall 측정
+- 테스트셋: eval/fk_testset.json에 CSV 파일 경로 + 정답 FK 관계 목록 작성
+  예시 형태: {"files": ["FACT_SALES.csv", "MST_PRODUCT.csv"], "expected_edges": [["FACT_SALES.product_id", "MST_PRODUCT.product_id"]]}
+- 실행: knowledge_graph.py의 FK 감지 함수 실행 → 감지된 엣지 vs 정답 비교
+- 출력: Precision, Recall, F1 (예: Precision 91%, Recall 88%)
+
+4. 도메인 자동 인식 정확도 (eval/test_domain.py)
+- 방법: 분류 정확도 측정
+- 테스트셋: eval/domain_testset.json에 파일 내용 샘플 + 정답 도메인 20개 작성
+  예시 형태: {"sample_text": "...", "expected_domain": "beauty_ecommerce"}
+- 실행: 도메인 인식 함수 실행 → 정답 도메인과 일치 여부 확인
+- 출력: Accuracy = 맞은 개수 / 20 (예: Accuracy 90%)
+
+---
+
+마지막으로 eval/run_all.py를 만들어줘.
+- 위 4개 스크립트를 순서대로 실행
+- 결과를 eval/results.json에 저장
+- 터미널에 아래 형식으로 출력:
+
+=== WorkGraph AI 정확도 측정 결과 ===
+RAG Hit Rate@3:       85%
+LLM 답변 품질:        4.2 / 5.0
+FK 감지 Precision:    91%
+FK 감지 Recall:       88%
+도메인 인식 Accuracy: 90%
+=====================================
+
+기존 모듈(rag_engine.py, knowledge_graph.py, claude_client.py)을 import해서 사용하고
+테스트셋 json 파일은 빈 템플릿으로만 생성해줘 (내가 직접 채울게)

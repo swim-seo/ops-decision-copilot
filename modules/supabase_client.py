@@ -123,6 +123,61 @@ def query_table(table_name: str) -> Optional[pd.DataFrame]:
         return None
 
 
+def delete_rows(table_name: str, filters: dict) -> None:
+    """조건에 맞는 행을 삭제합니다. filters = {"col": "eq.value", ...}"""
+    _init()
+    if not _connected:
+        return
+    try:
+        requests.delete(
+            f"{_url}/rest/v1/{table_name}",
+            headers=_headers(),
+            params=filters,
+            timeout=15,
+        )
+    except Exception as e:
+        logger.debug("Supabase delete_rows failed for %s: %s", table_name, e)
+
+
+def rpc(function_name: str, params: dict) -> Optional[list]:
+    """Supabase RPC 함수를 호출합니다."""
+    _init()
+    if not _connected:
+        return None
+    try:
+        r = requests.post(
+            f"{_url}/rest/v1/rpc/{function_name}",
+            headers=_headers(),
+            json=params,
+            timeout=15,
+        )
+        if r.status_code == 200:
+            return r.json()
+        logger.debug("Supabase rpc %s failed (HTTP %s): %s", function_name, r.status_code, r.text)
+        return None
+    except Exception as e:
+        logger.debug("Supabase rpc failed for %s: %s", function_name, e)
+        return None
+
+
+def count_rows(table_name: str, filters: dict) -> int:
+    """조건에 맞는 행 수를 반환합니다."""
+    _init()
+    if not _connected:
+        return 0
+    try:
+        r = requests.get(
+            f"{_url}/rest/v1/{table_name}",
+            headers={**_headers(), "Prefer": "count=exact"},
+            params={"select": "id", **filters},
+            timeout=10,
+        )
+        content_range = r.headers.get("Content-Range", "*/0")
+        return int(content_range.split("/")[-1])
+    except Exception:
+        return 0
+
+
 def upsert_dataframe(table_name: str, df: pd.DataFrame, chunk_size: int = 500) -> int:
     """DataFrame을 Supabase 테이블에 upsert합니다."""
     _init()

@@ -452,6 +452,21 @@ def _process_file_contents(entries: list) -> int:
                 except (ValueError, IOError) as e:
                     st.warning(f"⚠️ KG 추출 실패 ({futures[future]}): {e}")
 
+    # GraphRAG: KG 구축 완료 후 커뮤니티 요약 빌드
+    # 커뮤니티 탐지 → Claude 요약 생성 → Supabase community_summaries 저장
+    if new_files and len(st.session_state.kg.graph.nodes) >= 2:
+        try:
+            from modules.community_summarizer import build_community_summaries
+            n_communities = build_community_summaries(
+                st.session_state.kg,
+                st.session_state.claude,
+                _get_collection_name(),
+            )
+            if n_communities:
+                st.toast(f"GraphRAG: {n_communities}개 커뮤니티 요약 생성 완료", icon="🕸️")
+        except Exception as _e:
+            st.warning(f"⚠️ GraphRAG 커뮤니티 요약 실패: {_e}")
+
     return len(new_files)
 
 
@@ -932,6 +947,193 @@ border-radius:12px;padding:1.2rem 1.5rem;margin-bottom:1.5rem">
 <td style="padding:6px 10px;border:none">지식그래프와 분석 결과가 자동 생성됩니다. <strong>왼쪽 사이드바 채팅</strong>으로 자유롭게 질문하세요.</td>
 </tr>
 </table>
+</div>
+""", unsafe_allow_html=True)
+
+        # ── 처음 보시는 분을 위한 흐름 설명 ───────────────────────────────
+        with st.expander("📖 처음 오셨나요? 이 앱이 어떻게 동작하는지 보여드릴게요", expanded=False):
+            st.markdown("""
+<style>
+.flow-box{background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;padding:1rem 1.2rem;margin:.5rem 0}
+.flow-arrow{text-align:center;font-size:1.4rem;color:#94a3b8;margin:.1rem 0;line-height:1}
+.flow-tag{display:inline-block;background:#f1f5f9;border-radius:6px;padding:2px 8px;font-size:.78rem;font-weight:600;margin:2px 3px;color:#475569}
+.flow-tag-blue{background:#dbeafe;color:#1d4ed8}
+.flow-tag-green{background:#dcfce7;color:#166534}
+.flow-tag-purple{background:#ede9fe;color:#6d28d9}
+.flow-tag-orange{background:#ffedd5;color:#c2410c}
+.flow-tag-pink{background:#fce7f3;color:#be185d}
+.kv{font-size:.82rem;margin:.15rem 0;color:#334155}
+.kv b{color:#0f172a}
+.section-title{font-size:.95rem;font-weight:700;color:#0f172a;margin:0 0 .4rem}
+.mini-table{width:100%;border-collapse:collapse;font-size:.78rem;margin:.4rem 0}
+.mini-table th{background:#f8fafc;padding:4px 8px;border:1px solid #e2e8f0;color:#475569;font-weight:600;text-align:left}
+.mini-table td{padding:4px 8px;border:1px solid #e2e8f0;color:#334155}
+.arrow-row{display:flex;align-items:center;gap:.5rem;margin:.3rem 0;flex-wrap:wrap}
+.arrow-cell{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:3px 10px;font-size:.8rem;color:#334155;white-space:nowrap}
+.arrow-line{color:#94a3b8;font-size:1rem}
+.highlight-box{background:#f0f9ff;border-left:3px solid #0284c7;padding:.5rem .8rem;border-radius:0 6px 6px 0;font-size:.83rem;color:#0c4a6e;margin:.4rem 0}
+</style>
+
+## 전체 흐름 한눈에
+
+<div class="arrow-row" style="justify-content:center;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem">
+  <div class="arrow-cell" style="background:#eff6ff;border-color:#bfdbfe;font-weight:700">📂 파일 업로드</div>
+  <div class="arrow-line">→</div>
+  <div class="arrow-cell" style="background:#f0fdf4;border-color:#86efac;font-weight:700">🏷️ 도메인 인식</div>
+  <div class="arrow-line">→</div>
+  <div class="arrow-cell" style="background:#faf5ff;border-color:#d8b4fe;font-weight:700">🔗 FK 자동 감지</div>
+  <div class="arrow-line">→</div>
+  <div class="arrow-cell" style="background:#fff7ed;border-color:#fed7aa;font-weight:700">🕸️ 지식그래프</div>
+  <div class="arrow-line">+</div>
+  <div class="arrow-cell" style="background:#fdf2f8;border-color:#f9a8d4;font-weight:700">🔍 RAG 인덱싱</div>
+  <div class="arrow-line">→</div>
+  <div class="arrow-cell" style="background:#f0fdf4;border-color:#86efac;font-weight:700">🤖 AI 분석 + 채팅</div>
+</div>
+
+---
+
+### 1️⃣ 도메인(Domain)이란?
+
+> **앱에게 "어떤 업종 문서인지" 미리 알려주는 것입니다.**
+
+같은 단어도 업종마다 의미가 다릅니다. 도메인을 설정하면 AI가 해당 업종 언어로 이해합니다.
+
+<div style="display:flex;gap:.8rem;flex-wrap:wrap;margin:.5rem 0">
+<div class="flow-box" style="flex:1;min-width:180px">
+<div class="section-title">🛒 뷰티 선택 시</div>
+<div class="kv">• <span class="flow-tag flow-tag-pink">SKU</span> = 개별 제품 단위</div>
+<div class="kv">• <span class="flow-tag flow-tag-pink">MOQ</span> = 최소 주문 수량</div>
+<div class="kv">• <span class="flow-tag flow-tag-pink">리드타임</span> = 발주~입고 기간</div>
+<div class="kv">• <span class="flow-tag flow-tag-pink">CPNP</span> = 유럽 화장품 신고</div>
+</div>
+<div class="flow-box" style="flex:1;min-width:180px">
+<div class="section-title">🏭 공급망 선택 시</div>
+<div class="kv">• <span class="flow-tag flow-tag-blue">재발주점</span> = 발주 시작 재고</div>
+<div class="kv">• <span class="flow-tag flow-tag-blue">안전재고</span> = 최소 보유량</div>
+<div class="kv">• <span class="flow-tag flow-tag-blue">DELAY_DAYS</span> = 납기 지연일</div>
+<div class="kv">• <span class="flow-tag flow-tag-blue">A/B/C 등급</span> = 부품 중요도</div>
+</div>
+<div class="flow-box" style="flex:1;min-width:180px">
+<div class="section-title">⚡ 에너지 선택 시</div>
+<div class="kv">• <span class="flow-tag flow-tag-orange">USAGE_KWH</span> = 전력 소비량</div>
+<div class="kv">• <span class="flow-tag flow-tag-orange">PEAK_KW</span> = 최대 순간전력</div>
+<div class="kv">• <span class="flow-tag flow-tag-orange">역률</span> = 전력 효율</div>
+<div class="kv">• <span class="flow-tag flow-tag-orange">CAPACITY_MW</span> = 발전 용량</div>
+</div>
+</div>
+
+<div class="highlight-box">💡 도메인 없이 파일을 올려도 됩니다. AI가 내용을 보고 자동으로 감지합니다.</div>
+
+---
+
+### 2️⃣ FK(Foreign Key, 외래키)란?
+
+> **여러 테이블을 이어주는 공통 열쇠입니다.** 엑셀 시트 여러 개를 VLOOKUP으로 연결하는 것과 같습니다.
+
+예를 들어, 뷰티 도메인 데이터:
+
+<table class="mini-table">
+<tr><th colspan="4">📋 MST_PRODUCT (제품 마스터)</th></tr>
+<tr><th>PRODUCT_ID</th><th>PRODUCT_NAME</th><th>CATEGORY</th><th>SUPPLIER_ID</th></tr>
+<tr><td style="color:#1d4ed8;font-weight:700">PRD001</td><td>클린잇제로 클렌징밤</td><td>스킨케어</td><td>SUP001</td></tr>
+<tr><td style="color:#1d4ed8;font-weight:700">PRD002</td><td>선프로텍터 선크림 SPF50+</td><td>스킨케어</td><td>SUP004</td></tr>
+</table>
+
+<table class="mini-table" style="margin-top:.6rem">
+<tr><th colspan="5">📊 FACT_MONTHLY_SALES (월별 판매 실적)</th></tr>
+<tr><th>SALE_ID</th><th>PRODUCT_ID</th><th>YEAR_MONTH</th><th>SALES_QTY</th><th>SALES_AMOUNT</th></tr>
+<tr><td>SL000001</td><td style="color:#1d4ed8;font-weight:700">PRD001</td><td>2024-01</td><td>370</td><td>8,140,000</td></tr>
+<tr><td>SL000002</td><td style="color:#1d4ed8;font-weight:700">PRD001</td><td>2024-02</td><td>324</td><td>7,128,000</td></tr>
+</table>
+
+<div style="text-align:center;margin:.5rem 0;font-size:.85rem;color:#475569">
+⬆️ 두 테이블의 <b style="color:#1d4ed8">PRODUCT_ID</b>가 일치 → 앱이 자동으로 감지해 연결
+</div>
+
+<div class="highlight-box">💡 앱은 컬럼명 끝이 <b>_ID, _CD, _NO</b>인 열을 FK 후보로 자동 감지합니다. SQL JOIN 없이 관계를 파악합니다.</div>
+
+---
+
+### 3️⃣ 지식그래프(Knowledge Graph)란?
+
+> **개념(노드)과 연결(엣지)로 이루어진 관계 지도입니다.**
+
+위에서 감지한 FK를 바탕으로 아래 같은 그래프가 자동 생성됩니다:
+
+<div style="background:#0f172a;border-radius:10px;padding:1rem 1.5rem;font-family:monospace;font-size:.82rem;margin:.5rem 0">
+<div style="color:#93c5fd">[ MST_PRODUCT ]</div>
+<div style="color:#6ee7b7;margin-left:1rem">PRD001 "클린잇제로 클렌징밤"</div>
+<div style="color:#6ee7b7;margin-left:1rem">PRD002 "선프로텍터 선크림"</div>
+<div style="color:#fbbf24;margin:.4rem 0 0 1.5rem">↓ PRODUCT_ID (FK)</div>
+<div style="color:#f9a8d4">[ FACT_MONTHLY_SALES ]</div>
+<div style="color:#6ee7b7;margin-left:1rem">370개 / 8,140,000원 (2024-01)</div>
+<div style="color:#6ee7b7;margin-left:1rem">324개 / 7,128,000원 (2024-02)</div>
+<div style="color:#fbbf24;margin:.4rem 0 0 1.5rem">↓ PRODUCT_ID (FK)</div>
+<div style="color:#c4b5fd">[ FACT_INVENTORY ]</div>
+<div style="color:#6ee7b7;margin-left:1rem">재고 346개 / 안전재고 394개 (LOC001)</div>
+</div>
+
+<div class="highlight-box">💡 이 그래프 덕분에 "PRD001이 어느 창고에 얼마나 있고, 지난달 얼마나 팔렸는지"를 <b>한 번에</b> 추적할 수 있습니다.</div>
+
+---
+
+### 4️⃣ RAG(검색 증강 생성)란?
+
+> **문서를 잘게 쪼개 저장해두고, 질문하면 관련 부분만 찾아 AI에게 전달하는 방식입니다.**
+
+<div style="display:flex;gap:.5rem;align-items:flex-start;flex-wrap:wrap;margin:.5rem 0">
+<div class="flow-box" style="flex:1;min-width:160px">
+<div class="section-title">① 청킹</div>
+<div style="font-size:.8rem;color:#475569">문서를 약 500토큰(200~300단어) 단위로 자름</div>
+<div style="background:#f8fafc;border-radius:6px;padding:.4rem .6rem;margin-top:.4rem;font-size:.75rem;color:#334155">
+"PRD001 클린잇제로 클렌징밤, 스킨케어, 재고 346개, 안전재고 394개, 커버리지 2.3주..." → <b>[청크 1]</b>
+</div>
+</div>
+<div style="align-self:center;color:#94a3b8;font-size:1.3rem">→</div>
+<div class="flow-box" style="flex:1;min-width:160px">
+<div class="section-title">② 벡터 저장</div>
+<div style="font-size:.8rem;color:#475569">각 청크를 숫자 배열(벡터)로 변환 → ChromaDB에 저장</div>
+<div style="background:#f8fafc;border-radius:6px;padding:.4rem .6rem;margin-top:.4rem;font-size:.75rem;color:#334155">
+[0.23, -0.41, 0.87, ...] <span style="color:#94a3b8">(768차원)</span>
+</div>
+</div>
+<div style="align-self:center;color:#94a3b8;font-size:1.3rem">→</div>
+<div class="flow-box" style="flex:1;min-width:160px">
+<div class="section-title">③ 유사도 검색</div>
+<div style="font-size:.8rem;color:#475569">"재고 위험 제품?" 질문 → 가장 유사한 청크 TOP 3 추출</div>
+<div style="background:#dbeafe;border-radius:6px;padding:.4rem .6rem;margin-top:.4rem;font-size:.75rem;color:#1d4ed8">
+FACT_INVENTORY 중 STOCK_STATUS=CRITICAL 청크 발견!
+</div>
+</div>
+</div>
+
+<div class="highlight-box">💡 전체 문서를 매번 읽지 않고 <b>관련 부분만</b> 찾아주므로, 수백 페이지 문서도 빠르고 정확하게 답할 수 있습니다.</div>
+
+---
+
+### 5️⃣ AI 분석 + 채팅
+
+> **RAG 검색 결과 + 지식그래프 관계를 합쳐 Claude가 최종 답변을 생성합니다.**
+
+<div class="flow-box" style="margin:.5rem 0">
+<div style="font-size:.85rem;color:#475569;margin-bottom:.5rem">예시: <b>"선크림 재고 지금 괜찮아?"</b> 라고 채팅에 입력하면</div>
+<div class="arrow-row">
+  <div class="arrow-cell">① RAG</div>
+  <div class="arrow-line">→</div>
+  <div style="font-size:.8rem;color:#334155">FACT_INVENTORY에서 PRD002 관련 청크 추출<br><span style="color:#94a3b8">재고 309개, 안전재고 384개, 커버리지 2.1주</span></div>
+</div>
+<div class="arrow-row" style="margin-top:.3rem">
+  <div class="arrow-cell">② KG</div>
+  <div class="arrow-line">→</div>
+  <div style="font-size:.8rem;color:#334155">PRD002 → SEASONAL_PEAK:여름 → LOC003(미국 창고) 관계 파악</div>
+</div>
+<div class="arrow-row" style="margin-top:.3rem">
+  <div class="arrow-cell">③ Claude</div>
+  <div class="arrow-line">→</div>
+  <div style="font-size:.8rem;color:#334155;background:#f0fdf4;border-radius:6px;padding:.3rem .6rem;flex:1">
+  "선프로텍터 선크림(PRD002) 현재 재고 309개로 안전재고(384개) 미달입니다. 여름 시즌 피크가 예정되어 있어 <b>긴급 발주를 권장</b>합니다."
+  </div>
+</div>
 </div>
 """, unsafe_allow_html=True)
 

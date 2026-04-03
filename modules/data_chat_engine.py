@@ -36,8 +36,12 @@ COMPARISON  = "comparison"
 RISK        = "risk"
 DESCRIPTION = "description"
 
-_PROD_RE  = re.compile(r"(FG-\d+|PRD\d+)", re.IGNORECASE)
-_SEASON   = {"여름": [6,7,8], "봄": [3,4,5], "가을": [9,10,11], "겨울": [12,1,2]}
+_PROD_RE   = re.compile(r"(FG-\d+|PRD\d+)", re.IGNORECASE)
+_METER_RE  = re.compile(r"\b(MTR\d+)\b", re.IGNORECASE)
+_SEASON    = {"여름": [6,7,8], "봄": [3,4,5], "가을": [9,10,11], "겨울": [12,1,2]}
+
+_ENERGY_KW = ["usage_kwh", "is_peak_day", "peak_kw", "전력", "kwh", "에너지",
+              "계량기", "산업단지", "전기소비", "전력소비", "피크데이"]
 
 _CHART_KW   = ["그래프", "차트", "그려줘", "시각화", "플롯", "추이", "트렌드"]
 _RANKING_KW = ["top", "상위", "잘팔리", "잘 팔리", "많이 팔", "순위", "베스트", "best",
@@ -105,6 +109,84 @@ def _detect_season(msg: str) -> Optional[str]:
         if s in msg:
             return s
     return None
+
+
+# ── ENERGY CHART ──────────────────────────────────────────────────────────────
+
+def _build_chart_energy(meter_id: str, msg: str) -> Tuple[List[Any], str, List[str], List[Dict], str]:
+    """MTR* 계량기의 월별 USAGE_KWH(막대) + IS_PEAK_DAY 일수(꺾은선) 복합 차트."""
+    charts, datasets = [], []
+
+    usage = load_csv("energy_fact_daily_usage.csv")
+    meter = load_csv("energy_mst_meter.csv")
+
+    if usage is None:
+        return [], meter_id, [], [], "에너지 사용량 데이터 없음"
+    datasets.append("energy_fact_daily_usage.csv")
+
+    # 컬럼 대소문자 정규화
+    usage.columns = [c.upper() for c in usage.columns]
+
+    meter_name = meter_id
+    if meter is not None:
+        meter.columns = [c.upper() for c in meter.columns]
+        datasets.append("energy_mst_meter.csv")
+        row = meter[meter["METER_ID"].str.upper() == meter_id.upper()]
+        if not row.empty:
+            meter_name = row.iloc[0].get("METER_NAME", meter_id)
+
+    # 해당 계량기 필터
+    df = usage[usage["METER_ID"].str.upper() == meter_id.upper()].copy()
+    if df.empty:
+        return [], meter_name, datasets, [], f"{meter_name} 데이터 없음"
+
+    # USAGE_DATE → YEAR_MONTH 추출
+    df["YEAR_MONTH"] = pd.to_datetime(df["USAGE_DATE"]).dt.to_period("M").astype(str)
+    monthly = df.groupby("YEAR_MONTH").agg(
+        USAGE_KWH=("USAGE_KWH", "sum"),
+        PEAK_DAYS=("IS_PEAK_DAY", "sum"),
+    ).reset_index().sort_values("YEAR_MONTH")
+
+    # 이중 축 복합 차트
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=monthly["YEAR_MONTH"], y=monthly["USAGE_KWH"],
+        name="전력 소비(kWh)", marker_color="#2563EB", yaxis="y1",
+    ))
+    fig.add_trace(go.Scatter(
+        x=monthly["YEAR_MONTH"], y=monthly["PEAK_DAYS"],
+        name="피크데이(일수)", mode="lines+markers",
+        line=dict(color="#F59E0B", width=2), yaxis="y2",
+    ))
+    fig.update_layout(
+        title=f"{meter_name} 월별 전력 소비 & 피크데이",
+        yaxis=dict(title="USAGE_KWH (kWh)"),
+        yaxis2=dict(title="IS_PEAK_DAY (일)", overlaying="y", side="right"),
+        legend=dict(x=0, y=1.1, orientation="h"),
+        height=380, margin=dict(t=60, b=40),
+    )
+    charts.append(fig)
+
+    total_kwh   = int(monthly["USAGE_KWH"].sum())
+    avg_kwh     = int(monthly["USAGE_KWH"].mean())
+    peak_m      = monthly.loc[monthly["USAGE_KWH"].idxmax()]
+    metrics = [
+        {"label": "총 소비량", "value": f"{total_kwh:,} kWh", "delta": ""},
+        {"label": "월 평균",   "value": f"{avg_kwh:,} kWh",   "delta": ""},
+        {"label": "최대 소비월","value": str(peak_m["YEAR_MONTH"]),
+         "delta": f"{int(peak_m['USAGE_KWH']):,} kWh"},
+    ]
+    data_sum = (
+        f"[{meter_name} 월별 전력 소비 요약]\n"
+        f"총 소비량: {total_kwh:,} kWh / 월 평균: {avg_kwh:,} kWh / "
+        f"최대 소비월: {peak_m['YEAR_MONTH']} ({int(peak_m['USAGE_KWH']):,} kWh)\n"
+        f"월별 피크데이 합계: {int(monthly['PEAK_DAYS'].sum())}일\n"
+        + "\n".join(
+            f"  {r['YEAR_MONTH']}: {int(r['USAGE_KWH']):,} kWh, 피크 {int(r['PEAK_DAYS'])}일"
+            for _, r in monthly.iterrows()
+        )
+    )
+    return charts, meter_name, datasets, metrics, data_sum
 
 
 # ── CHART ─────────────────────────────────────────────────────────────────────
@@ -533,6 +615,16 @@ def analyze(
     claude/rag/kg이 None이어도 rule 기반으로 동작합니다.
     """
     qtype = classify_question(msg)
+
+    # ── ENERGY CHART (도메인 우선 감지) ───────────────────
+    m_lower = msg.lower()
+    is_energy = any(k in m_lower for k in _ENERGY_KW)
+    meter_match = _METER_RE.search(msg)
+    if (is_energy or meter_match) and any(k in m_lower for k in _CHART_KW):
+        mid = meter_match.group(1) if meter_match else "MTR001"
+        charts, name, datasets, metrics, data_sum = _build_chart_energy(mid, msg)
+        summary, interp = _claude_interpret(msg, data_sum, metrics, CHART, domain_context, claude)
+        return DataAnswer(CHART, summary, interp, metrics, charts, list(set(datasets)))
 
     # ── CHART ─────────────────────────────────────────────
     if qtype == CHART:

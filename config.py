@@ -3,7 +3,7 @@
 앱 전체에서 공통으로 사용하는 상수와 환경 변수를 한 곳에 정의합니다.
   - API 키·모델명 등 Claude 연결 설정
   - 문서 청킹 크기, 지원 파일 형식
-  - ChromaDB 벡터 저장소 경로·임베딩 모델
+  - RAG 임베딩 모델·컬렉션 설정 (벡터 저장소: Supabase pgvector)
   - Streamlit UI 기본 타이틀·아이콘
   - 지식 그래프 출력 경로, 엔티티 색상 매핑
   - data/ 등 필요 디렉터리 자동 생성
@@ -49,10 +49,9 @@ CHUNK_SIZE = 800
 CHUNK_OVERLAP = 150
 SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"]
 
-# ── Vector Store (RAG) ────────────────────────────────────────────────────────
-VECTOR_DB_PATH = "./data/vector_store"
+# ── RAG (Supabase pgvector) ───────────────────────────────────────────────────
 UPLOAD_PATH = "./data/uploads"
-EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"  # 한국어 지원
+EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"  # 한국어 지원, 384차원
 DEFAULT_COLLECTION_NAME = "domain_docs"
 TOP_K_RESULTS = 5
 
@@ -87,5 +86,5 @@ DEFAULT_ENTITY_COLORS = {
 }
 
 # ── Directories ───────────────────────────────────────────────────────────────
-for _path in [VECTOR_DB_PATH, UPLOAD_PATH, "./data"]:
+for _path in [UPLOAD_PATH, "./data"]:
     Path(_path).mkdir(parents=True, exist_ok=True)

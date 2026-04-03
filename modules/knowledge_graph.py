@@ -711,6 +711,90 @@ function showD(id){
 
         return True
 
+    def detect_communities(self) -> List[List[str]]:
+        """Louvain 알고리즘으로 노드 커뮤니티(연관 개념 묶음)를 탐지합니다.
+        반환: [[node_id, ...], ...]  — 각 리스트가 하나의 커뮤니티
+        """
+        if len(self.graph.nodes) < 2:
+            return []
+        import networkx.algorithms.community as nx_comm
+        undirected = self.graph.to_undirected()
+        try:
+            communities = list(nx_comm.louvain_communities(undirected, seed=42))
+        except Exception:
+            # Louvain 미지원 시 greedy modularity로 폴백
+            try:
+                communities = list(nx_comm.greedy_modularity_communities(undirected))
+            except Exception:
+                return []
+        return [list(c) for c in communities if len(c) >= 2]
+
+    def multi_hop_query(self, entities: List[str], max_hops: int = 2) -> Dict[str, Any]:
+        """엔티티 목록에서 출발해 max_hops 깊이까지 그래프를 탐색합니다.
+        단순 키워드 매칭(query_by_id)과 달리 관계 체인(A→B→C)을 추적합니다.
+        반환: {"nodes": [...], "edges": [...]}
+        """
+        if not entities or len(self.graph.nodes) == 0:
+            return {"nodes": [], "edges": []}
+
+        # 1단계: 엔티티와 부분 일치하는 시드 노드 찾기
+        seed_nodes: set = set()
+        for entity in entities:
+            el = entity.lower()
+            for node in self.graph.nodes:
+                if el in node.lower() or node.lower() in el:
+                    seed_nodes.add(node)
+
+        if not seed_nodes:
+            return {"nodes": [], "edges": []}
+
+        # 2단계: BFS로 max_hops 깊이까지 확장
+        visited: set = set(seed_nodes)
+        frontier: set = set(seed_nodes)
+        collected_edges: List[dict] = []
+
+        for _ in range(max_hops):
+            next_frontier: set = set()
+            for node in frontier:
+                for nbr in self.graph.successors(node):
+                    edge_data = self.graph.get_edge_data(node, nbr) or {}
+                    collected_edges.append({
+                        "source":   node,
+                        "relation": edge_data.get("relation", "관련"),
+                        "target":   nbr,
+                    })
+                    if nbr not in visited:
+                        visited.add(nbr)
+                        next_frontier.add(nbr)
+                for nbr in self.graph.predecessors(node):
+                    edge_data = self.graph.get_edge_data(nbr, node) or {}
+                    collected_edges.append({
+                        "source":   nbr,
+                        "relation": edge_data.get("relation", "관련"),
+                        "target":   node,
+                    })
+                    if nbr not in visited:
+                        visited.add(nbr)
+                        next_frontier.add(nbr)
+            frontier = next_frontier
+
+        nodes_info = []
+        for node in visited:
+            attrs = dict(self.graph.nodes[node])
+            attrs["id"] = node
+            nodes_info.append(attrs)
+
+        # 중복 엣지 제거
+        seen_edges: set = set()
+        unique_edges = []
+        for e in collected_edges:
+            key = (e["source"], e["target"])
+            if key not in seen_edges:
+                seen_edges.add(key)
+                unique_edges.append(e)
+
+        return {"nodes": nodes_info, "edges": unique_edges}
+
     def query_by_id(self, query: str) -> Dict[str, Any]:
         """부품번호·상품번호 등 키워드로 연결된 모든 노드 정보를 반환합니다."""
         query_lower = query.lower()

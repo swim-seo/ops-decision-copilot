@@ -159,25 +159,54 @@ def _handle_data(msg: str, claude, domain_context: str) -> ChatResult:
                       datasets=list(set(datasets)))
 
 
-def _build_kg_context(msg: str, kg) -> tuple:
-    """KG에서 노드/엣지 컨텍스트를 추출합니다. Returns (kg_context_str, kg_nodes_count)."""
+def _build_graphrag_context(msg: str, kg, collection_name: str) -> tuple:
+    """GraphRAG: 커뮤니티 요약 검색 + 멀티홉 탐색으로 KG 컨텍스트를 구성합니다.
+
+    기존 방식(_build_kg_context)과의 차이:
+      기존: 질문의 첫 단어로 노드 ID 매칭 → 1-hop 이웃만 반환
+      GraphRAG: ① 질문 임베딩 → 커뮤니티 요약 유사도 검색 (개념 묶음 수준)
+                ② 질문 단어들 → 멀티홉 탐색 (2단계 관계 체인 추적)
+    Returns (context_str, kg_nodes_count)
+    """
     if not kg:
         return "", 0
-    first_word = msg.split()[0] if msg.split() else ""
-    result = kg.query_by_id(first_word)
-    if not result["matched_nodes"]:
+
+    from modules.community_summarizer import retrieve_community_context
+
+    parts = []
+
+    # ① 커뮤니티 요약 검색 — 질문과 의미적으로 유사한 개념 묶음 찾기
+    community_ctx = retrieve_community_context(msg, collection_name, top_k=3)
+    if community_ctx:
+        parts.append(community_ctx)
+
+    # ② 멀티홉 탐색 — 질문 단어들로 관계 체인(A→B→C) 추적
+    entities = [w for w in msg.split() if len(w) > 1]
+    multihop = kg.multi_hop_query(entities, max_hops=2)
+    kg_nodes = len(multihop["nodes"])
+
+    if multihop["nodes"]:
+        nodes_str = ", ".join(
+            f"{n.get('label', n.get('id',''))}({n.get('type','')})"
+            for n in multihop["nodes"][:8]
+        )
+        edges_str = "; ".join(
+            f"{e['source']}→{e['relation']}→{e['target']}"
+            for e in multihop["edges"][:10]
+        )
+        parts.append(f"[지식그래프 멀티홉 탐색]\n노드: {nodes_str}\n관계: {edges_str}")
+
+    if not parts:
         return "", 0
-    kg_nodes = len(result["matched_nodes"])
-    nodes_str = ", ".join(f"{n.get('label', n.get('id',''))}({n.get('type','')})" for n in result["matched_nodes"][:5])
-    edges_str = "; ".join(
-        f"{e['source']}→{e['relation']}→{e['target']}" for e in result["edges"][:5])
-    return f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n", kg_nodes
+
+    return "\n\n".join(parts) + "\n\n", kg_nodes
 
 
 def _handle_doc(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
     from modules.prompt_loader import load_prompt
 
-    kg_context, kg_nodes = _build_kg_context(msg, kg)
+    collection_name = rag.collection_name if rag else "domain_docs"
+    kg_context, kg_nodes = _build_graphrag_context(msg, kg, collection_name)
 
     doc_files: List[str] = []
     rag_context = ""
@@ -227,7 +256,8 @@ def _handle_combined(msg: str, claude, rag, kg, domain_context: str) -> ChatResu
         return [], ""
 
     def _fetch_kg():
-        return _build_kg_context(msg, kg)
+        col = rag.collection_name if rag else "domain_docs"
+        return _build_graphrag_context(msg, kg, col)
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         f_data = executor.submit(_fetch_data)
@@ -295,16 +325,8 @@ def respond_stream(msg: str, claude, rag, kg, domain_context: str):
     # doc 라우트는 RAG 컨텍스트 수집 후 스트리밍
     if route == "doc":
         from modules.prompt_loader import load_prompt
-        kg_context, kg_nodes = "", 0
-        if kg:
-            first_word = msg.split()[0] if msg.split() else ""
-            result = kg.query_by_id(first_word)
-            if result["matched_nodes"]:
-                kg_nodes = len(result["matched_nodes"])
-                nodes_str = ", ".join(f"{n.get('label', n.get('id',''))}({n.get('type','')})" for n in result["matched_nodes"][:5])
-                edges_str = "; ".join(
-                    f"{e['source']}→{e['relation']}→{e['target']}" for e in result["edges"][:5])
-                kg_context = f"[지식그래프]\n노드: {nodes_str}\n관계: {edges_str}\n\n"
+        collection_name = rag.collection_name if rag else "domain_docs"
+        kg_context, kg_nodes = _build_graphrag_context(msg, kg, collection_name)
         doc_files = []
         rag_context = ""
         if rag:
