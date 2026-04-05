@@ -1,82 +1,82 @@
 [
   {
-    "question": "선크림 재고 현황은?",
-    "expected_source": "FACT_INVENTORY.csv"
+    "question": "올리브영 채널 안전재고 기준은 몇 주야?",
+    "expected_source": "ops_policy.txt"
   },
   {
-    "question": "가장 많이 팔린 제품은?",
-    "expected_source": "FACT_MONTHLY_SALES.csv"
+    "question": "재고 경보 Red 단계 발생 시 어떻게 처리해야 해?",
+    "expected_source": "ops_policy.txt"
   },
   {
-    "question": "공급업체 목록을 알려줘",
-    "expected_source": "MST_SUPPLIER.csv"
+    "question": "아마존 FBA 재고는 최소 몇 주 판매량을 유지해야 해?",
+    "expected_source": "ops_policy.txt"
   },
   {
-    "question": "재발주 주문 현황은?",
-    "expected_source": "FACT_REPLENISHMENT_ORDER.csv"
+    "question": "긴급 발주 처리 승인 기준이 뭐야?",
+    "expected_source": "ops_policy.txt"
   },
   {
-    "question": "품절 이벤트가 발생한 제품은?",
-    "expected_source": "FACT_STOCKOUT_EVENT.csv"
+    "question": "반품 수량 1,000개일 때 결재권자가 누구야?",
+    "expected_source": "ops_policy.txt"
   },
   {
-    "question": "제품 카테고리별 판매 현황",
-    "expected_source": "FACT_MONTHLY_SALES.csv"
+    "question": "발주 수량 계산 공식 알려줘",
+    "expected_source": "ops_policy.txt"
   },
   {
-    "question": "창고별 재고 수준",
-    "expected_source": "FACT_INVENTORY.csv"
+    "question": "아마존 ACOS 목표 기준과 초과 시 처리 방법은?",
+    "expected_source": "ops_policy.txt"
   },
   {
-    "question": "리드타임이 가장 긴 공급업체",
-    "expected_source": "MST_SUPPLIER.csv"
+    "question": "창고 가동률 포화 경보는 몇 퍼센트에서 발생해?",
+    "expected_source": "logistics_ops_guide.txt"
   },
   {
-    "question": "채널별 매출 비교",
-    "expected_source": "MST_CHANNEL.csv"
+    "question": "냉장 배송 지연 이슈 원인과 조치 방향이 뭐야?",
+    "expected_source": "logistics_ops_guide.txt"
   },
   {
-    "question": "제품 출시일 현황",
-    "expected_source": "MST_PRODUCT.csv"
+    "question": "입고 불량률 목표 기준과 초과 시 어떻게 처리해?",
+    "expected_source": "logistics_ops_guide.txt"
   },
   {
-    "question": "보충 발주 주기는?",
-    "expected_source": "FACT_REPLENISHMENT_ORDER.csv"
+    "question": "재고 스냅샷 STOCK_QTY 계산 공식이 뭐야?",
+    "expected_source": "logistics_ops_guide.txt"
   },
   {
-    "question": "재고 부족 위험 제품",
-    "expected_source": "FACT_INVENTORY.csv"
+    "question": "WH003 창고 포화 이슈 원인과 조치 방향은?",
+    "expected_source": "logistics_ops_guide.txt"
   },
   {
-    "question": "공급 루트별 배송 신뢰도",
-    "expected_source": "MST_SUPPLY_ROUTE.csv"
+    "question": "적시 배송률(OTD) 산식과 목표치는?",
+    "expected_source": "logistics_ops_guide.txt"
   },
   {
-    "question": "월별 수요 트렌드",
-    "expected_source": "FACT_MONTHLY_SALES.csv"
+    "question": "클린잇제로 클렌징밤 신제품 1차 발주 수량이 얼마야?",
+    "expected_source": "meeting_2025_03.txt"
   },
   {
-    "question": "오피스별 리드타임",
-    "expected_source": "MST_OFFICE.csv"
+    "question": "클렌징밤 출시 리드타임 Critical Path가 어떻게 돼?",
+    "expected_source": "meeting_2025_03.txt"
   },
   {
-    "question": "부품 단가 현황",
-    "expected_source": "MST_PART.csv"
+    "question": "방부제를 페녹시에탄올에서 무엇으로 변경했어?",
+    "expected_source": "meeting_2025_03.txt"
   },
   {
-    "question": "물류센터 위치 정보",
-    "expected_source": "MST_LOCATION.csv"
+    "question": "올리브영 입점 제안서 제출 마감일이 언제야?",
+    "expected_source": "meeting_2025_03.txt"
   },
   {
-    "question": "재고 스냅샷 데이터",
-    "expected_source": "FACT_INVENTORY_SNAPSHOT.csv"
+    "question": "클린잇제로 클렌징밤 세라마이드 NP 함량이 얼마야?",
+    "expected_source": "cleanser_ingredients.txt"
   },
   {
-    "question": "SKU별 월간 수요량",
-    "expected_source": "FACT_MONTHLY_DEMAND.csv"
+    "question": "클렌징밤 주원료 에틸헥실팔미테이트 공급사와 리드타임은?",
+    "expected_source": "cleanser_ingredients.txt"
   },
   {
-    "question": "제품 라이프사이클 단계",
-    "expected_source": "MST_PRODUCT.csv"
+    "question": "더블클렌징밤이 바이옴 클렌징밤과 다른 점이 뭐야?",
+    "expected_source": "cleanser_ingredients.txt"
   }
 ]
