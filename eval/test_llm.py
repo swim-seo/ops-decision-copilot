@@ -30,6 +30,7 @@ LLM 답변 품질 평가 — LLM-as-judge (Claude 자동 채점)
 import sys
 import json
 import os
+import re
 import requests
 from pathlib import Path
 from typing import Optional
@@ -235,22 +236,26 @@ def judge_answer(
     """LLM-as-judge 채점: Claude로 1~5점 평가."""
     kw_hit = _count_keywords(actual, required_keywords)
 
-    prompt = JUDGE_PROMPT.format(
-        question=question,
-        reference_answer=reference,
-        required_keywords=", ".join(required_keywords),
-        actual_answer=actual,
+    # str.format() 대신 직접 치환 — actual_answer에 { } 가 있으면 format()이 KeyError 발생
+    prompt = (
+        JUDGE_PROMPT
+        .replace("{question}", question)
+        .replace("{reference_answer}", reference)
+        .replace("{required_keywords}", ", ".join(required_keywords))
+        .replace("{actual_answer}", actual)
     )
     try:
         raw = claude.generate(prompt, max_tokens=200)
-        start, end = raw.find("{"), raw.rfind("}") + 1
+        # JSON 블록 추출 (마크다운 코드블록 포함 대응)
+        raw_clean = re.sub(r"```(?:json)?\s*", "", raw).replace("```", "").strip()
+        start, end = raw_clean.find("{"), raw_clean.rfind("}") + 1
         if start >= 0 and end > start:
-            result = json.loads(raw[start:end])
-            score  = int(result.get("score", 3))
+            result = json.loads(raw_clean[start:end])
+            score  = max(1, min(5, int(result.get("score", 3))))
             reason = result.get("reason", "")
             return {"score": score, "reason": reason, "kw_hit": kw_hit}
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"         [judge 파싱 오류: {e}]")
 
     # 파싱 실패 시 키워드 기반 휴리스틱 점수
     heuristic = min(5, max(1, 2 + kw_hit))
@@ -297,7 +302,8 @@ def run() -> dict:
     for d in details:
         kw_info = f"키워드 {d['kw_hit']}/{len(d['required_keywords'])}개"
         print(f"  [{d['score']}/5] {kw_info}  {d['question'][:45]}")
-        print(f"         → {d['reason']}")
+        reason_safe = d['reason'].encode('cp949', errors='replace').decode('cp949')
+        print(f"         → {reason_safe}")
 
     return {
         "avg_score": avg,
