@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()  # 로컬 개발: .env 파일 읽기
+load_dotenv(override=True)  # 로컬 개발: .env 파일 읽기 (환경변수 덮어쓰기)
 
 
 def _get_secret(key: str) -> str:
