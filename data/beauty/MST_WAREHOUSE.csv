@@ -1,0 +1,4 @@
+WAREHOUSE_ID,WAREHOUSE_NAME,LOCATION,CAPACITY_UNITS,TYPE
+WH001,경기 물류센터,경기도 이천,50000,주센터
+WH002,부산 허브,부산 강서,20000,지역센터
+WH003,인천공항 보세창고,인천 중구,5000,면세

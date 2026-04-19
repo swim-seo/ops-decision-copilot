@@ -1,4 +1,6 @@
-streamlit>=1.32.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
 anthropic>=0.25.0
 sentence-transformers>=2.6.1
 pypdf>=4.0.0
@@ -9,3 +11,4 @@ python-dotenv>=1.0.1
 pandas>=2.2.0
 plotly>=5.19.0
 requests>=2.31.0
+openpyxl>=3.1.2

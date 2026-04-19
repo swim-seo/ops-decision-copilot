@@ -41,75 +41,6 @@
              }
 
              
-             #loadingBar {
-                 position:absolute;
-                 top:0px;
-                 left:0px;
-                 width: 100%;
-                 height: 580px;
-                 background-color:rgba(200,200,200,0.8);
-                 -webkit-transition: all 0.5s ease;
-                 -moz-transition: all 0.5s ease;
-                 -ms-transition: all 0.5s ease;
-                 -o-transition: all 0.5s ease;
-                 transition: all 0.5s ease;
-                 opacity:1;
-             }
-
-             #bar {
-                 position:absolute;
-                 top:0px;
-                 left:0px;
-                 width:20px;
-                 height:20px;
-                 margin:auto auto auto auto;
-                 border-radius:11px;
-                 border:2px solid rgba(30,30,30,0.05);
-                 background: rgb(0, 173, 246); /* Old browsers */
-                 box-shadow: 2px 0px 4px rgba(0,0,0,0.4);
-             }
-
-             #border {
-                 position:absolute;
-                 top:10px;
-                 left:10px;
-                 width:500px;
-                 height:23px;
-                 margin:auto auto auto auto;
-                 box-shadow: 0px 0px 4px rgba(0,0,0,0.2);
-                 border-radius:10px;
-             }
-
-             #text {
-                 position:absolute;
-                 top:8px;
-                 left:530px;
-                 width:30px;
-                 height:50px;
-                 margin:auto auto auto auto;
-                 font-size:22px;
-                 color: #000000;
-             }
-
-             div.outerBorder {
-                 position:relative;
-                 top:400px;
-                 width:600px;
-                 height:44px;
-                 margin:auto auto auto auto;
-                 border:8px solid rgba(0,0,0,0.1);
-                 background: rgb(252,252,252); /* Old browsers */
-                 background: -moz-linear-gradient(top,  rgba(252,252,252,1) 0%, rgba(237,237,237,1) 100%); /* FF3.6+ */
-                 background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(252,252,252,1)), color-stop(100%,rgba(237,237,237,1))); /* Chrome,Safari4+ */
-                 background: -webkit-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Chrome10+,Safari5.1+ */
-                 background: -o-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Opera 11.10+ */
-                 background: -ms-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* IE10+ */
-                 background: linear-gradient(to bottom,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* W3C */
-                 filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#fcfcfc', endColorstr='#ededed',GradientType=0 ); /* IE6-9 */
-                 border-radius:72px;
-                 box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
-             }
-             
 
              
 
@@ -125,15 +56,6 @@
             <div id="mynetwork" class="card-body"></div>
         </div>
 
-        
-            <div id="loadingBar">
-              <div class="outerBorder">
-                <div id="text">0%</div>
-                <div id="border">
-                  <div id="bar"></div>
-                </div>
-              </div>
-            </div>
         
         
 
@@ -166,8 +88,8 @@
                   
 
                   // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_lee_sujin", "label": "\uc774\uc218\uc9c4 \uacfc\uc7a5", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_kim_taeyoung", "label": "\uae40\ud0dc\uc601 \ud300\uc7a5", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_park_jihyun", "label": "\ubc15\uc9c0\ud604 \ub300\ub9ac", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_choi_hyunwoo", "label": "\ucd5c\ud604\uc6b0 \ud300\uc7a5", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_jung_minseo", "label": "\uc815\ubbfc\uc11c \uacfc\uc7a5", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_kang_yena", "label": "\uac15\uc608\ub098 \ud300\uc7a5", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_oh_sungjun", "label": "\uc624\uc131\uc900 \ub300\ub9ac", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "dept_product_planning", "label": "\uc0c1\ud488\uae30\ud68d\ud300", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "dept_production", "label": "\uc0dd\uc0b0\uad6c\ub9e4\ud300", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "dept_marketing", "label": "\ub9c8\ucf00\ud305\ud300", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "dept_legal", "label": "\ubc95\ubb34\ud300", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "product_cleansing_balm_line", "label": "\ud074\ub9b0\uc787\uc81c\ub85c \ud074\ub80c\uc9d5\ubc24 \uc2e0\uaddc \ub77c\uc778", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "product_biome_balm", "label": "\ubc14\uc774\uc634 \ud074\ub80c\uc9d5\ubc24 100ml", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "product_double_balm", "label": "\ub354\ube14\ud074\ub80c\uc9d5\ubc24 120ml", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#FF9800", "font": {"color": "#ffffff"}, "id": "campaign_oliveyoung_launch", "label": "\uc62c\ub9ac\ube0c\uc601 \uc785\uc810 \ub7f0\uce6d", "shape": "dot", "size": 25, "title": "\uc720\ud615: campaign"}, {"color": "#FF9800", "font": {"color": "#ffffff"}, "id": "campaign_oliveyoung_sale", "label": "\uc62c\uc601\uc138\uc77c \uc5f0\uacc4 \ucea0\ud398\uc778", "shape": "dot", "size": 25, "title": "\uc720\ud615: campaign"}, {"color": "#FF9800", "font": {"color": "#ffffff"}, "id": "campaign_amazon_kr", "label": "\uc544\ub9c8\uc874 KR \uc628\ub77c\uc778 \ud310\ub9e4", "shape": "dot", "size": 25, "title": "\uc720\ud615: campaign"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_ingredient_shortage", "label": "\uc8fc\uc694 \uc6d0\ub8cc \uad6d\ub0b4 \uc7ac\uace0 \ubd80\uc871", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_fda_review", "label": "FDA \uaddc\uc815 \uac80\ud1a0 \ubbf8\uc644\ub8cc", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_supply_price", "label": "\uc62c\ub9ac\ube0c\uc601 \uacf5\uae09\uac00 \ubd88\ub9ac (55%)", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_leadtime_risk", "label": "\uc6d0\ub8cc \uc9c0\uc5f0 \ub9ac\uc2a4\ud06c (\ucd5c\ub300 5\uc6d4 \ub9d0)", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_order_qty", "label": "1\ucc28 \ubc1c\uc8fc \uc218\ub7c9 SKU\ub2f9 5,000\uac1c \ud655\uc815", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_ingredient_v23", "label": "\uc131\ubd84 \ucd5c\uc885\uc548 v2.3 \uc2b9\uc778", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_alt_supplier", "label": "\uad6d\ub0b4 \ub300\uccb4 \uacf5\uae09\uc0ac(\ucf54\uc2a4\ub9e5\uc2a4) 1\ucc28 \ud611\uc758 \uc644\ub8cc", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_coop_fee", "label": "\ucf54\uc5c5\ube44 600\ub9cc\uc6d0 \uc218\uc6a9 \uc5ec\ubd80 \uac80\ud1a0", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ingredient_ester_oil", "label": "\uc2dd\ubb3c\uc131 \uc5d0\uc2a4\ud130 \uc624\uc77c", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ingredient_ceramide_np", "label": "\uc138\ub77c\ub9c8\uc774\ub4dc NP", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ingredient_phenoxyethanol", "label": "\ud398\ub179\uc2dc\uc5d0\ud0c4\uc62c", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ingredient_ethylhexylglycerine", "label": "\uc5d0\ud2f8\ud5e5\uc2e4\uae00\ub9ac\uc138\ub9b0+\uce74\ud504\ub9b4\ub9b4\uae00\ub9ac\ucf5c \ubcf5\ud569\uacc4", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_sales_target_oliveyoung", "label": "\uc62c\ub9ac\ube0c\uc601 3\uac1c\uc6d4 \ub9e4\ucd9c 1.8\uc5b5 \uc6d0", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_online_sales_target", "label": "\uc628\ub77c\uc778\ubab0 \uc6d4 3,000\uac1c \uc774\uc0c1", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_market_growth", "label": "\ud074\ub80c\uc9d5\ubc24 \uc2dc\uc7a5 \uc131\uc7a5\ub960 +22%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_alt_supplier_cost", "label": "\ub300\uccb4 \uacf5\uae09\uc0ac \ub2e8\uac00 8% \uc0c1\uc2b9", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_ceramide_content", "label": "\uc138\ub77c\ub9c8\uc774\ub4dc NP \ud568\ub7c9 0.5%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_supply_price_rate", "label": "\ubaa9\ud45c \uacf5\uae09\uac00 60%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "dept_ops_planning", "label": "\uc6b4\uc601\uae30\ud68d\ud300", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_biz_head", "label": "\uc0ac\uc5c5\ubd80\uc7a5", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_team_lead", "label": "\ud300\uc7a5", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_md", "label": "\ub2f4\ub2f9 MD", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "dept_beauty_biz", "label": "\ubdf0\ud2f0 \uc0ac\uc5c5\ubd80", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "channel_oliveyoung", "label": "\uc62c\ub9ac\ube0c\uc601(\uad6d\ub0b4)", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "channel_selfmall", "label": "\uc790\uc0ac\ubab0(\uc628\ub77c\uc778)", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "channel_amazon", "label": "\uc544\ub9c8\uc874(KR/US)", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "channel_dutyfree", "label": "\uba74\uc138\uc810", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_safety_stock_oliveyoung", "label": "\uc548\uc804\uc7ac\uace0 \uae30\uc900 - \uc62c\ub9ac\ube0c\uc601(4\uc8fc)", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_safety_stock_selfmall", "label": "\uc548\uc804\uc7ac\uace0 \uae30\uc900 - \uc790\uc0ac\ubab0(3\uc8fc)", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_safety_stock_amazon", "label": "\uc548\uc804\uc7ac\uace0 \uae30\uc900 - \uc544\ub9c8\uc874(6\uc8fc)", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_safety_stock_dutyfree", "label": "\uc548\uc804\uc7ac\uace0 \uae30\uc900 - \uba74\uc138\uc810(5\uc8fc)", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_alert_yellow", "label": "\uc7ac\uace0\uacbd\ubcf4 1\ub2e8\uacc4(Yellow)", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_alert_red", "label": "\uc7ac\uace0\uacbd\ubcf4 2\ub2e8\uacc4(Red)", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_alert_black", "label": "\uc7ac\uace0\uacbd\ubcf4 3\ub2e8\uacc4(Black)", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_overstock", "label": "\uacfc\uc7ac\uace0 \uc774\uc288", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_discount_promo", "label": "\uc790\uc0ac\ubab0 \ud560\uc778 \ud504\ub85c\ubaa8\uc158(\ucd5c\ub300 30%)", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_oliveyoung_event", "label": "\uc62c\ub9ac\ube0c\uc601 \uae30\ud68d\ud589\uc0ac \uc5f0\uacc4 \uc81c\uc548", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_sample_conversion", "label": "\uc0d8\ud50c/\uc99d\uc815\ud488 \uc804\ud658(\ucd5c\ub300 10%)", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_disposal", "label": "\ud3d0\uae30 \ucc98\ub9ac", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_emergency_order", "label": "\uae34\uae09 \ubc1c\uc8fc \uc9d1\ud589", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_suspend_sales", "label": "\ucc44\ub110 \ud310\ub9e4 \uc77c\uc2dc \uc911\ub2e8 \uac80\ud1a0", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#FF9800", "font": {"color": "#ffffff"}, "id": "campaign_whiteday", "label": "\ud654\uc774\ud2b8\ub370\uc774 \ud589\uc0ac", "shape": "dot", "size": 25, "title": "\uc720\ud615: campaign"}, {"color": "#FF9800", "font": {"color": "#ffffff"}, "id": "campaign_oliveyoungsale", "label": "\uc62c\ub9ac\ube0c\uc601 \uc62c\uc601\uc138\uc77c", "shape": "dot", "size": 25, "title": "\uc720\ud615: campaign"}, {"color": "#FF9800", "font": {"color": "#ffffff"}, "id": "campaign_chuseok", "label": "\ucd94\uc11d \uc7ac\uace0 \ud655\ubcf4", "shape": "dot", "size": 25, "title": "\uc720\ud615: campaign"}, {"color": "#FF9800", "font": {"color": "#ffffff"}, "id": "campaign_blackfriday_xmas", "label": "\ube14\ud504/\ud06c\ub9ac\uc2a4\ub9c8\uc2a4 \ub300\ube44", "shape": "dot", "size": 25, "title": "\uc720\ud615: campaign"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_moq", "label": "\ucd5c\uc18c \ubc1c\uc8fc \uc218\ub7c9(MOQ) 1,000\uac1c", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_order_unit", "label": "\ubc1c\uc8fc \ub2e8\uc704 500\uac1c \ubc30\uc218", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_season_peak", "label": "\uc2dc\uc98c \ubcf4\uc815\uacc4\uc218 - \uc131\uc218\uae30(1.3)", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_season_off", "label": "\uc2dc\uc98c \ubcf4\uc815\uacc4\uc218 - \ube44\uc218\uae30(1.0)", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_season_new", "label": "\uc2dc\uc98c \ubcf4\uc815\uacc4\uc218 - \uc2e0\uaddc\uc785\uc810(1.5)", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_emergency_premium", "label": "\uae34\uae09\ubc1c\uc8fc \ud504\ub9ac\ubbf8\uc5c4 \ucd5c\ub300 +15%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_initial_order", "label": "\ucd08\ub3c4 \ubc1c\uc8fc \uc218\ub7c9 - \uc608\uc0c1 \ud310\ub9e4\ub7c9 60%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_risk_buffer", "label": "\ub9ac\uc2a4\ud06c \ubc84\ud37c - \uc608\uc0c1 \ud310\ub9e4\ub7c9 10% \ucd94\uac00", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_overstock_criteria", "label": "\uacfc\uc7ac\uace0 \uae30\uc900 - 12\uc8fc \ud3c9\uade0 \ud310\ub9e4\ub7c9 3\ubc30 \ucd08\uacfc", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "policy_ops", "label": "\ubdf0\ud2f0 \uc0ac\uc5c5\ubd80 \uc0c1\ud488\uc6b4\uc601 \uc815\ucc45(OPS-POL-2025-001)", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "doc_ING-2025-CLB-003", "label": "ING-2025-CLB-003", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}, {"color": "#E91E8C", "font": {"color": "#ffffff"}, "id": "person_park_jihyeon", "label": "\ubc15\uc9c0\ud604 \ub300\ub9ac", "shape": "dot", "size": 25, "title": "\uc720\ud615: person"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "product_biome_balm_100", "label": "\ubc14\uc774\uc634 \ud074\ub80c\uc9d5\ubc24 100ml", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "product_double_balm_120", "label": "\ub354\ube14\ud074\ub80c\uc9d5\ubc24 120ml", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#FF5722", "font": {"color": "#ffffff"}, "id": "product_cleanitzero_line", "label": "\ud074\ub9b0\uc787\uc81c\ub85c \ud074\ub80c\uc9d5\ubc24 \uc2e0\uaddc\ub77c\uc778", "shape": "dot", "size": 25, "title": "\uc720\ud615: product"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_ethylhexyl_palmitate", "label": "\uc5d0\ud2f8\ud5e5\uc2e4\ud314\ubbf8\ud14c\uc774\ud2b8", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_caprylic_capric", "label": "\uce74\ud504\ub9b4\ub9ad/\uce74\ud504\ub9ad\ud2b8\ub9ac\uae00\ub9ac\uc138\ub77c\uc774\ub4dc", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_peg20_glyceryl", "label": "PEG-20\uae00\ub9ac\uc138\ub9b4\ud2b8\ub9ac\uc774\uc18c\uc2a4\ud14c\uc544\ub808\uc774\ud2b8", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_beeswax", "label": "\ubc00\ub78d(Cera Alba)", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_sunflower_oil", "label": "\ud574\ubc14\ub77c\uae30\uc528\uc624\uc77c", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_squalane", "label": "\uc2a4\ucfe0\uc54c\ub780", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_ceramide_np", "label": "\uc138\ub77c\ub9c8\uc774\ub4dc NP", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_niacinamide", "label": "\ub098\uc774\uc544\uc2e0\uc544\ub9c8\uc774\ub4dc", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_panthenol", "label": "\ud310\ud14c\ub180", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_tocopheryl_acetate", "label": "\ud1a0\ucf54\ud398\ub9b4\uc544\uc138\ud14c\uc774\ud2b8", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_lactobacillus", "label": "\ub77d\ud1a0\ubc14\uc2e4\ub7ec\uc2a4\ubc1c\ud6a8\uc6a9\ud574\ubb3c", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_inulin", "label": "\uc774\ub20c\ub9b0", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_ethylhexylglycerin", "label": "\uc5d0\ud2f8\ud5e5\uc2e4\uae00\ub9ac\uc138\ub9b0", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_caprylyl_glycol", "label": "\uce74\ud504\ub9b4\ub9b4\uae00\ub9ac\ucf5c", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_tocopherol", "label": "\ud1a0\ucf54\ud398\ub864", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_rosemary_extract", "label": "\ub85c\uc988\ub9c8\ub9ac\uc78e\ucd94\ucd9c\ubb3c", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_parfum", "label": "\ud5a5\ub8cc(Parfum)", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#00BCD4", "font": {"color": "#ffffff"}, "id": "ing_water", "label": "\uc815\uc81c\uc218", "shape": "dot", "size": 25, "title": "\uc720\ud615: ingredient"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_ethylhexyl_pct", "label": "\uc5d0\ud2f8\ud5e5\uc2e4\ud314\ubbf8\ud14c\uc774\ud2b8 35.00%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_caprylic_pct", "label": "\uce74\ud504\ub9b4\ub9ad/\uce74\ud504\ub9ad\ud2b8\ub9ac\uae00\ub9ac\uc138\ub77c\uc774\ub4dc 22.00%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_peg20_pct", "label": "PEG-20\uae00\ub9ac\uc138\ub9b4\ud2b8\ub9ac\uc774\uc18c\uc2a4\ud14c\uc544\ub808\uc774\ud2b8 15.00%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_beeswax_pct", "label": "\ubc00\ub78d 8.00%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_sunflower_pct", "label": "\ud574\ubc14\ub77c\uae30\uc528\uc624\uc77c 5.50%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_squalane_pct", "label": "\uc2a4\ucfe0\uc54c\ub780 4.00%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_ceramide_pct", "label": "\uc138\ub77c\ub9c8\uc774\ub4dc NP 0.50%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_niacinamide_pct", "label": "\ub098\uc774\uc544\uc2e0\uc544\ub9c8\uc774\ub4dc 2.00%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_panthenol_pct", "label": "\ud310\ud14c\ub180 1.00%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_tocopheryl_pct", "label": "\ud1a0\ucf54\ud398\ub9b4\uc544\uc138\ud14c\uc774\ud2b8 0.50%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_lactobacillus_pct", "label": "\ub77d\ud1a0\ubc14\uc2e4\ub7ec\uc2a4\ubc1c\ud6a8\uc6a9\ud574\ubb3c 0.30%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_inulin_pct", "label": "\uc774\ub20c\ub9b0 0.20%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_ethylhexylglycerin_pct", "label": "\uc5d0\ud2f8\ud5e5\uc2e4\uae00\ub9ac\uc138\ub9b0 0.15%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_caprylyl_pct", "label": "\uce74\ud504\ub9b4\ub9b4\uae00\ub9ac\ucf5c 0.10%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_tocopherol_pct", "label": "\ud1a0\ucf54\ud398\ub864 0.05%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#607D8B", "font": {"color": "#ffffff"}, "id": "metric_rosemary_pct", "label": "\ub85c\uc988\ub9c8\ub9ac\uc78e\ucd94\ucd9c\ubb3c 0.10%", "shape": "dot", "size": 25, "title": "\uc720\ud615: metric"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "supplier_givaudan", "label": "Givaudan (\ud504\ub791\uc2a4)", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "supplier_evonik", "label": "Evonik (\ub3c5\uc77c)", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "supplier_cosmax", "label": "\ucf54\uc2a4\ub9e5\uc2a4\uc6d0\ub8cc (\ud55c\uad6d)", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "supplier_maruha", "label": "Maruha Nichiro (\uc77c\ubcf8)", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#3F51B5", "font": {"color": "#ffffff"}, "id": "supplier_cosbotics", "label": "CosBotics (\ud55c\uad6d)", "shape": "dot", "size": 25, "title": "\uc720\ud615: department"}, {"color": "#F44336", "font": {"color": "#ffffff"}, "id": "issue_double_balm_parfum", "label": "\ub354\ube14\ud074\ub80c\uc9d5\ubc24 \ubb34\ud5a5(Parfum \ubbf8\ud568\uc720)", "shape": "dot", "size": 25, "title": "\uc720\ud615: issue"}, {"color": "#4CAF50", "font": {"color": "#ffffff"}, "id": "decision_launch_july2025", "label": "2025\ub144 7\uc6d4 1\ucc28 \ucd9c\uace0 \uacb0\uc815", "shape": "dot", "size": 25, "title": "\uc720\ud615: decision"}]);
-                  edges = new vis.DataSet([{"arrows": "to", "from": "person_lee_sujin", "label": "\uc18c\uc18d", "to": "dept_product_planning"}, {"arrows": "to", "from": "person_lee_sujin", "label": "\uacf5\uc2dd \ubb38\uc11c \ubc1c\ud589 \ub2f4\ub2f9", "to": "decision_ingredient_v23"}, {"arrows": "to", "from": "person_lee_sujin", "label": "\uac80\ud1a0", "to": "doc_ING-2025-CLB-003"}, {"arrows": "to", "from": "person_kim_taeyoung", "label": "\ud300\uc7a5", "to": "dept_product_planning"}, {"arrows": "to", "from": "person_kim_taeyoung", "label": "\uc2b9\uc778", "to": "doc_ING-2025-CLB-003"}, {"arrows": "to", "from": "person_park_jihyun", "label": "\uc18c\uc18d", "to": "dept_product_planning"}, {"arrows": "to", "from": "person_park_jihyun", "label": "\uc131\ubd84\ud45c \ubc1c\ud45c", "to": "decision_ingredient_v23"}, {"arrows": "to", "from": "person_park_jihyun", "label": "MSDS \uc791\uc131 \ub2f4\ub2f9", "to": "product_cleansing_balm_line"}, {"arrows": "to", "from": "person_choi_hyunwoo", "label": "\uc8fc\uac04 \uc0dd\uc0b0 \ud604\ud669 \uacf5\uc720 \ucc45\uc784", "to": "dept_production"}, {"arrows": "to", "from": "person_choi_hyunwoo", "label": "\ud604\ud669 \uacf5\uc720", "to": "issue_ingredient_shortage"}, {"arrows": "to", "from": "person_jung_minseo", "label": "\uc18c\uc18d", "to": "dept_production"}, {"arrows": "to", "from": "person_jung_minseo", "label": "\ubc1c\uc8fc \ub2f4\ub2f9", "to": "ingredient_ester_oil"}, {"arrows": "to", "from": "person_jung_minseo", "label": "\ubc1c\uc8fc \ub2f4\ub2f9", "to": "ingredient_ceramide_np"}, {"arrows": "to", "from": "person_kang_yena", "label": "\uc18c\uc18d(\ud300\uc7a5)", "to": "dept_marketing"}, {"arrows": "to", "from": "person_kang_yena", "label": "\ubaa9\ud45c \uc81c\uc2dc", "to": "metric_sales_target_oliveyoung"}, {"arrows": "to", "from": "person_kang_yena", "label": "\ubaa9\ud45c \uc81c\uc2dc", "to": "metric_online_sales_target"}, {"arrows": "to", "from": "person_kang_yena", "label": "\ud655\uc778 \ucc45\uc784\uc790", "to": "decision_coop_fee"}, {"arrows": "to", "from": "person_oh_sungjun", "label": "\uc18c\uc18d", "to": "dept_marketing"}, {"arrows": "to", "from": "person_oh_sungjun", "label": "MD \ud611\uc758 \ub2f4\ub2f9", "to": "campaign_oliveyoung_launch"}, {"arrows": "to", "from": "dept_product_planning", "label": "\uc791\uc131", "to": "policy_ops"}, {"arrows": "to", "from": "dept_marketing", "label": "\ub2f4\ub2f9", "to": "campaign_oliveyoung_launch"}, {"arrows": "to", "from": "dept_marketing", "label": "\ub2f4\ub2f9", "to": "campaign_amazon_kr"}, {"arrows": "to", "from": "dept_marketing", "label": "\ub2f4\ub2f9", "to": "campaign_oliveyoung_sale"}, {"arrows": "to", "from": "dept_marketing", "label": "\ud074\ub9b0\ubdf0\ud2f0 \ud2b8\ub80c\ub4dc \ubc18\uc601 \uc694\uccad", "to": "decision_ingredient_v23"}, {"arrows": "to", "from": "dept_marketing", "label": "\uac80\ud1a0 \ub2f4\ub2f9", "to": "decision_coop_fee"}, {"arrows": "to", "from": "product_biome_balm", "label": "\uc18d\ud558\ub294 \uc81c\ud488", "to": "product_cleansing_balm_line"}, {"arrows": "to", "from": "product_double_balm", "label": "\uc18d\ud558\ub294 \uc81c\ud488", "to": "product_cleansing_balm_line"}, {"arrows": "to", "from": "campaign_oliveyoung_launch", "label": "\ubaa9\ud45c \uc9c0\ud45c", "to": "metric_sales_target_oliveyoung"}, {"arrows": "to", "from": "campaign_oliveyoung_launch", "label": "\uad00\ub828 \uc774\uc288", "to": "issue_supply_price"}, {"arrows": "to", "from": "campaign_oliveyoung_sale", "label": "\uc5f0\uacc4 \uacc4\ud68d", "to": "campaign_oliveyoung_launch"}, {"arrows": "to", "from": "campaign_amazon_kr", "label": "\ubaa9\ud45c \uc9c0\ud45c", "to": "metric_online_sales_target"}, {"arrows": "to", "from": "issue_ingredient_shortage", "label": "\ud574\ub2f9 \uc6d0\ub8cc", "to": "ingredient_ester_oil"}, {"arrows": "to", "from": "issue_ingredient_shortage", "label": "\ud574\ub2f9 \uc6d0\ub8cc", "to": "ingredient_ceramide_np"}, {"arrows": "to", "from": "issue_ingredient_shortage", "label": "\ucd08\ub798", "to": "issue_leadtime_risk"}, {"arrows": "to", "from": "issue_fda_review", "label": "\uac80\ud1a0 \uc694\uccad", "to": "dept_legal"}, {"arrows": "to", "from": "issue_fda_review", "label": "\uad00\ub828 \uc774\uc288", "to": "campaign_amazon_kr"}, {"arrows": "to", "from": "issue_supply_price", "label": "\ubaa9\ud45c \uc9c0\ud45c", "to": "metric_supply_price_rate"}, {"arrows": "to", "from": "issue_leadtime_risk", "label": "\ub300\uc751 \uacb0\uc815", "to": "decision_alt_supplier"}, {"arrows": "to", "from": "decision_order_qty", "label": "\ub300\uc0c1 \uc81c\ud488", "to": "product_cleansing_balm_line"}, {"arrows": "to", "from": "decision_ingredient_v23", "label": "\ubcc0\uacbd \uc804 \uc131\ubd84", "to": "ingredient_phenoxyethanol"}, {"arrows": "to", "from": "decision_ingredient_v23", "label": "\ubcc0\uacbd \ud6c4 \uc131\ubd84", "to": "ingredient_ethylhexylglycerine"}, {"arrows": "to", "from": "decision_ingredient_v23", "label": "\ud568\ub7c9 \uc0c1\ud5a5 \uacb0\uc815", "to": "ingredient_ceramide_np"}, {"arrows": "to", "from": "decision_alt_supplier", "label": "\uad00\ub828 \uc9c0\ud45c", "to": "metric_alt_supplier_cost"}, {"arrows": "to", "from": "ingredient_ceramide_np", "label": "\ud655\uc815 \ud568\ub7c9", "to": "metric_ceramide_content"}, {"arrows": "to", "from": "metric_market_growth", "label": "\uadfc\uac70", "to": "decision_order_qty"}, {"arrows": "to", "from": "dept_ops_planning", "label": "\uc791\uc131", "to": "policy_ops"}, {"arrows": "to", "from": "person_biz_head", "label": "\uc2b9\uc778", "to": "policy_ops"}, {"arrows": "to", "from": "person_biz_head", "label": "\ucd1d\uad04", "to": "dept_beauty_biz"}, {"arrows": "to", "from": "dept_beauty_biz", "label": "\uc801\uc6a9 \ub300\uc0c1", "to": "policy_ops"}, {"arrows": "to", "from": "dept_beauty_biz", "label": "\uc0b0\ud558 \ubd80\uc11c", "to": "dept_product_planning"}, {"arrows": "to", "from": "dept_beauty_biz", "label": "\uc0b0\ud558 \ubd80\uc11c", "to": "dept_ops_planning"}, {"arrows": "to", "from": "dept_beauty_biz", "label": "\uc0b0\ud558 \ubd80\uc11c", "to": "dept_marketing"}, {"arrows": "to", "from": "channel_oliveyoung", "label": "\uc548\uc804\uc7ac\uace0 \uae30\uc900 \uc801\uc6a9", "to": "metric_safety_stock_oliveyoung"}, {"arrows": "to", "from": "channel_oliveyoung", "label": "\uc2e0\uaddc \uc785\uc810 \uc2dc \uc801\uc6a9 (8\uc8fc \uc804 \ubc1c\uc8fc)", "to": "metric_initial_order"}, {"arrows": "to", "from": "channel_selfmall", "label": "\uc548\uc804\uc7ac\uace0 \uae30\uc900 \uc801\uc6a9", "to": "metric_safety_stock_selfmall"}, {"arrows": "to", "from": "channel_amazon", "label": "\uc548\uc804\uc7ac\uace0 \uae30\uc900 \uc801\uc6a9", "to": "metric_safety_stock_amazon"}, {"arrows": "to", "from": "channel_dutyfree", "label": "\uc548\uc804\uc7ac\uace0 \uae30\uc900 \uc801\uc6a9", "to": "metric_safety_stock_dutyfree"}, {"arrows": "to", "from": "issue_alert_yellow", "label": "\uc790\ub3d9 \uc54c\ub9bc \ubc1c\uc1a1", "to": "person_md"}, {"arrows": "to", "from": "issue_alert_red", "label": "\ubc1c\uc8fc \uc694\uac74 \ucda9\uc871", "to": "decision_emergency_order"}, {"arrows": "to", "from": "issue_alert_red", "label": "\ubcf4\uace0 \uc758\ubb34\ud654", "to": "person_team_lead"}, {"arrows": "to", "from": "issue_alert_black", "label": "\uc989\uc2dc \uc9d1\ud589 \ud2b8\ub9ac\uac70", "to": "decision_emergency_order"}, {"arrows": "to", "from": "issue_alert_black", "label": "\ucc44\ub110 \ud310\ub9e4 \uc911\ub2e8 \uac80\ud1a0 \ud2b8\ub9ac\uac70", "to": "decision_suspend_sales"}, {"arrows": "to", "from": "issue_alert_black", "label": "\ubcf4\uace0 \uc758\ubb34\ud654", "to": "person_biz_head"}, {"arrows": "to", "from": "issue_overstock", "label": "\ud310\ub2e8 \uae30\uc900", "to": "metric_overstock_criteria"}, {"arrows": "to", "from": "issue_overstock", "label": "\ucc98\ub9ac \uc6b0\uc120\uc21c\uc704 1\uc21c\uc704", "to": "decision_discount_promo"}, {"arrows": "to", "from": "issue_overstock", "label": "\ucc98\ub9ac \uc6b0\uc120\uc21c\uc704 2\uc21c\uc704", "to": "decision_oliveyoung_event"}, {"arrows": "to", "from": "issue_overstock", "label": "\ucc98\ub9ac \uc6b0\uc120\uc21c\uc704 3\uc21c\uc704", "to": "decision_sample_conversion"}, {"arrows": "to", "from": "issue_overstock", "label": "\ucc98\ub9ac \uc6b0\uc120\uc21c\uc704 4\uc21c\uc704", "to": "decision_disposal"}, {"arrows": "to", "from": "decision_discount_promo", "label": "\uc801\uc6a9 \ucc44\ub110", "to": "channel_selfmall"}, {"arrows": "to", "from": "decision_oliveyoung_event", "label": "\uc801\uc6a9 \ucc44\ub110", "to": "channel_oliveyoung"}, {"arrows": "to", "from": "decision_oliveyoung_event", "label": "MD \ud611\uc758 \ud544\uc694", "to": "person_md"}, {"arrows": "to", "from": "decision_sample_conversion", "label": "\ub9c8\ucf00\ud305\ud300 \uc2b9\uc778 \ud544\uc694", "to": "dept_marketing"}, {"arrows": "to", "from": "decision_disposal", "label": "\uc804\uacb0 (50\ub9cc\uc6d0 \uc774\uc0c1)", "to": "person_team_lead"}, {"arrows": "to", "from": "decision_disposal", "label": "\uacb0\uc7ac (300\ub9cc\uc6d0 \uc774\uc0c1)", "to": "person_biz_head"}, {"arrows": "to", "from": "decision_emergency_order", "label": "\uc2b9\uc778\uad8c\uc790 (500\ub9cc\uc6d0 \uc774\ud558)", "to": "person_team_lead"}, {"arrows": "to", "from": "decision_emergency_order", "label": "\uc2b9\uc778\uad8c\uc790 (500\ub9cc\uc6d0 \ucd08\uacfc)", "to": "person_biz_head"}, {"arrows": "to", "from": "decision_emergency_order", "label": "\ud504\ub9ac\ubbf8\uc5c4 \uae30\uc900 \uc801\uc6a9", "to": "metric_emergency_premium"}, {"arrows": "to", "from": "campaign_whiteday", "label": "\uc5f0\uacc4 \ucc44\ub110", "to": "channel_oliveyoung"}, {"arrows": "to", "from": "campaign_oliveyoungsale", "label": "\uc5f0\uacc4 \ucc44\ub110", "to": "channel_oliveyoung"}, {"arrows": "to", "from": "metric_initial_order", "label": "2\ucc28 \ubc1c\uc8fc \uc5ec\ubd80 \uacb0\uc815 \uc8fc\uccb4", "to": "person_team_lead"}, {"arrows": "to", "from": "metric_risk_buffer", "label": "\uc0ac\uc804 \uc2b9\uc778 \ud544\uc694", "to": "person_team_lead"}, {"arrows": "to", "from": "policy_ops", "label": "\ubc1c\uc8fc \uae30\uc900 \uc815\uc758", "to": "metric_moq"}, {"arrows": "to", "from": "policy_ops", "label": "\ubc1c\uc8fc \uae30\uc900 \uc815\uc758", "to": "metric_order_unit"}, {"arrows": "to", "from": "policy_ops", "label": "\uc2dc\uc98c \ubcf4\uc815\uacc4\uc218 \uc815\uc758", "to": "metric_season_peak"}, {"arrows": "to", "from": "policy_ops", "label": "\uc2dc\uc98c \ubcf4\uc815\uacc4\uc218 \uc815\uc758", "to": "metric_season_off"}, {"arrows": "to", "from": "policy_ops", "label": "\uc2dc\uc98c \ubcf4\uc815\uacc4\uc218 \uc815\uc758", "to": "metric_season_new"}, {"arrows": "to", "from": "policy_ops", "label": "\ucd08\ub3c4 \ubc1c\uc8fc \uae30\uc900 \uc815\uc758", "to": "metric_initial_order"}, {"arrows": "to", "from": "doc_ING-2025-CLB-003", "label": "\ubb38\uc11c \ub300\uc0c1", "to": "product_cleanitzero_line"}, {"arrows": "to", "from": "person_park_jihyeon", "label": "\uc18c\uc18d", "to": "dept_product_planning"}, {"arrows": "to", "from": "person_park_jihyeon", "label": "\uc791\uc131", "to": "doc_ING-2025-CLB-003"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_ethylhexyl_palmitate"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_caprylic_capric"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_peg20_glyceryl"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_beeswax"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_sunflower_oil"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_squalane"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_ceramide_np"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_niacinamide"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_panthenol"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_tocopheryl_acetate"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_lactobacillus"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_inulin"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_ethylhexylglycerin"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_caprylyl_glycol"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_tocopherol"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_rosemary_extract"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_parfum"}, {"arrows": "to", "from": "product_biome_balm_100", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_water"}, {"arrows": "to", "from": "product_double_balm_120", "label": "\uc131\ubd84 \ud3ec\ud568", "to": "ing_ceramide_np"}, {"arrows": "to", "from": "product_double_balm_120", "label": "\uad00\ub828 \uc774\uc288", "to": "issue_double_balm_parfum"}, {"arrows": "to", "from": "product_cleanitzero_line", "label": "\ub77c\uc778 \uad6c\uc131", "to": "product_biome_balm_100"}, {"arrows": "to", "from": "product_cleanitzero_line", "label": "\ub77c\uc778 \uad6c\uc131", "to": "product_double_balm_120"}, {"arrows": "to", "from": "product_cleanitzero_line", "label": "\ucd9c\uc2dc \uacb0\uc815", "to": "decision_launch_july2025"}, {"arrows": "to", "from": "ing_ethylhexyl_palmitate", "label": "\ud568\ub7c9", "to": "metric_ethylhexyl_pct"}, {"arrows": "to", "from": "ing_ethylhexyl_palmitate", "label": "\uacf5\uae09\uc0ac", "to": "supplier_givaudan"}, {"arrows": "to", "from": "ing_caprylic_capric", "label": "\ud568\ub7c9", "to": "metric_caprylic_pct"}, {"arrows": "to", "from": "ing_caprylic_capric", "label": "\uacf5\uae09\uc0ac", "to": "supplier_evonik"}, {"arrows": "to", "from": "ing_peg20_glyceryl", "label": "\ud568\ub7c9", "to": "metric_peg20_pct"}, {"arrows": "to", "from": "ing_peg20_glyceryl", "label": "\uacf5\uae09\uc0ac", "to": "supplier_cosmax"}, {"arrows": "to", "from": "ing_beeswax", "label": "\ud568\ub7c9", "to": "metric_beeswax_pct"}, {"arrows": "to", "from": "ing_sunflower_oil", "label": "\ud568\ub7c9", "to": "metric_sunflower_pct"}, {"arrows": "to", "from": "ing_squalane", "label": "\ud568\ub7c9", "to": "metric_squalane_pct"}, {"arrows": "to", "from": "ing_squalane", "label": "\uacf5\uae09\uc0ac", "to": "supplier_maruha"}, {"arrows": "to", "from": "ing_ceramide_np", "label": "\ud568\ub7c9", "to": "metric_ceramide_pct"}, {"arrows": "to", "from": "ing_ceramide_np", "label": "\uacf5\uae09\uc0ac", "to": "supplier_cosbotics"}, {"arrows": "to", "from": "ing_niacinamide", "label": "\ud568\ub7c9", "to": "metric_niacinamide_pct"}, {"arrows": "to", "from": "ing_panthenol", "label": "\ud568\ub7c9", "to": "metric_panthenol_pct"}, {"arrows": "to", "from": "ing_tocopheryl_acetate", "label": "\ud568\ub7c9", "to": "metric_tocopheryl_pct"}, {"arrows": "to", "from": "ing_lactobacillus", "label": "\ud568\ub7c9", "to": "metric_lactobacillus_pct"}, {"arrows": "to", "from": "ing_inulin", "label": "\ud568\ub7c9", "to": "metric_inulin_pct"}, {"arrows": "to", "from": "ing_ethylhexylglycerin", "label": "\ud568\ub7c9", "to": "metric_ethylhexylglycerin_pct"}, {"arrows": "to", "from": "ing_caprylyl_glycol", "label": "\ud568\ub7c9", "to": "metric_caprylyl_pct"}, {"arrows": "to", "from": "ing_tocopherol", "label": "\ud568\ub7c9", "to": "metric_tocopherol_pct"}, {"arrows": "to", "from": "ing_rosemary_extract", "label": "\ud568\ub7c9", "to": "metric_rosemary_pct"}]);
+                  nodes = new vis.DataSet([{"color": "#2563EB", "font": {"color": "#ffffff"}, "id": "FACT_INVENTORY", "label": "FACT_INVENTORY", "shape": "ellipse", "size": 46, "title": "[fact_table]\n\uceec\ub7fc \uc218: 9\n\uceec\ub7fc: INVENTORY_ID, PRODUCT_ID, LOCATION_ID, SNAPSHOT_DATE, STOCK_QTY, SAFETY_STOCK_QTY, REORDER_POINT, COVERAGE_WEEKS, STOCK_STATUS\nFK \ud6c4\ubcf4: INVENTORY_ID, PRODUCT_ID, LOCATION_ID"}, {"color": "#2563EB", "font": {"color": "#ffffff"}, "id": "FACT_MONTHLY_SALES", "label": "FACT_MONTHLY_SALES", "shape": "ellipse", "size": 46, "title": "[fact_table]\n\uceec\ub7fc \uc218: 9\n\uceec\ub7fc: SALE_ID, PRODUCT_ID, CHANNEL_ID, YEAR_MONTH, SALES_QTY, SALES_AMOUNT, CURRENCY, RETURN_QTY, NET_SALES_QTY\nFK \ud6c4\ubcf4: SALE_ID, PRODUCT_ID, CHANNEL_ID"}, {"color": "#2563EB", "font": {"color": "#ffffff"}, "id": "FACT_ORDER", "label": "FACT_ORDER", "shape": "ellipse", "size": 46, "title": "[fact_table]\n\uceec\ub7fc \uc218: 8\n\uceec\ub7fc: ORDER_ID, PRODUCT_ID, SUPPLIER_ID, ORDER_DATE, EXPECTED_DATE, QTY, UNIT_COST, STATUS\nFK \ud6c4\ubcf4: ORDER_ID, PRODUCT_ID, SUPPLIER_ID"}, {"color": "#2563EB", "font": {"color": "#ffffff"}, "id": "FACT_RETURN", "label": "FACT_RETURN", "shape": "ellipse", "size": 46, "title": "[fact_table]\n\uceec\ub7fc \uc218: 7\n\uceec\ub7fc: RETURN_ID, PRODUCT_ID, CHANNEL_ID, RETURN_DATE, QTY, REASON, REFUND_AMOUNT\nFK \ud6c4\ubcf4: RETURN_ID, PRODUCT_ID, CHANNEL_ID"}, {"color": "#7C3AED", "font": {"color": "#ffffff"}, "id": "MST_CHANNEL", "label": "MST_CHANNEL", "shape": "diamond", "size": 52, "title": "[master_table]\n\uceec\ub7fc \uc218: 5\n\uceec\ub7fc: CHANNEL_ID, CHANNEL_NAME, CHANNEL_TYPE, REGION, COMMISSION_RATE\nFK \ud6c4\ubcf4: CHANNEL_ID"}, {"color": "#7C3AED", "font": {"color": "#ffffff"}, "id": "MST_PRODUCT", "label": "MST_PRODUCT", "shape": "diamond", "size": 52, "title": "[master_table]\n\uceec\ub7fc \uc218: 11\n\uceec\ub7fc: PRODUCT_ID, PRODUCT_NAME, CATEGORY, DEMAND_TYPE, SEASONAL_PEAK, LIFECYCLE_STAGE, SUPPLIER_ID, PRICE_KRW, PRICE_USD, LAUNCH_DATE...\nFK \ud6c4\ubcf4: PRODUCT_ID, SUPPLIER_ID"}, {"color": "#7C3AED", "font": {"color": "#ffffff"}, "id": "MST_SUPPLIER", "label": "MST_SUPPLIER", "shape": "diamond", "size": 52, "title": "[master_table]\n\uceec\ub7fc \uc218: 7\n\uceec\ub7fc: SUPPLIER_ID, SUPPLIER_NAME, COUNTRY, LEAD_TIME_DAYS, MOQ, CONTRACT_TYPE, STATUS\nFK \ud6c4\ubcf4: SUPPLIER_ID"}, {"color": "#7C3AED", "font": {"color": "#ffffff"}, "id": "MST_WAREHOUSE", "label": "MST_WAREHOUSE", "shape": "diamond", "size": 52, "title": "[master_table]\n\uceec\ub7fc \uc218: 5\n\uceec\ub7fc: WAREHOUSE_ID, WAREHOUSE_NAME, LOCATION, CAPACITY_UNITS, TYPE\nFK \ud6c4\ubcf4: WAREHOUSE_ID"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": "FACT_INVENTORY", "label": "", "title": "PRODUCT_ID", "to": "MST_PRODUCT"}, {"arrows": "to", "from": "FACT_MONTHLY_SALES", "label": "", "title": "PRODUCT_ID", "to": "MST_PRODUCT"}, {"arrows": "to", "from": "FACT_MONTHLY_SALES", "label": "", "title": "CHANNEL_ID", "to": "MST_CHANNEL"}, {"arrows": "to", "from": "FACT_ORDER", "label": "", "title": "PRODUCT_ID", "to": "MST_PRODUCT"}, {"arrows": "to", "from": "FACT_ORDER", "label": "", "title": "SUPPLIER_ID", "to": "MST_SUPPLIER"}, {"arrows": "to", "from": "FACT_RETURN", "label": "", "title": "PRODUCT_ID", "to": "MST_PRODUCT"}, {"arrows": "to", "from": "FACT_RETURN", "label": "", "title": "CHANNEL_ID", "to": "MST_CHANNEL"}, {"arrows": "to", "from": "MST_PRODUCT", "label": "", "title": "SUPPLIER_ID", "to": "MST_SUPPLIER"}]);
 
                   nodeColors = {};
                   allNodes = nodes.get({ returnType: "Object" });
@@ -178,7 +100,7 @@
                   // adding nodes and edges to the graph
                   data = {nodes: nodes, edges: edges};
 
-                  var options = {"physics": {"forceAtlas2Based": {"gravitationalConstant": -50, "centralGravity": 0.01, "springLength": 120}, "solver": "forceAtlas2Based", "stabilization": {"iterations": 150}}, "edges": {"arrows": {"to": {"enabled": true, "scaleFactor": 0.8}}, "color": {"color": "#aaaaaa"}, "font": {"size": 11, "color": "#dddddd"}}, "nodes": {"font": {"size": 13}, "borderWidth": 2}};
+                  var options = {"physics": {"forceAtlas2Based": {"gravitationalConstant": -80, "centralGravity": 0.008, "springLength": 200, "springConstant": 0.05}, "solver": "forceAtlas2Based", "stabilization": {"iterations": 200}}, "edges": {"arrows": {"to": {"enabled": true, "scaleFactor": 0.8}}, "color": {"color": "#888888"}, "smooth": {"type": "curvedCW", "roundness": 0.1}}, "nodes": {"font": {"size": 14, "strokeWidth": 3, "strokeColor": "#1a1a2e"}, "borderWidth": 2}, "interaction": {"zoomSpeed": 0.3, "hover": true}};
 
                   
 
@@ -195,28 +117,335 @@
 
 
                   
-                      network.on("stabilizationProgress", function(params) {
-                          document.getElementById('loadingBar').removeAttribute("style");
-                          var maxWidth = 496;
-                          var minWidth = 20;
-                          var widthFactor = params.iterations/params.total;
-                          var width = Math.max(minWidth,maxWidth * widthFactor);
-                          document.getElementById('bar').style.width = width + 'px';
-                          document.getElementById('text').innerHTML = Math.round(widthFactor*100) + '%';
-                      });
-                      network.once("stabilizationIterationsDone", function() {
-                          document.getElementById('text').innerHTML = '100%';
-                          document.getElementById('bar').style.width = '496px';
-                          document.getElementById('loadingBar').style.opacity = 0;
-                          // really clean the dom element
-                          setTimeout(function () {document.getElementById('loadingBar').style.display = 'none';}, 500);
-                      });
-                  
 
                   return network;
 
               }
               drawGraph();
         </script>
-    </body>
+    <style>
+/* 네트워크 캔버스를 툴바 높이만큼 아래로 밀기 */
+#mynetwork{margin-top:44px!important;}
+/* ── 상단 툴바 ── */
+#kbar{position:fixed;top:0;left:0;right:0;height:44px;z-index:9999;
+  display:flex;align-items:center;gap:8px;padding:0 12px;
+  background:rgba(6,6,20,.95);border-bottom:1px solid #1e293b;font-family:sans-serif;}
+#kbk{background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:6px;
+  padding:3px 10px;font-size:12px;cursor:pointer;display:none;align-items:center;gap:4px;}
+#kbk:hover{background:#334155;color:#e2e8f0;}
+#kbc{color:#64748b;font-size:12px;flex:1;}
+#kbc b{color:#e2e8f0;}
+#klv{font-size:10px;padding:2px 8px;border-radius:10px;
+  background:#0f172a;color:#475569;border:1px solid #1e293b;white-space:nowrap;}
+#kzm{display:flex;align-items:center;gap:4px;}
+#kzm button{background:#1e293b;color:#e2e8f0;border:1px solid #334155;
+  border-radius:5px;width:26px;height:26px;font-size:15px;cursor:pointer;line-height:1;}
+#kzm button:hover:not(:disabled){background:#334155;}
+#kzm button:disabled{opacity:.3;cursor:default;}
+#kzm span{color:#94a3b8;font-size:11px;min-width:34px;text-align:center;}
+/* ── 상세 패널 ── */
+#np{position:fixed;top:52px;right:8px;width:255px;
+  max-height:calc(100% - 60px);overflow-y:auto;
+  background:rgba(6,6,22,.97);border:1px solid #1e293b;border-radius:10px;
+  padding:13px;z-index:9990;display:none;font-family:sans-serif;color:#e2e8f0;font-size:12px;}
+#np h3{color:#fff;font-size:13px;margin:0 0 5px;word-break:break-all;padding-right:18px;}
+.ntag{display:inline-block;padding:2px 8px;border-radius:4px;
+  font-size:10px;margin-bottom:8px;color:#fff;font-weight:700;}
+.nsec{color:#475569;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+  margin:9px 0 3px;font-weight:700;border-top:1px solid #0f172a;padding-top:7px;}
+.ncol{padding:1px 0;font-size:11px;color:#cbd5e1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ncol.fk{color:#fbbf24;}
+.nedg{padding:2px 0;font-size:11px;}
+.no{color:#6ee7b7;}.ni{color:#93c5fd;}
+.nr{color:#334155;font-size:10px;}
+.nn{color:#334155;font-size:11px;font-style:italic;}
+.ndoc{padding:2px 0;font-size:11px;color:#7dd3fc;}
+#npx{position:absolute;top:7px;right:9px;background:none;border:none;
+  color:#475569;cursor:pointer;font-size:17px;line-height:1;padding:0;}
+#npx:hover{color:#e2e8f0;}
+/* ── 힌트 ── */
+#kht{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:9998;
+  background:rgba(15,23,42,.92);border:1px solid #334155;border-radius:20px;
+  padding:5px 16px;font-size:11px;color:#64748b;font-family:sans-serif;
+  pointer-events:none;opacity:0;transition:opacity .4s;white-space:nowrap;}
+</style>
+<div id="kbar">
+  <button id="kbk" onclick="goBack()">&#8592; 뒤로</button>
+  <span id="kbc"><b>전체 조감도</b></span>
+  <span id="klv">Lv.1 &middot; 전체</span>
+  <div id="kzm">
+    <button id="kzi" onclick="kgZ(1)" title="확대">+</button>
+    <span id="kzl">100%</span>
+    <button id="kzo" onclick="kgZ(-1)" title="축소">&#8722;</button>
+  </div>
+</div>
+<div id="np">
+  <button id="npx" onclick="document.getElementById('np').style.display='none'">&#215;</button>
+  <h3 id="npn"></h3>
+  <span id="nptg" class="ntag"></span>
+  <div class="nsec">컬럼</div><div id="npc"></div>
+  <div class="nsec">연결 테이블</div><div id="npe"></div>
+  <div class="nsec">관련 문서</div><div id="npd"></div>
+</div>
+<div id="kht"></div>
+<script>
+/* ════ 상태 ════ */
+var LV=1, FG=null, DD=null;
+
+/* ════ 데이터 ════ */
+var NM={"FACT_INVENTORY": {"type": "fact_table", "columns": ["INVENTORY_ID", "PRODUCT_ID", "LOCATION_ID", "SNAPSHOT_DATE", "STOCK_QTY", "SAFETY_STOCK_QTY", "REORDER_POINT", "COVERAGE_WEEKS", "STOCK_STATUS"], "col_types": {"INVENTORY_ID": "string", "PRODUCT_ID": "string", "LOCATION_ID": "string", "SNAPSHOT_DATE": "datetime", "STOCK_QTY": "numeric", "SAFETY_STOCK_QTY": "numeric", "REORDER_POINT": "numeric", "COVERAGE_WEEKS": "numeric", "STOCK_STATUS": "string"}, "fk_cols": ["INVENTORY_ID", "PRODUCT_ID", "LOCATION_ID"], "out_edges": [{"to": "MST_PRODUCT", "rel": "PRODUCT_ID"}], "in_edges": []}, "FACT_MONTHLY_SALES": {"type": "fact_table", "columns": ["SALE_ID", "PRODUCT_ID", "CHANNEL_ID", "YEAR_MONTH", "SALES_QTY", "SALES_AMOUNT", "CURRENCY", "RETURN_QTY", "NET_SALES_QTY"], "col_types": {"SALE_ID": "string", "PRODUCT_ID": "string", "CHANNEL_ID": "string", "YEAR_MONTH": "string", "SALES_QTY": "numeric", "SALES_AMOUNT": "numeric", "CURRENCY": "string", "RETURN_QTY": "numeric", "NET_SALES_QTY": "numeric"}, "fk_cols": ["SALE_ID", "PRODUCT_ID", "CHANNEL_ID"], "out_edges": [{"to": "MST_PRODUCT", "rel": "PRODUCT_ID"}, {"to": "MST_CHANNEL", "rel": "CHANNEL_ID"}], "in_edges": []}, "FACT_ORDER": {"type": "fact_table", "columns": ["ORDER_ID", "PRODUCT_ID", "SUPPLIER_ID", "ORDER_DATE", "EXPECTED_DATE", "QTY", "UNIT_COST", "STATUS"], "col_types": {"ORDER_ID": "string", "PRODUCT_ID": "string", "SUPPLIER_ID": "string", "ORDER_DATE": "datetime", "EXPECTED_DATE": "datetime", "QTY": "numeric", "UNIT_COST": "numeric", "STATUS": "string"}, "fk_cols": ["ORDER_ID", "PRODUCT_ID", "SUPPLIER_ID"], "out_edges": [{"to": "MST_PRODUCT", "rel": "PRODUCT_ID"}, {"to": "MST_SUPPLIER", "rel": "SUPPLIER_ID"}], "in_edges": []}, "FACT_RETURN": {"type": "fact_table", "columns": ["RETURN_ID", "PRODUCT_ID", "CHANNEL_ID", "RETURN_DATE", "QTY", "REASON", "REFUND_AMOUNT"], "col_types": {"RETURN_ID": "string", "PRODUCT_ID": "string", "CHANNEL_ID": "string", "RETURN_DATE": "datetime", "QTY": "numeric", "REASON": "string", "REFUND_AMOUNT": "numeric"}, "fk_cols": ["RETURN_ID", "PRODUCT_ID", "CHANNEL_ID"], "out_edges": [{"to": "MST_PRODUCT", "rel": "PRODUCT_ID"}, {"to": "MST_CHANNEL", "rel": "CHANNEL_ID"}], "in_edges": []}, "MST_CHANNEL": {"type": "master_table", "columns": ["CHANNEL_ID", "CHANNEL_NAME", "CHANNEL_TYPE", "REGION", "COMMISSION_RATE"], "col_types": {"CHANNEL_ID": "string", "CHANNEL_NAME": "string", "CHANNEL_TYPE": "string", "REGION": "string", "COMMISSION_RATE": "numeric"}, "fk_cols": ["CHANNEL_ID"], "out_edges": [], "in_edges": [{"from": "FACT_MONTHLY_SALES", "rel": "CHANNEL_ID"}, {"from": "FACT_RETURN", "rel": "CHANNEL_ID"}]}, "MST_PRODUCT": {"type": "master_table", "columns": ["PRODUCT_ID", "PRODUCT_NAME", "CATEGORY", "DEMAND_TYPE", "SEASONAL_PEAK", "LIFECYCLE_STAGE", "SUPPLIER_ID", "PRICE_KRW", "PRICE_USD", "LAUNCH_DATE", "STATUS"], "col_types": {"PRODUCT_ID": "string", "PRODUCT_NAME": "string", "CATEGORY": "string", "DEMAND_TYPE": "string", "SEASONAL_PEAK": "string", "LIFECYCLE_STAGE": "string", "SUPPLIER_ID": "string", "PRICE_KRW": "numeric", "PRICE_USD": "numeric", "LAUNCH_DATE": "datetime", "STATUS": "string"}, "fk_cols": ["PRODUCT_ID", "SUPPLIER_ID"], "out_edges": [{"to": "MST_SUPPLIER", "rel": "SUPPLIER_ID"}], "in_edges": [{"from": "FACT_INVENTORY", "rel": "PRODUCT_ID"}, {"from": "FACT_MONTHLY_SALES", "rel": "PRODUCT_ID"}, {"from": "FACT_ORDER", "rel": "PRODUCT_ID"}, {"from": "FACT_RETURN", "rel": "PRODUCT_ID"}]}, "MST_SUPPLIER": {"type": "master_table", "columns": ["SUPPLIER_ID", "SUPPLIER_NAME", "COUNTRY", "LEAD_TIME_DAYS", "MOQ", "CONTRACT_TYPE", "STATUS"], "col_types": {"SUPPLIER_ID": "string", "SUPPLIER_NAME": "string", "COUNTRY": "string", "LEAD_TIME_DAYS": "datetime", "MOQ": "numeric", "CONTRACT_TYPE": "string", "STATUS": "string"}, "fk_cols": ["SUPPLIER_ID"], "out_edges": [], "in_edges": [{"from": "FACT_ORDER", "rel": "SUPPLIER_ID"}, {"from": "MST_PRODUCT", "rel": "SUPPLIER_ID"}]}, "MST_WAREHOUSE": {"type": "master_table", "columns": ["WAREHOUSE_ID", "WAREHOUSE_NAME", "LOCATION", "CAPACITY_UNITS", "TYPE"], "col_types": {"WAREHOUSE_ID": "string", "WAREHOUSE_NAME": "string", "LOCATION": "string", "CAPACITY_UNITS": "numeric", "TYPE": "string"}, "fk_cols": ["WAREHOUSE_ID"], "out_edges": [], "in_edges": []}};
+
+/* 노드 → 그룹 */
+function grp(id){
+  var t=(NM[id]||{}).type||'';
+  return t==='master_table'?'MST':t==='fact_table'?'FACT':'OTHER';
+}
+
+/* 타입 → 시각 설정 */
+var TV={
+  master_table:{s:'diamond',c:'#7C3AED',z:52},
+  fact_table:  {s:'ellipse', c:'#2563EB',z:46},
+  csv_table:   {s:'dot',    c:'#0D9488',z:36},
+  file:        {s:'box',    c:'#5C6BC0',z:28},
+  'class':     {s:'ellipse',c:'#7B1FA2',z:24},
+  'function':  {s:'dot',    c:'#0288D1',z:18},
+  method:      {s:'dot',    c:'#0097A7',z:14},
+  module:      {s:'triangle',c:'#558B2F',z:16},
+};
+function gv(type){return TV[type]||{s:'dot',c:'#6B7280',z:20};}
+function fnt(sz,col){
+  return {size:sz||14,strokeWidth:3,strokeColor:'#06060e',color:col||'#ffffff'};
+}
+
+/* ════ 줌 ════ */
+var ZL=[.7,.8,.9,1.0],ZI=3;
+function kgZ(d){
+  ZI=Math.max(0,Math.min(ZL.length-1,ZI+d));
+  var s=ZL[ZI];
+  if(typeof network!=='undefined')
+    network.moveTo({scale:s,animation:{duration:200,easingFunction:'easeInOutQuad'}});
+  document.getElementById('kzl').textContent=Math.round(s*100)+'%';
+  document.getElementById('kzi').disabled=(ZI>=ZL.length-1);
+  document.getElementById('kzo').disabled=(ZI<=0);
+}
+
+/* ════ 드릴다운 초기화 ════ */
+function initDD(){
+  /* 그룹별 노드 분류 */
+  var gs={MST:[],FACT:[],OTHER:[]};
+  Object.keys(NM).forEach(function(id){
+    var g=grp(id);
+    if(!gs[g])gs[g]=[];
+    gs[g].push(id);
+  });
+  /* 에지 수집 (중복 제거) */
+  var eseen={},ae=[];
+  Object.keys(NM).forEach(function(id){
+    (NM[id].out_edges||[]).forEach(function(e){
+      var k=id+'>>'+e.to;
+      if(!eseen[k]){eseen[k]=1;ae.push({from:id,to:e.to,rel:e.rel||''});}
+    });
+  });
+  DD={gs:gs,ae:ae};
+  setV(1,null);
+}
+
+/* ════ 데이터셋 교체 ════ */
+function setND(nds,eds){
+  var nd=network.body.data.nodes;
+  var ed=network.body.data.edges;
+  nd.clear();ed.clear();
+  nd.add(nds);ed.add(eds);
+  network.stabilize(120);
+}
+
+/* ════ 뷰 전환 ════ */
+var GN={MST:'마스터 테이블',FACT:'팩트 테이블',OTHER:'기타'};
+var GC={MST:'#7C3AED',FACT:'#2563EB',OTHER:'#6B7280'};
+var GX={MST:'📦',FACT:'📊',OTHER:'⚙️'};
+
+function setV(lv,g){
+  LV=lv; FG=g;
+  document.getElementById('np').style.display='none';
+  var nds=[],eds=[];
+
+  if(lv===1){
+    /* Level 1: 그룹 수퍼노드 */
+    Object.keys(DD.gs).forEach(function(k){
+      var cnt=(DD.gs[k]||[]).length;
+      if(!cnt)return;
+      nds.push({
+        id:'_G_'+k,
+        label:(GX[k]||'')+'  '+(GN[k]||k)+'
+('+cnt+'개 테이블)',
+        color:{background:GC[k]||'#6B7280',border:'#ffffff33',
+               highlight:{background:GC[k]||'#6B7280',border:'#fff'}},
+        size:Math.max(62,46+cnt*5),
+        shape:'ellipse',
+        borderWidth:3,
+        font:{size:15,strokeWidth:4,strokeColor:'#06060e',bold:true,multi:true,color:'#ffffff'},
+        shadow:{enabled:true,size:12,color:(GC[k]||'#555')+'66'},
+        title:(DD.gs[k]||[]).join('
+'),
+        _grp:k, _isG:true,
+      });
+    });
+    /* 그룹 간 집계 에지 */
+    var ge={};
+    DD.ae.forEach(function(e){
+      var gf=grp(e.from),gt=grp(e.to);
+      if(gf!==gt){
+        var k='_G_'+gf+'>>_G_'+gt;
+        if(!ge[k])ge[k]={from:'_G_'+gf,to:'_G_'+gt,n:0};
+        ge[k].n++;
+      }
+    });
+    Object.keys(ge).forEach(function(k){
+      var e=ge[k];
+      eds.push({from:e.from,to:e.to,label:'',title:e.n+'개 연결',
+        width:Math.min(2+Math.floor(e.n/2),10),
+        color:{color:'#475569'},arrows:'to',smooth:{type:'curvedCW',roundness:.2}});
+    });
+    setBr('전체 조감도',1,false);
+    hint('그룹을 클릭하면 테이블 목록이 펼쳐집니다',3000);
+
+  } else {
+    /* Level 2: 그룹 내 테이블 + ghost 이웃 */
+    var mem=DD.gs[g]||[],ms={};
+    mem.forEach(function(id){ms[id]=true;});
+    /* 다른 그룹 이웃 찾기 */
+    var gh={};
+    DD.ae.forEach(function(e){
+      if(ms[e.from]&&!ms[e.to])gh[e.to]=true;
+      if(ms[e.to]&&!ms[e.from])gh[e.from]=true;
+    });
+    /* 그룹 멤버 노드 (선명) */
+    mem.forEach(function(id){
+      var m=NM[id]||{},v=gv(m.type);
+      nds.push({id:id,label:id,
+        color:{background:v.c,border:v.c+'cc',highlight:{background:v.c,border:'#fff'}},
+        size:v.z,shape:v.s,borderWidth:2,
+        font:fnt(13),title:'컬럼 수: '+(m.columns||[]).length+'개'});
+    });
+    /* Ghost 이웃 노드 (흐림) */
+    Object.keys(gh).forEach(function(id){
+      var m=NM[id]||{},v=gv(m.type);
+      nds.push({id:id,label:id,
+        color:{background:v.c+'44',border:v.c+'33'},
+        size:v.z*.6,shape:v.s,borderWidth:1,opacity:.38,
+        font:fnt(10,'#475569'),title:'외부 연결 테이블'});
+    });
+    /* 에지 (가시 노드 간만) */
+    var vs={};nds.forEach(function(n){vs[n.id]=true;});
+    eds=DD.ae.filter(function(e){return vs[e.from]&&vs[e.to];})
+      .map(function(e){
+        return{from:e.from,to:e.to,label:'',title:e.rel||'',
+          arrows:'to',color:{color:'#64748b'},
+          smooth:{type:'curvedCW',roundness:.1}};
+      });
+    setBr((GN[g]||g),2,true);
+    hint('테이블을 클릭하면 상세 정보를 볼 수 있습니다',2800);
+  }
+
+  setND(nds,eds);
+}
+
+/* ════ 브레드크럼 ════ */
+function setBr(lbl,lv,back){
+  var crumb=document.getElementById('kbc');
+  crumb.innerHTML=lv===1?'<b>전체 조감도</b>':'전체 조감도 &rsaquo; <b>'+lbl+'</b>';
+  document.getElementById('klv').textContent='Lv.'+lv+(lv===2?' · '+lbl:'');
+  var b=document.getElementById('kbk');
+  b.style.display=back?'flex':'none';
+}
+
+function hint(txt,ms){
+  var h=document.getElementById('kht');
+  h.textContent=txt;h.style.opacity='1';
+  setTimeout(function(){h.style.opacity='0';},ms||2500);
+}
+
+function goBack(){if(LV===2)setV(1,null);}
+
+/* ════ 상세 패널 (Level 3) ════ */
+var TC={master_table:'#7C3AED',fact_table:'#2563EB',csv_table:'#0D9488'};
+var TL={master_table:'MASTER TABLE',fact_table:'FACT TABLE',csv_table:'CSV TABLE'};
+var TABLE_TYPES=['master_table','fact_table','csv_table'];
+
+function showD(id){
+  var m=NM[id]||{};
+  document.getElementById('npn').textContent=id;
+  var tg=document.getElementById('nptg');
+  tg.style.background=TC[m.type]||'#6B7280';
+  tg.textContent=TL[m.type]||m.type||'NODE';
+
+  /* 컬럼 */
+  var cols=m.columns||[],fks=m.fk_cols||[],ct=m.col_types||{};
+  var ch='';
+  if(!cols.length){
+    ch='<div class="nn">정보 없음</div>';
+  } else {
+    cols.slice(0,25).forEach(function(c){
+      var f=fks.indexOf(c)>=0;
+      var t=ct[c]?'<span class="nr"> ('+ct[c]+')</span>':'';
+      ch+='<div class="ncol'+(f?' fk':'')+'">'+c+t+(f?' ??':'')+'</div>';
+    });
+    if(cols.length>25)
+      ch+='<div class="nn">… 외 '+(cols.length-25)+'개</div>';
+  }
+  document.getElementById('npc').innerHTML=ch;
+
+  /* 연결 테이블 */
+  var oe=m.out_edges||[],ie=m.in_edges||[],eh='';
+  oe.forEach(function(e){
+    eh+='<div class="nedg no">→ '+e.to
+      +(e.rel?'<span class="nr"> ('+e.rel+')</span>':'')+'</div>';
+  });
+  ie.forEach(function(e){
+    eh+='<div class="nedg ni">← '+e.from
+      +(e.rel?'<span class="nr"> ('+e.rel+')</span>':'')+'</div>';
+  });
+  if(!eh)eh='<div class="nn">없음</div>';
+  document.getElementById('npe').innerHTML=eh;
+
+  /* 관련 문서 */
+  var dh=TABLE_TYPES.indexOf(m.type)>=0
+    ?'<div class="ndoc">?? '+id+'.csv</div>'
+    :'<div class="nn">문서에서 추출된 엔티티</div>';
+  document.getElementById('npd').innerHTML=dh;
+
+  document.getElementById('np').style.display='block';
+}
+
+/* ════ 이벤트 바인딩 ════ */
+(function poll(){
+  if(typeof network!=='undefined'){
+    /* 줌 라벨 동기화 */
+    network.on('zoom',function(e){
+      document.getElementById('kzl').textContent=Math.round(e.scale*100)+'%';
+    });
+    /* 클릭 핸들러 */
+    network.on('click',function(p){
+      if(!p.nodes.length)return;
+      var id=p.nodes[0];
+      if(LV===1){
+        /* Level1 → Level2: 그룹 클릭 */
+        var nd=network.body.data.nodes.get(id);
+        if(nd&&nd._isG){setV(2,nd._grp);return;}
+      }
+      if(LV===2){
+        /* Level2 → Level3: 테이블 클릭 → 상세 패널 */
+        showD(id);
+      }
+    });
+    /* 초기화 후 Level1 렌더 */
+    initDD();
+  } else {
+    setTimeout(poll,150);
+  }
+})();
+</script>
+
+</body>
 </html>
