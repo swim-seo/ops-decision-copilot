@@ -3,7 +3,8 @@
 > **도메인 적응형 AI 운영 코파일럿 플랫폼**
 > 문서, 데이터, GraphRAG 지식그래프를 결합하여 운영 의사결정을 지원합니다.
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ops-decision-copilot.streamlit.app)
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js%2015-black.svg)](https://nextjs.org)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![Claude API](https://img.shields.io/badge/LLM-Claude%20Sonnet-orange.svg)](https://anthropic.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -30,47 +31,30 @@
 ## 아키텍처
 
 ```
-+-------------------------------------------------------------+
-|                    app.py  (UI 오케스트레이션)                |
-|  Step 1: 도메인 설정 -> Step 2: 파일 업로드 -> Step 3: 결과  |
-+---------+---------------------+--------------------+----------+
-          |                     |                    |
- +--------v--------+  +---------v--------+  +-------v--------+
- | 문서 파이프라인   |  | 분석 엔진         |  | 채팅 엔진       |
- |                  |  |                  |  |                |
- | RAGEngine        |  | data_analyst     |  | chat_copilot   |
- | (Supabase        |  | data_chat_engine |  | 라우팅:         |
- |  pgvector)       |  | query_planner    |  |  data /        |
- |                  |  |                  |  |  doc /         |
- | KnowledgeGraph   |  | 5가지 질문 유형   |  |  combined      |
- | (NetworkX)       |  | CHART / RANKING  |  |                |
- | + detect_        |  | COMPARISON /     |  | GraphRAG       |
- |   communities()  |  | RISK / DESCRIBE  |  | 컨텍스트 조합   |
- |                  |  |                  |  |                |
- | community_       |  |                  |  |                |
- | summarizer       |  |                  |  |                |
- | (GraphRAG 핵심)  |  |                  |  |                |
- |                  |  |                  |  |                |
- | document_parser  |  |                  |  |                |
- +-----------------+   +------------------+  +----------------+
-                               |
-          +--------------------+--------------------+
-          |                    |                    |
-+---------v-----+  +-----------v---+  +------------v--+
-| Claude API    |  | domains/      |  | Supabase      |
-| (Anthropic)   |  | 프리셋         |  | PostgreSQL    |
-|               |  |               |  |               |
-| claude_client |  | beauty        |  | document_     |
-| domain_adapter|  | supply_chain  |  | chunks        |
-+---------------+  | energy / ...  |  | (pgvector)    |
-                   +---------------+  |               |
-                                      | community_    |
-                                      | summaries     |
-                                      | (GraphRAG)    |
-                                      |               |
-                                      | 비즈니스       |
-                                      | 데이터 테이블  |
-                                      +---------------+
++---------------------------+        +-----------------------------+
+|   frontend/  (Next.js 15) |  HTTP  |   backend/  (FastAPI)       |
+|                           | <----> |                             |
+|  /app 랜딩 + 앱 페이지     |        |  /api/domain   도메인 설정  |
+|  도메인 선택               |        |  /api/upload   파일 업로드  |
+|  샘플/파일 업로드           |        |  /api/briefing 일일 브리핑  |
+|  브리핑·그래프 대시보드     |        |  /api/chat     SSE 스트리밍 |
+|  플로팅 AI 채팅 위젯 (FAB) |        |  /api/graph    KG 시각화   |
+|  Amber + Slate 다크 테마   |        |                             |
++---------------------------+        +----------+------------------+
+                                                |
+                         +----------------------+--------------------+
+                         |                      |                    |
+               +---------v-----+  +-------------v-+  +-------------v--+
+               | modules/      |  | domains/      |  | Supabase       |
+               |               |  | 프리셋 7개     |  | pgvector       |
+               | RAGEngine     |  | (beauty 등)   |  |                |
+               | KnowledgeGraph|  |               |  | document_chunks|
+               | chat_copilot  |  | + Claude 동적  |  | community_     |
+               | data_analyst  |  |   도메인 생성  |  | summaries      |
+               | community_    |  +---------------+  +----------------+
+               | summarizer    |
+               | claude_client |
+               +---------------+
 ```
 
 ### GraphRAG 처리 흐름
@@ -105,11 +89,11 @@
 | 원칙 | 구현 방식 |
 |------|----------|
 | **도메인 무관** | `domains/` 프리셋 + Claude 동적 도메인 분석 |
-| **모듈 독립성** | `data_analyst.py`는 Streamlit 의존성 없이 단독 테스트 가능 |
+| **모듈 독립성** | `modules/`는 FastAPI·Next.js 의존성 없이 단독 테스트 가능 |
 | **3단계 라우팅** | 질문 → data / doc / combined 자동 분류 |
 | **근거 기반 답변** | 모든 답변에 CSV·문서·KG 노드 수 뱃지 표시 |
 | **의사결정 지원** | 모든 데이터 질문에 "오늘/이번주/이번달" 액션 제안 |
-| **스트리밍** | `st.write_stream`으로 실시간 Claude 응답 스트리밍 |
+| **스트리밍** | FastAPI SSE(`/api/chat`)로 실시간 Claude 응답 스트리밍 |
 | **병렬 처리** | KG 추출 및 combined 라우팅에 ThreadPoolExecutor 적용 |
 
 ---
@@ -191,47 +175,51 @@ scripts/graphrag_migration.sql    # community_summaries 테이블 + RPC 함수
 create_all_tables.sql             # 비즈니스 데이터 테이블 (선택)
 ```
 
-### 2. 앱 설치 및 실행
+### 2. 환경변수 설정
+
+`.env.example`을 복사해 `.env` 파일 생성:
 
 ```bash
-git clone https://github.com/swim-seo/ops-decision-copilot.git
-cd ops-decision-copilot
-pip install -r requirements.txt
-
-# API 키 설정 (.env 파일)
 ANTHROPIC_API_KEY=your_key_here
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_KEY=your_supabase_anon_key
-
-streamlit run app.py
 ```
 
-### 3. 환경변수 우선순위
+### 3. Backend 실행 (FastAPI)
 
-| 순서 | 방식 | 용도 |
-|------|------|------|
-| 1 | `st.secrets` | Streamlit Cloud 배포 |
-| 2 | `.env` 파일 | 로컬 개발 |
-| 3 | 환경변수 | CI/CD |
+```bash
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload --port 8000
+# API 문서: http://localhost:8000/docs
+```
+
+### 4. Frontend 실행 (Next.js)
+
+```bash
+cd frontend
+npm install
+npm run dev
+# http://localhost:3000
+```
 
 ---
 
 ## 데모 시나리오
 
 ### 시나리오 1: 공급망 재고 위험 분석
-1. "샘플 데이터"를 클릭해 데모 데이터 로드
+1. 도메인 선택 화면에서 "공급망" 선택 후 샘플 데이터 로드
 2. "브리핑 생성" 클릭 → 4개 카드로 재고 위험 현황 확인
 3. 채팅: `FG-002 수요 그래프` → 월별 추이 차트
 4. 채팅: `CRITICAL 재고 품목과 발주 우선순위 알려줘`
 
 ### 시나리오 2: 회의록 → GraphRAG 연결
 1. 회의록 TXT 파일 업로드
-2. 자동으로 KG 구성 → 커뮤니티 탐지 → 요약 저장 (toast 알림)
-3. AI 분석 탭 → "액션 아이템 추출" → 데이터셋 뱃지 자동 연결
-4. 채팅: `공급망 리스크가 뭐야?` → 커뮤니티 요약 + 멀티홉 관계 기반 답변
+2. 자동으로 KG 구성 → 커뮤니티 탐지 → 요약 저장
+3. 대시보드에서 "액션 아이템 추출" → 데이터셋 뱃지 자동 연결
+4. 채팅 위젯: `공급망 리스크가 뭐야?` → 커뮤니티 요약 + 멀티홉 관계 기반 답변
 
 ### 시나리오 3: 신규 도메인 적응
-1. Step 1에서 커스텀 도메인 입력 (예: "의료")
+1. 도메인 선택 화면에서 커스텀 도메인 직접 입력 (예: "의료")
 2. Claude가 도메인별 엔티티 유형, 용어, 테마 자동 생성
 3. 도메인 문서 업로드 → 도메인 특화 KG + GraphRAG 커뮤니티 구성
 
@@ -245,7 +233,8 @@ streamlit run app.py
 | 벡터 DB | Supabase pgvector | 문서 청크 + 커뮤니티 요약 통합 저장, 클라우드 관리형 |
 | 임베딩 | paraphrase-multilingual-MiniLM-L12-v2 | 한국어 의미 검색 최적화, 384차원 |
 | GraphRAG | NetworkX (Louvain) + community_summarizer | 커뮤니티 탐지 + Claude 요약 + pgvector 검색 |
-| UI | Streamlit | 빠른 프로토타이핑, 인터랙티브 컴포넌트 |
+| UI | Next.js 15 (App Router) | 서버 컴포넌트, SSE 스트리밍, Amber+Slate 다크 테마 |
+| API 서버 | FastAPI | 비동기 SSE 스트리밍, 자동 OpenAPI 문서화 |
 | 그래프 시각화 | NetworkX + pyvis | 직관적 KG 구성 + 인터랙티브 HTML 렌더링 |
 | 데이터 분석 | pandas + plotly | 경량 분석, 인터랙티브 차트 |
 | 도메인 적응 | DomainConfig 데이터클래스 | 설정 변경 없이 도메인 전환 |
@@ -256,15 +245,26 @@ streamlit run app.py
 
 ```
 ops-decision-copilot/
-├── app.py                    # UI 오케스트레이션 (Streamlit 3단계 플로우)
 ├── config.py                 # 전역 설정 (API 키, 경로, 색상)
+│
+├── frontend/                 # Next.js 15 앱 (git 서브모듈)
+│   └── /app: 랜딩·앱 페이지, 플로팅 AI 채팅 위젯 (FAB)
+│
+├── backend/                  # FastAPI 서버
+│   ├── main.py               # FastAPI 앱 + CORS 설정
+│   ├── requirements.txt      # Python 의존성
+│   └── routers/
+│       ├── domain.py         # 도메인 설정 API
+│       ├── upload.py         # 파일 업로드 + RAG/KG 처리
+│       ├── briefing.py       # 일일 브리핑 생성
+│       ├── chat.py           # SSE 스트리밍 채팅
+│       └── graph.py          # KG 시각화
 │
 ├── domains/                  # 도메인 프리셋 패키지
 │   ├── __init__.py           # ALL_PRESETS, get_preset()
-│   ├── beauty.py             # 뷰티/이커머스
-│   └── supply_chain.py / energy.py / manufacturing.py / logistics.py / finance.py / generic.py
+│   └── beauty.py / supply_chain.py / energy.py / manufacturing.py / logistics.py / finance.py / generic.py
 │
-├── modules/                  # 핵심 비즈니스 로직
+├── modules/                  # 핵심 비즈니스 로직 (프레임워크 독립)
 │   ├── claude_client.py      # Claude API 래퍼 (스트리밍, 재시도)
 │   ├── rag_engine.py         # Supabase pgvector 벡터 검색
 │   ├── knowledge_graph.py    # 엔티티 관계 그래프 + 커뮤니티 탐지 + 3가지 뷰
@@ -284,12 +284,8 @@ ops-decision-copilot/
 │      / rag_query.txt / chat_routing.txt
 │
 ├── scripts/                  # SQL 마이그레이션 + 데이터 생성 스크립트
-│   ├── vector_migration.sql      # pgvector + document_chunks 테이블 + RPC 함수
-│   ├── graphrag_migration.sql    # community_summaries 테이블 + RPC 함수
-│   └── (데이터 생성 스크립트들)
-│
-├── eval/                     # 평가 테스트셋
-└── data/                     # 샘플 데이터 (공급망 도메인 데모)
+├── eval/                     # 평가 테스트셋 (domain / fk / llm / rag)
+└── data/                     # 샘플 데이터 (6개 도메인)
 ```
 
 ---
@@ -326,8 +322,9 @@ ALL_PRESETS["healthcare"] = _healthcare
 
 ## 배포
 
-- **라이브 데모**: [ops-decision-copilot.streamlit.app](https://ops-decision-copilot.streamlit.app)
-  *(데모: 세션당 API 호출 20회 제한)*
+- **Backend**: FastAPI → Render / Railway / EC2 등 Python 서버 환경
+- **Frontend**: Next.js → Vercel 배포 권장 (`NEXT_PUBLIC_API_URL` 환경변수로 backend URL 지정)
+- *(데모: 세션당 API 호출 20회 제한)*
 
 ---
 
