@@ -4,7 +4,7 @@
   - generate_with_system(): 시스템 프롬프트 + 유저 프롬프트 → 텍스트 응답
   - stream()              : 스트리밍 텍스트 생성 (generator yield)
 
-API 키 조회: st.secrets → os.getenv (config._get_secret() 위임)
+
 재시도: 429/529 → 최대 3회 (1s→2s→4s)
 """
 import time
@@ -30,11 +30,7 @@ class ClaudeClient:
     def __init__(self):
         api_key = _get_secret("ANTHROPIC_API_KEY")
         if not api_key:
-            raise ValueError(
-                "ANTHROPIC_API_KEY가 설정되지 않았습니다. "
-                "Streamlit Cloud: Settings → Secrets에 입력하세요. "
-                "로컬: .env 파일에 ANTHROPIC_API_KEY=sk-ant-... 를 추가하세요."
-            )
+            raise ValueError("ANTHROPIC_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.")
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model  = MODEL_NAME
 

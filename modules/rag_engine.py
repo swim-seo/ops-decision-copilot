@@ -27,13 +27,24 @@ logger = logging.getLogger(__name__)
 _TABLE = "document_chunks"
 _RPC   = "match_document_chunks"
 
+_EMBED_MODEL: SentenceTransformer | None = None
+
+def _get_model() -> SentenceTransformer:
+    global _EMBED_MODEL
+    if _EMBED_MODEL is None:
+        _EMBED_MODEL = SentenceTransformer(EMBEDDING_MODEL)
+    return _EMBED_MODEL
+
 
 class RAGEngine:
     def __init__(self, collection_name: str = DEFAULT_COLLECTION_NAME):
         self.collection_name = collection_name
-        self._model = SentenceTransformer(EMBEDDING_MODEL)
 
     # ── 내부 헬퍼 ────────────────────────────────────────────────────────────
+
+    @property
+    def _model(self):
+        return _get_model()
 
     def _embed(self, text: str) -> List[float]:
         """텍스트 → 정규화된 임베딩 벡터 (384차원)"""
@@ -85,7 +96,7 @@ class RAGEngine:
         r = requests.post(
             f"{_sb._url}/rest/v1/{_TABLE}",
             headers=headers,
-            data=json.dumps(records, ensure_ascii=False),
+            data=json.dumps(records, ensure_ascii=False).encode("utf-8"),
             timeout=60,
         )
         if r.status_code not in (200, 201, 204):
