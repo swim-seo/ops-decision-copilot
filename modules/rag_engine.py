@@ -16,7 +16,7 @@ import uuid
 from typing import List, Dict, Any
 
 import requests
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 from config import DEFAULT_COLLECTION_NAME, EMBEDDING_MODEL, TOP_K_RESULTS
 from modules.document_parser import chunk_text
@@ -27,12 +27,12 @@ logger = logging.getLogger(__name__)
 _TABLE = "document_chunks"
 _RPC   = "match_document_chunks"
 
-_EMBED_MODEL: SentenceTransformer | None = None
+_EMBED_MODEL: TextEmbedding | None = None
 
-def _get_model() -> SentenceTransformer:
+def _get_model() -> TextEmbedding:
     global _EMBED_MODEL
     if _EMBED_MODEL is None:
-        _EMBED_MODEL = SentenceTransformer(EMBEDDING_MODEL)
+        _EMBED_MODEL = TextEmbedding(EMBEDDING_MODEL)
     return _EMBED_MODEL
 
 
@@ -48,7 +48,7 @@ class RAGEngine:
 
     def _embed(self, text: str) -> List[float]:
         """텍스트 → 정규화된 임베딩 벡터 (384차원)"""
-        return self._model.encode(text, normalize_embeddings=True).tolist()
+        return list(self._model.embed([text]))[0].tolist()
 
     def _file_filter(self, filename: str) -> dict:
         return {

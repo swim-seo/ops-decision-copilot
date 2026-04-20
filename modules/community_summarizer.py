@@ -18,7 +18,7 @@ import uuid
 from typing import Optional
 
 import requests
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 from config import EMBEDDING_MODEL
 import modules.supabase_client as _sb
@@ -26,13 +26,13 @@ import modules.supabase_client as _sb
 logger = logging.getLogger(__name__)
 
 _TABLE = "community_summaries"
-_model: Optional[SentenceTransformer] = None
+_model: Optional[TextEmbedding] = None
 
 
-def _get_model() -> SentenceTransformer:
+def _get_model() -> TextEmbedding:
     global _model
     if _model is None:
-        _model = SentenceTransformer(EMBEDDING_MODEL)
+        _model = TextEmbedding(EMBEDDING_MODEL)
     return _model
 
 
@@ -76,7 +76,7 @@ def build_community_summaries(kg, claude, collection_name: str) -> int:
             logger.warning("커뮤니티 %d 요약 생성 실패: %s", cid, e)
             continue
 
-        embedding = model.encode(summary, normalize_embeddings=True).tolist()
+        embedding = list(model.embed([summary]))[0].tolist()
         records.append({
             "id":              f"{collection_name}_c{cid}_{uuid.uuid4().hex[:6]}",
             "collection_name": collection_name,
@@ -116,7 +116,7 @@ def retrieve_community_context(question: str, collection_name: str, top_k: int =
         return ""
 
     model = _get_model()
-    embedding = model.encode(question, normalize_embeddings=True).tolist()
+    embedding = list(model.embed([question]))[0].tolist()
 
     rows = _sb.rpc("match_community_summaries", {
         "query_embedding": embedding,
