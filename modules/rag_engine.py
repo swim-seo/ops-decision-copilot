@@ -16,7 +16,7 @@ import uuid
 from typing import List, Dict, Any
 
 import requests
-from config import DEFAULT_COLLECTION_NAME, EMBEDDING_MODEL, TOP_K_RESULTS
+from config import DEFAULT_COLLECTION_NAME, EMBEDDING_MODEL, HF_API_TOKEN, TOP_K_RESULTS
 from modules.document_parser import chunk_text
 import modules.supabase_client as _sb
 
@@ -24,30 +24,26 @@ logger = logging.getLogger(__name__)
 
 _TABLE = "document_chunks"
 _RPC   = "match_document_chunks"
+_HF_URL = f"https://api-inference.huggingface.co/models/{EMBEDDING_MODEL}"
 
-_EMBED_MODEL = None
 
-def _get_model():
-    global _EMBED_MODEL
-    if _EMBED_MODEL is None:
-        from fastembed import TextEmbedding
-        _EMBED_MODEL = TextEmbedding(EMBEDDING_MODEL)
-    return _EMBED_MODEL
+def _embed(text: str) -> List[float]:
+    """HuggingFace Inference API로 텍스트 임베딩 (384차원)"""
+    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
+    resp = requests.post(_HF_URL, headers=headers, json={"inputs": text}, timeout=30)
+    resp.raise_for_status()
+    result = resp.json()
+    if isinstance(result, list) and isinstance(result[0], list):
+        return result[0]
+    return result
 
 
 class RAGEngine:
     def __init__(self, collection_name: str = DEFAULT_COLLECTION_NAME):
         self.collection_name = collection_name
 
-    # ── 내부 헬퍼 ────────────────────────────────────────────────────────────
-
-    @property
-    def _model(self):
-        return _get_model()
-
     def _embed(self, text: str) -> List[float]:
-        """텍스트 → 정규화된 임베딩 벡터 (384차원)"""
-        return list(self._model.embed([text]))[0].tolist()
+        return _embed(text)
 
     def _file_filter(self, filename: str) -> dict:
         return {

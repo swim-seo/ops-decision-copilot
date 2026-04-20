@@ -26,7 +26,8 @@ SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"]
 
 # ── RAG ───────────────────────────────────────────────────────────────────────
 UPLOAD_PATH = "./data/uploads"
-EMBEDDING_MODEL = "intfloat/multilingual-e5-small"
+EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+HF_API_TOKEN = _get_secret("HF_API_TOKEN")
 DEFAULT_COLLECTION_NAME = "domain_docs"
 TOP_K_RESULTS = 5
 
