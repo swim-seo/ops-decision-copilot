@@ -16,8 +16,6 @@ import uuid
 from typing import List, Dict, Any
 
 import requests
-from fastembed import TextEmbedding
-
 from config import DEFAULT_COLLECTION_NAME, EMBEDDING_MODEL, TOP_K_RESULTS
 from modules.document_parser import chunk_text
 import modules.supabase_client as _sb
@@ -27,11 +25,12 @@ logger = logging.getLogger(__name__)
 _TABLE = "document_chunks"
 _RPC   = "match_document_chunks"
 
-_EMBED_MODEL: TextEmbedding | None = None
+_EMBED_MODEL = None
 
-def _get_model() -> TextEmbedding:
+def _get_model():
     global _EMBED_MODEL
     if _EMBED_MODEL is None:
+        from fastembed import TextEmbedding
         _EMBED_MODEL = TextEmbedding(EMBEDDING_MODEL)
     return _EMBED_MODEL
 

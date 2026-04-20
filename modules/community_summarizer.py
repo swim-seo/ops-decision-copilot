@@ -18,20 +18,19 @@ import uuid
 from typing import Optional
 
 import requests
-from fastembed import TextEmbedding
-
 from config import EMBEDDING_MODEL
 import modules.supabase_client as _sb
 
 logger = logging.getLogger(__name__)
 
 _TABLE = "community_summaries"
-_model: Optional[TextEmbedding] = None
+_model = None
 
 
-def _get_model() -> TextEmbedding:
+def _get_model():
     global _model
     if _model is None:
+        from fastembed import TextEmbedding
         _model = TextEmbedding(EMBEDDING_MODEL)
     return _model
 
