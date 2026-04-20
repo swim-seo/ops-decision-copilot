@@ -26,7 +26,7 @@ SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"]
 
 # ── RAG ───────────────────────────────────────────────────────────────────────
 UPLOAD_PATH = "./data/uploads"
-EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
+EMBEDDING_MODEL = "intfloat/multilingual-e5-small"
 DEFAULT_COLLECTION_NAME = "domain_docs"
 TOP_K_RESULTS = 5
 
