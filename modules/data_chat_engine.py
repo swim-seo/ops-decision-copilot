@@ -35,20 +35,33 @@ RANKING     = "ranking"
 COMPARISON  = "comparison"
 RISK        = "risk"
 DESCRIPTION = "description"
+SIMILAR     = "similar"
 
 _PROD_RE   = re.compile(r"(FG-\d+|PRD\d+)", re.IGNORECASE)
 _METER_RE  = re.compile(r"\b(MTR\d+)\b", re.IGNORECASE)
 _SEASON    = {"여름": [6,7,8], "봄": [3,4,5], "가을": [9,10,11], "겨울": [12,1,2]}
 
-_ENERGY_KW = ["usage_kwh", "is_peak_day", "peak_kw", "전력", "kwh", "에너지",
-              "계량기", "산업단지", "전기소비", "전력소비", "피크데이"]
-
+_ENERGY_KW  = ["usage_kwh", "is_peak_day", "peak_kw", "전력", "kwh", "에너지",
+               "계량기", "산업단지", "전기소비", "전력소비", "피크데이"]
 _CHART_KW   = ["그래프", "차트", "그려줘", "시각화", "플롯", "추이", "트렌드"]
 _RANKING_KW = ["top", "상위", "잘팔리", "잘 팔리", "많이 팔", "순위", "베스트", "best",
                "랭킹", "높은", "여름에", "봄에", "가을에", "겨울에"]
 _COMP_KW    = ["비교", "vs", "대비", "차이", "증감", "동기", "yoy", "mom", "전년", "작년"]
 _RISK_KW    = ["위험", "위기", "부족", "결품", "품절", "critical", "stockout",
                "발주 필요", "발주필요", "주문 필요", "보충"]
+_SIMILAR_KW = ["유사", "비슷한", "같은 카테고리", "유사 부품", "유사품", "동일 계열", "관련 부품"]
+
+# 수요 데이터를 담을 가능성이 있는 FACT CSV 파일들 (우선순위 순)
+_DEMAND_CSVS = [
+    "FACT_MONTHLY_DEMAND.csv",
+    "FACT_MONTHLY_SALES.csv",
+    "FACT_PRODUCTION.csv",
+    "FACT_DELIVERY.csv",
+]
+# CSV row 텍스트에서 ID를 찾을 컬럼 이름 후보 (우선순위 순)
+_ID_COLS  = ["PART_NO", "PART_CD", "PRODUCT_ID", "ITEM_NO", "ITEM_ID", "PROD_NO",
+             "EQUIPMENT_ID", "VEHICLE_ID", "CUSTOMER_ID"]
+_QTY_COLS = ["DEMAND_QTY", "NET_SALES_QTY", "PROD_QTY", "DELIVERY_QTY", "QTY", "AMOUNT"]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -75,12 +88,13 @@ def classify_question(msg: str) -> str:
     m  = msg.lower()
     has_prod = bool(_PROD_RE.search(msg))
 
+    # 유사 부품/항목 수요 — 다른 타입보다 먼저 체크
+    if any(k in m for k in _SIMILAR_KW):
+        return SIMILAR
     # 제품 코드 + 차트 = CHART
     if has_prod:
         return CHART
-    # 명시적 차트 키워드
     if any(k in m for k in _CHART_KW):
-        # 위험 차트보다 RISK가 우선
         if any(k in m for k in _RISK_KW):
             return RISK
         return CHART
@@ -497,6 +511,118 @@ def _build_risk(msg: str) -> Tuple[List[Any], List[str], List[Dict], str]:
     return charts, datasets, metrics, "\n".join(lines)
 
 
+# ── SIMILAR: 유사 항목 수요 비교 ──────────────────────────────────────────────
+
+def _parse_id_from_row_text(text: str) -> Optional[str]:
+    """'COL: VAL, COL: VAL' 형식 CSV 행 텍스트에서 항목 ID를 추출합니다."""
+    for pattern in [
+        r"(?:" + "|".join(_ID_COLS) + r")\s*:\s*([^,\n]+)",
+    ]:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def _build_similar_demand(
+    msg: str, rag
+) -> Tuple[List[Any], List[str], List[Dict], str]:
+    """RAG로 유사 항목을 찾고 FACT 테이블에서 수요를 비교합니다."""
+    if not rag:
+        return [], [], [], "RAG 엔진 없음 — 문서를 먼저 업로드해주세요."
+
+    hits = rag.query(msg, n_results=8)
+    if not hits:
+        return [], [], [], "유사 항목을 찾을 수 없습니다. 더 구체적으로 입력해주세요."
+
+    # 항목 ID·이름 추출
+    item_ids: list = []
+    item_names: dict = {}
+    for hit in hits:
+        text = hit["text"]
+        item_id = _parse_id_from_row_text(text)
+        if not item_id or item_id in item_ids:
+            continue
+        item_ids.append(item_id)
+        name_m = re.search(
+            r"(?:PART_NAME|ITEM_NAME|PRODUCT_NAME|EQUIPMENT_NAME|VEHICLE_ID|품명)\s*:\s*([^,\n]+)",
+            text, re.IGNORECASE,
+        )
+        item_names[item_id] = name_m.group(1).strip() if name_m else item_id
+
+    if not item_ids:
+        return [], [], [], (
+            "유사 항목의 ID를 파악할 수 없습니다.\n"
+            "CSV 데이터가 업로드되어 있는지 확인해주세요."
+        )
+
+    # 수요 FACT 테이블 탐색
+    demand_df = None
+    used_csv = used_id_col = used_qty_col = None
+
+    for csv_name in _DEMAND_CSVS:
+        df = load_csv(csv_name)
+        if df is None:
+            continue
+        df.columns = [c.upper() for c in df.columns]
+        for id_col in _ID_COLS:
+            if id_col not in df.columns:
+                continue
+            if df[id_col].isin(item_ids).any():
+                for qty_col in _QTY_COLS:
+                    if qty_col in df.columns:
+                        demand_df, used_csv = df, csv_name
+                        used_id_col, used_qty_col = id_col, qty_col
+                        break
+            if used_qty_col:
+                break
+        if used_qty_col:
+            break
+
+    # 수요 데이터 없이 항목 목록만 반환
+    if demand_df is None:
+        lines = [f"[유사 항목 {len(item_ids)}개 발견 — 수요 데이터 없음]"]
+        for iid in item_ids[:6]:
+            lines.append(f"  · {item_names.get(iid, iid)} ({iid})")
+        lines.append("\nFACT 테이블(수요/판매/생산)을 업로드하면 수요 비교가 가능합니다.")
+        return [], [], [], "\n".join(lines)
+
+    # 수요 비교 차트 생성
+    filtered = demand_df[demand_df[used_id_col].isin(item_ids)].copy()
+    filtered["LABEL"] = filtered[used_id_col].map(lambda x: item_names.get(x, x))
+
+    charts: List[Any] = []
+    if "YEAR_MONTH" in demand_df.columns:
+        grouped = (
+            filtered.groupby(["YEAR_MONTH", "LABEL"])[used_qty_col]
+            .sum().reset_index()
+        )
+        fig = px.line(
+            grouped, x="YEAR_MONTH", y=used_qty_col, color="LABEL",
+            title=f"유사 항목 수요 비교 ({len(item_ids)}개)",
+            labels={"YEAR_MONTH": "월", used_qty_col: "수량", "LABEL": "항목"},
+            markers=True,
+        )
+        fig.update_layout(height=340, margin=dict(t=50, b=30))
+        charts.append(fig)
+
+    total_by_item = filtered.groupby("LABEL")[used_qty_col].sum().sort_values(ascending=False)
+    lines = [f"[유사 항목 수요 비교 ({len(item_ids)}개 / {used_csv})]"]
+    for label, qty in total_by_item.items():
+        lines.append(f"  · {label}: 누적 {int(qty):,}개")
+
+    metrics: List[Dict] = []
+    if not total_by_item.empty:
+        metrics = [
+            {"label": "최고 수요 항목", "value": str(total_by_item.index[0]),
+             "delta": f"{int(total_by_item.iloc[0]):,}개"},
+            {"label": "유사 항목 수", "value": f"{len(item_ids)}개", "delta": ""},
+            {"label": "평균 수요", "value": f"{int(total_by_item.mean()):,}개", "delta": ""},
+        ]
+
+    return charts, [used_csv], metrics, "\n".join(lines)
+
+
 # ── DESCRIPTION (문서+데이터 결합) ────────────────────────────────────────────
 
 def _build_description(
@@ -615,6 +741,12 @@ def analyze(
     claude/rag/kg이 None이어도 rule 기반으로 동작합니다.
     """
     qtype = classify_question(msg)
+
+    # ── SIMILAR: 유사 항목 수요 비교 ─────────────────────
+    if qtype == SIMILAR:
+        charts, datasets, metrics, data_sum = _build_similar_demand(msg, rag)
+        summary, interp = _claude_interpret(msg, data_sum, metrics, qtype, domain_context, claude)
+        return DataAnswer(qtype, summary, interp, metrics, charts, list(set(datasets)))
 
     # ── ENERGY CHART (도메인 우선 감지) ───────────────────
     m_lower = msg.lower()

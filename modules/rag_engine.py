@@ -16,34 +16,20 @@ import uuid
 from typing import List, Dict, Any
 
 import requests
-from config import DEFAULT_COLLECTION_NAME, EMBEDDING_MODEL, HF_API_TOKEN, TOP_K_RESULTS
+from config import DEFAULT_COLLECTION_NAME, SIMILARITY_THRESHOLD, TOP_K_RESULTS
 from modules.document_parser import chunk_text
+from modules.embedding import embed, embed_batch
 import modules.supabase_client as _sb
 
 logger = logging.getLogger(__name__)
 
 _TABLE = "document_chunks"
 _RPC   = "match_document_chunks"
-_HF_URL = f"https://api-inference.huggingface.co/models/{EMBEDDING_MODEL}"
-
-
-def _embed(text: str) -> List[float]:
-    """HuggingFace Inference API로 텍스트 임베딩 (384차원)"""
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
-    resp = requests.post(_HF_URL, headers=headers, json={"inputs": text}, timeout=30)
-    resp.raise_for_status()
-    result = resp.json()
-    if isinstance(result, list) and isinstance(result[0], list):
-        return result[0]
-    return result
 
 
 class RAGEngine:
     def __init__(self, collection_name: str = DEFAULT_COLLECTION_NAME):
         self.collection_name = collection_name
-
-    def _embed(self, text: str) -> List[float]:
-        return _embed(text)
 
     def _file_filter(self, filename: str) -> dict:
         return {
@@ -72,16 +58,18 @@ class RAGEngine:
         if not _sb.is_connected():
             raise ConnectionError("Supabase에 연결되지 않았습니다. 벡터 저장 불가.")
 
-        records = []
-        for i, chunk in enumerate(chunks):
-            records.append({
+        embeddings = embed_batch(chunks)
+        records = [
+            {
                 "id":              f"{filename}_{i}_{uuid.uuid4().hex[:8]}",
                 "collection_name": self.collection_name,
                 "filename":        filename,
                 "chunk_index":     i,
                 "content":         chunk,
-                "embedding":       self._embed(chunk),
-            })
+                "embedding":       emb,
+            }
+            for i, (chunk, emb) in enumerate(zip(chunks, embeddings))
+        ]
 
         # Supabase REST API는 vector 컬럼에 JSON 배열을 자동 캐스팅합니다
         headers = {
@@ -106,7 +94,7 @@ class RAGEngine:
             return []
 
         rows = _sb.rpc(_RPC, {
-            "query_embedding": self._embed(question),
+            "query_embedding": embed(question),
             "collection":      self.collection_name,
             "match_count":     n_results,
         })
@@ -121,6 +109,7 @@ class RAGEngine:
                 "score":       round(float(row["similarity"]), 4),
             }
             for row in rows
+            if float(row["similarity"]) >= SIMILARITY_THRESHOLD
         ]
 
     def get_context(self, question: str) -> str:

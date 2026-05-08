@@ -18,23 +18,12 @@ import uuid
 from typing import Optional
 
 import requests
-from config import EMBEDDING_MODEL, HF_API_TOKEN
+from modules.embedding import embed
 import modules.supabase_client as _sb
 
 logger = logging.getLogger(__name__)
 
 _TABLE = "community_summaries"
-_HF_URL = f"https://api-inference.huggingface.co/models/{EMBEDDING_MODEL}"
-
-
-def _embed(text: str) -> list:
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
-    resp = requests.post(_HF_URL, headers=headers, json={"inputs": text}, timeout=30)
-    resp.raise_for_status()
-    result = resp.json()
-    if isinstance(result, list) and isinstance(result[0], list):
-        return result[0]
-    return result
 
 
 # ── 커뮤니티 요약 빌드 (문서 업로드 시 호출) ──────────────────────────────────
@@ -76,7 +65,7 @@ def build_community_summaries(kg, claude, collection_name: str) -> int:
             logger.warning("커뮤니티 %d 요약 생성 실패: %s", cid, e)
             continue
 
-        embedding = _embed(summary)
+        embedding = embed(summary)
         records.append({
             "id":              f"{collection_name}_c{cid}_{uuid.uuid4().hex[:6]}",
             "collection_name": collection_name,
@@ -115,7 +104,7 @@ def retrieve_community_context(question: str, collection_name: str, top_k: int =
     if not _sb.is_connected():
         return ""
 
-    embedding = _embed(question)
+    embedding = embed(question)
 
     rows = _sb.rpc("match_community_summaries", {
         "query_embedding": embedding,

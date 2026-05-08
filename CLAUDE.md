@@ -1,115 +1,162 @@
-# CLAUDE.md
+# Claude Code Orchestrator
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**멀티 에이전트 협업 프레임워크**
 
-## Running the App
+**Claude Code**가 **Codex CLI(심층 추론)**와 **Gemini CLI(대규모 리서치)**를 오케스트레이션하여 각 에이전트의 강점을 극대화하고 **개발 속도와 품질을 동시에 끌어올리는 구조**다.
 
-```bash
-# Backend (FastAPI) — project root
-pip install -r backend/requirements.txt
-uvicorn backend.main:app --reload --port 8000
-# API docs: http://localhost:8000/docs
+---
 
-# Frontend (Next.js) — separate terminal
-cd frontend
-pnpm install
-pnpm dev
-# http://localhost:3000
+## 왜 이 구조가 필요한가?
+
+| 에이전트 | 강점 | 사용 목적 |
+|-------|----------|---------|
+| **Claude Code** | 오케스트레이션, 사용자 대화 | 전체 통합, 태스크 관리, 의사결정|
+| **Codex CLI** | 깊은 추론, 설계 판단, 디버깅 | 설계 검토, 에러 분석, 트레이드오프 평가 |
+| **Gemini CLI** | 1M 토큰, 멀티모달, 웹 검색 | 대규모 코드 분석, 라이브러리 조사, PDF/영상 분석 |
+
+**IMPORTANT**: 각 에이전트는 단독으로도 강력하지만, **의도적으로 역할을 분리했을 때 성능이 폭발**한다.
+
+---
+
+## 컨텍스트 관리 (CRITICAL)
+
+Claude Code의 최대 컨텍스트는 **200k 토큰**이지만,
+툴 정의 / 시스템 프롬프트 등을 제외하면 **실질적으로 70~100k 수준**이다.
+
+**YOU MUST** 👉 그래서 **출력이 큰 작업은 반드시 서브 에이전트 경유**가 원칙이다.
+
+### 출력 크기 기준
+
+| 출력 크기  | 사용 방식           | 이유                     |
+| ------ | --------------- | ---------------------- |
+| 1~2문장  | 직접 호출           | 오버헤드 없음                |
+| 10줄 이상 | **서브 에이전트 경유**  | 메인 컨텍스트 보호             |
+| 분석 리포트 | 서브 에이전트 → 파일 저장 | `.claude/docs/`에 영구 보존 |
+
+### 예시
+```
+# MUST: 서브 에이전트 경유 (출력 큼)
+Task(subagent_type="general-purpose", prompt="Codex에게 설계 검토 요청 후 요약만 반환")
+
+# OK: 직접 호출 (아주 짧은 출력)
+Bash("codex exec ... '한 문장으로 답변'")
 ```
 
-Set `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` in `.env` at project root.
+---
 
-## Running Tests
+## 빠른 사용 가이드(Quick Reference)
 
-```bash
-# 단위 테스트 (CSV → KG 엣지 생성 검증)
-python tests/test_csv_kg.py
+### Codex CLI를 써야 할 때
 
-# 평가 전체 실행
-python eval/run_all.py
+- 설계 판단
+    - “어떤 패턴이 맞을까?”
+    - “이 구조, 확장 가능할까?”
+- 디버깅
+    - “왜 이 에러가 나는지?”
+- 비교/선택
+    - “A vs B, 뭐가 나은지?”
+- ➡ 깊은 사고가 필요하면 Codex
 
-# 개별 평가
-python eval/test_domain.py
-python eval/test_fk.py
-python eval/test_llm.py
-python eval/test_rag.py
+→ 참고: `.claude/rules/codex-delegation.md`
+
+### Gemini CLI를 써야 할 때
+
+- 리서치
+    - “이거 조사해줘”
+    - “요즘 트렌드 뭐임?”
+- 대규모 분석
+    - “이 레포 전체 구조 설명해줘”
+- 멀티모달
+    - “이 PDF 요약”
+    - “이 강의 영상 핵심만 정리”
+- ➡ 많이 읽고, 넓게 볼 땐 Gemini
+
+→ 참고: `.claude/rules/gemini-delegation.md`
+
+---
+
+## Workflow
+
+```
+/startproject <기능명>
 ```
 
-## Architecture
+### 진행 순서
 
-**3-layer 구조**: Next.js 15 (frontend) ↔ FastAPI (backend) ↔ modules/ (business logic)
+1. Gemini 
+    - 리포지토리 전체 분석 (서브 에이전트)
+2. Claude 
+    - 요구사항 정리
+    - 개발 계획 수립
+3. Codex 
+    - 설계 리뷰 및 리스크 검토 (서브에이전트)
+4. Claude 
+    - 실행 가능한 태스크 리스트 생성
+5. (권장)
+    - **구현 완료 후 별도 세션에서 리뷰**
 
-`modules/`는 FastAPI·Next.js 의존성이 없어 독립적으로 테스트 가능.
+→ 관련 커맨드: `/startproject`, `/plan`, `/tdd` skills
 
-### Frontend (`frontend/`)
+---
 
-Next.js 15 App Router, pnpm, Tailwind CSS 4.
+## 기술 스택(Tech Stack)
 
-라우트 그룹:
-- `(app)/app/` — 실제 앱: 3단계 플로우(도메인 → 업로드 → 결과), `page.tsx`가 `step` state로 흐름 제어
-- `(default)/` — 랜딩 페이지 (features, guide, knowledge-graph, domains 소개)
-- `(auth)/` — 로그인·회원가입·비밀번호 재설정
+- **Python** 
+- **uv** 
+    - pip 직접 사용 ❌
+    - 속도 + 재현성 우선
+- **ruff** 
+    - lint/format 통합
+- **ty** 
+    - type check
+- **pytest**
+    - 테스트 표준
+- 공통 명령어
+    ```
+    poe lint
+    poe test
+    poe all
+    ```
 
-앱 핵심 컴포넌트 (`frontend/app/(app)/app/components/`):
+→ 참고: `.claude/rules/dev-environment.md`
 
-| 컴포넌트 | 역할 |
-|---------|------|
-| `DomainSelector` | 도메인 선택·설정 → `POST /api/domain/setup` |
-| `FileUpload` | 파일 업로드·샘플 로드 → `POST /api/upload/files`, `/sample` |
-| `BriefingCards` | 4개 AI 브리핑 카드 → `POST /api/briefing/generate` |
-| `GraphViewer` | KG HTML iframe → `GET /api/graph/html` |
-| `ChatWidget` | 우측 하단 FAB 채팅, SSE 스트리밍 → `POST /api/chat/message` |
+---
 
-Backend URL: `process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"` (모든 컴포넌트 공통)
+## 문서구조(Documentation)
 
-### Backend (`backend/`)
+| 위치                             | 내용                    |
+| ------------------------------ | --------------------- |
+| `.claude/rules/`               | 코딩 / 보안 / 언어 규칙       |
+| `.claude/docs/DESIGN.md`       | 설계 결정 기록              |
+| `.claude/docs/research/`       | Gemini 조사 결과          |
+| `.claude/logs/cli-tools.jsonl` | Codex / Gemini 입출력 로그 |
 
-FastAPI, CORS 허용: `localhost:3000` + `*.vercel.app`
+---
 
-라우터별 핵심 동작:
+## 언어 프로토콜(Language Protocol)
 
-| 라우터 | 엔드포인트 | 동작 |
-|--------|-----------|------|
-| `domain.py` | `POST /api/domain/setup` | `DomainAdapter.analyze_domain()` or preset lookup → collection_name, domain_context 반환 |
-| `upload.py` | `POST /api/upload/files` | 파일 파싱 → RAG 청킹 → Claude KG 추출 (ThreadPoolExecutor) |
-| `upload.py` | `POST /api/upload/sample` | `data/{domain}/` CSV 로드 → 동일 파이프라인 |
-| `upload.py` | `GET /api/upload/samples` | 6개 도메인 샘플 목록 반환 |
-| `briefing.py` | `POST /api/briefing/generate` | RAG 검색 × 4 카드 → Claude 생성 |
-| `chat.py` | `POST /api/chat/message` | `chat_copilot.respond_stream()` → SSE `data: chunk\n\n` … `data: [DONE]\n\n` |
-| `graph.py` | `GET /api/graph/html` | KG pyvis HTML 반환 |
+- **사고/코드/로그**: 영어
+- **사용자대화/설명**: 한국어
 
-KG 인스턴스는 `upload.py`의 `_graphs: dict[str, KnowledgeGraph]` 딕셔너리에 collection_name 키로 메모리 보관. `chat.py`는 `_get_or_create_kg()`로 같은 인스턴스 공유.
+---
 
-샘플 데이터 경로: `data/{domain}/` (beauty, supply_chain, energy, manufacturing, logistics, finance)
+## Current Project: RAG 엔진 성능 개선
 
-### Modules (`modules/`)
+### Context
+- Goal: Improve RAG pipeline performance across 4 dimensions — search accuracy, response speed, chunking quality (top priority), and CSV data retrieval
+- Key files: `backend/modules/rag_engine.py`, `backend/modules/document_parser.py`, `backend/modules/community_summarizer.py`, `backend/modules/chat_copilot.py`, `backend/config.py`
+- New file: `backend/modules/embedding.py` (to be created)
 
-- `claude_client.py` — `generate()`, `generate_with_system()`, `stream()`. 429/529 → 최대 3회 exponential backoff. `TOKENS` dict로 용도별 max_tokens 관리.
-- `rag_engine.py` — Supabase pgvector 기반. `add_document()` 전 `delete_document()`로 중복 방지. 임베딩 싱글턴(paraphrase-multilingual-MiniLM-L12-v2, 384차원).
-- `knowledge_graph.py` — NetworkX + pyvis. 4가지 build path: `build_from_claude_json()` / `build_from_schema_json()` / `build_from_csv_schema()` (2-pass FK) / `build_from_python_ast()`. `render_html()`은 `net.generate_html()` 사용 (save_graph() 아님), UTF-8 인코딩 명시.
-- `chat_copilot.py` — `detect_route()` → `"data"` | `"doc"` | `"combined"` 분류. `respond_stream()`은 doc 라우트만 진짜 스트리밍, data/combined는 전체 텍스트 한 번에 yield.
-- `document_parser.py` — PDF/DOCX/TXT/MD `parse_file()`, CSV `extract_csv_schema()` (FK 후보 자동 감지), Python `extract_python_graph_data()` (AST).
-- `community_summarizer.py` — GraphRAG 핵심: Louvain 커뮤니티 탐지 → Claude 요약 → Supabase `community_summaries` 저장·검색.
+### Decisions
+- **Batch embedding before chunking**: Chunking improvement increases chunk count, making the N-HTTP-call problem worse — batch must come first
+- **No cross-encoder reranking yet**: Cost vs. benefit unclear at TOP_K=5; defer until Phase 3 quality is measured
+- **Regex chunking first, kss optional**: `kss` (~15MB) for Korean sentence splitting is better than spaCy (500MB+); start with regex `\n\n` paragraph split
+- **Similarity threshold = 0.25**: Conservative start to avoid returning 0 results
+- **CSV max 500 rows**: Prevents Supabase storage bloat from large CSVs
+- **HF batch size = 32 chunks**: Free tier timeout safety margin
 
-### Domain System (`domains/`)
-
-7개 프리셋 (beauty, supply_chain, energy, manufacturing, logistics, finance, generic). 각 파일 `PRESET` dict: `entity_types`, `terminology`, `document_patterns`, `analysis_focus`, `theme_color`, `app_icon`.
-
-`domains/__init__.py`의 `get_preset(name)` — 키워드 매칭으로 유사 도메인 자동 선택. 미매칭 시 `DomainAdapter.analyze_domain()`이 Claude 1회 호출로 동적 생성.
-
-### Prompt System (`prompts/`)
-
-`system_base.txt`가 공통 역할 정의 + `{domain_context}` 주입. `prompt_loader.load_prompt("name", key=value)` 호출 시 `{system_base}`가 자동으로 삽입됨.
-
-## Key Config (`config.py`)
-
-- API 키 우선순위: `st.secrets` → `.env` → 환경변수
-- `CHUNK_SIZE=800`, `CHUNK_OVERLAP=150`
-- `GRAPH_OUTPUT_PATH="./data/graph.html"` — `render_html()` 호출 시 덮어씀
-- 디렉토리 (`./data/`, `./data/uploads/`) import 시 자동 생성
-
-## Deployment
-
-- **Frontend** → Vercel (`frontend/` 루트 디렉토리 지정, `NEXT_PUBLIC_API_URL` 환경변수 설정)
-- **Backend** → Render/Railway (`backend/` 루트, start: `uvicorn main:app --host 0.0.0.0 --port $PORT`)
-- Supabase SQL 순서: `scripts/vector_migration.sql` → `scripts/graphrag_migration.sql` → `create_all_tables.sql`
+### Implementation Order (4 Phases)
+1. `embedding.py` module + LRU cache + refactor imports (Tasks 1–2)
+2. Batch embedding in `add_document()` + retry logic (Tasks 3, 7)
+3. Paragraph-boundary chunking (Task 4)
+4. Similarity threshold filter + CSV row embedding (Tasks 5–6)

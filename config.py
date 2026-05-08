@@ -12,7 +12,7 @@ def _get_secret(key: str) -> str:
 
 # ── API ───────────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = _get_secret("ANTHROPIC_API_KEY")
-MODEL_NAME = "claude-sonnet-4-6"
+MODEL_NAME = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 MAX_TOKENS = 4096
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ SUPABASE_KEY = _get_secret("SUPABASE_KEY")
 
 # ── Document Processing ───────────────────────────────────────────────────────
 CHUNK_SIZE = 800
+CHUNK_SIZE_MIN = 200
 CHUNK_OVERLAP = 150
 SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"]
 
@@ -30,6 +31,8 @@ EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 HF_API_TOKEN = _get_secret("HF_API_TOKEN")
 DEFAULT_COLLECTION_NAME = "domain_docs"
 TOP_K_RESULTS = 5
+SIMILARITY_THRESHOLD = 0.25
+CSV_MAX_EMBED_ROWS = 500
 
 # ── Knowledge Graph ───────────────────────────────────────────────────────────
 GRAPH_OUTPUT_PATH = "./data/graph.html"

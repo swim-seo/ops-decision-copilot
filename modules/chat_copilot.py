@@ -48,13 +48,19 @@ class ChatResult:
 
 # ── 키워드 정의 ───────────────────────────────────────────────────────────────
 
-_GRAPH_KW = ["그래프", "차트", "시각화", "그려줘", "보여줘", "플롯"]
-_DATA_KW  = _GRAPH_KW + [
+_GRAPH_KW      = ["그래프", "차트", "시각화", "그려줘", "보여줘", "플롯"]
+_DATA_KW       = _GRAPH_KW + [
     "잘팔리", "잘 팔리", "판매", "매출", "분석", "재고", "발주",
     "수요", "상위", "여름", "봄", "가을", "겨울", "계절",
     "top", "채널", "품절", "stockout",
+    "유사", "비슷한", "유사 부품", "유사품", "같은 카테고리",
 ]
-_DOC_KW   = ["회의록", "보고서", "정책", "분석자료", "문서", "의사결정", "액션", "요약"]
+_DOC_KW        = ["회의록", "보고서", "정책", "분석자료", "문서", "의사결정", "액션", "요약"]
+_RECOMMEND_KW  = [
+    "어떤 자료", "뭘 봐야", "뭐 봐야", "막막", "어디서 시작",
+    "자료 추천", "문서 추천", "무엇부터", "뭐부터", "추천해줘",
+    "프로젝트 시작", "업무 시작", "준비해야", "참고할 자료", "뭐가 있어",
+]
 # 범용 제품/코드 패턴: FG-001, SKU-123, PRD001, P-001, ITEM-99 등 도메인 무관하게 매칭
 _PROD_RE  = re.compile(r"\b([A-Z]{1,5}-\d+|[A-Z]{2,5}\d{2,})\b", re.IGNORECASE)
 _SEASON   = {"여름": [6,7,8], "봄": [3,4,5], "가을": [9,10,11], "겨울": [12,1,2]}
@@ -63,16 +69,17 @@ _SEASON   = {"여름": [6,7,8], "봄": [3,4,5], "가을": [9,10,11], "겨울": [
 # ── 라우팅 ───────────────────────────────────────────────────────────────────
 
 def detect_route(msg: str) -> str:
-    """질문 유형 분류: 'data' | 'doc' | 'combined'"""
-    m        = msg.lower()
+    """질문 유형 분류: 'recommend' | 'data' | 'doc' | 'combined'"""
+    m = msg.lower()
+    if any(k in m for k in _RECOMMEND_KW):
+        return "recommend"
     has_data = any(k in m for k in _DATA_KW) or bool(_PROD_RE.search(msg))
     has_doc  = any(k in m for k in _DOC_KW)
-
     if has_data and not has_doc:
         return "data"
     if has_doc and not has_data:
         return "doc"
-    return "combined"   # 둘 다 있거나 둘 다 없을 때
+    return "combined"
 
 
 def _detect_season(msg: str) -> Optional[str]:
@@ -202,6 +209,48 @@ def _build_graphrag_context(msg: str, kg, collection_name: str) -> tuple:
     return "\n\n".join(parts) + "\n\n", kg_nodes
 
 
+def _handle_recommend(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
+    """업무/프로젝트 시작 시 참고해야 할 자료를 능동적으로 추천합니다."""
+    from modules.community_summarizer import retrieve_community_context
+
+    collection = rag.collection_name if rag else "domain_docs"
+
+    # RAG: 관련 문서 청크 검색
+    doc_files: List[str] = []
+    rag_context = ""
+    if rag:
+        hits = rag.query(msg, n_results=6)
+        if hits:
+            doc_files = list(dict.fromkeys(h["filename"] for h in hits))
+            rag_context = "\n\n".join(
+                f"[{h['filename']} | 관련도 {h['score']:.2f}]\n{h['text'][:300]}"
+                for h in hits
+            )
+
+    # GraphRAG: 커뮤니티 요약 (개념 묶음 수준)
+    kg_context = retrieve_community_context(msg, collection, top_k=3)
+
+    combined = "\n\n".join(filter(None, [rag_context, kg_context])) or "(업로드된 자료 없음)"
+
+    prompt = (
+        f"{domain_context}\n\n"
+        f"사용자가 다음 업무/프로젝트를 시작하려 합니다:\n\"{msg}\"\n\n"
+        f"[시스템에 있는 관련 자료]\n{combined}\n\n"
+        "아래 형식으로 자료 추천 답변을 작성하세요:\n\n"
+        "## 먼저 봐야 할 자료\n"
+        "우선순위가 높은 문서 2~3개와 각각 왜 봐야 하는지 한 줄씩.\n\n"
+        "## 함께 참고할 데이터\n"
+        "관련 CSV/테이블과 어떤 수치를 확인해야 하는지.\n\n"
+        "## 시작 전 확인 포인트\n"
+        "1. 반드시 확인할 사항\n"
+        "2. 반드시 확인할 사항\n"
+        "3. 반드시 확인할 사항"
+    )
+
+    response = claude.generate(prompt, max_tokens=1200)
+    return ChatResult(text=response, route="recommend", documents=doc_files, kg_nodes=0)
+
+
 def _handle_doc(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
     from modules.prompt_loader import load_prompt
 
@@ -294,6 +343,8 @@ def respond(msg: str, claude, rag, kg, domain_context: str) -> ChatResult:
     """사용자 질문 → ChatResult 반환 (라우팅 자동 결정)."""
     msg   = sanitize_input(msg)
     route = detect_route(msg)
+    if route == "recommend":
+        return _handle_recommend(msg, claude, rag, kg, domain_context)
     if route == "doc":
         return _handle_doc(msg, claude, rag, kg, domain_context)
     # data or combined → data_chat_engine 사용
@@ -321,6 +372,13 @@ def respond_stream(msg: str, claude, rag, kg, domain_context: str):
     """
     msg   = sanitize_input(msg)
     route = detect_route(msg)
+
+    # recommend 라우트 — 동기 처리 후 스트리밍 형식으로 반환
+    if route == "recommend":
+        result = _handle_recommend(msg, claude, rag, kg, domain_context)
+        def _reco_gen():
+            yield result.text
+        return _reco_gen(), ChatResult(text="", route="recommend", documents=result.documents)
 
     # doc 라우트는 RAG 컨텍스트 수집 후 스트리밍
     if route == "doc":

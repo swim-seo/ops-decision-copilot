@@ -14,6 +14,7 @@ from typing import Dict, List, Any
 
 import pypdf as PyPDF2  # pypdf>=4.0.0 (PyPDF2 대체, API 호환)
 import docx
+from config import CHUNK_SIZE, CHUNK_SIZE_MIN, CHUNK_OVERLAP, CSV_MAX_EMBED_ROWS
 
 
 def parse_file(uploaded_file) -> str:
@@ -31,7 +32,9 @@ def parse_file(uploaded_file) -> str:
     elif filename.endswith(".csv"):
         raw = uploaded_file.read().decode("utf-8", errors="replace")
         schema = extract_csv_schema(uploaded_file.name, raw)
-        return _csv_schema_to_text(schema)
+        schema_text = _csv_schema_to_text(schema)
+        rows_text = _csv_rows_to_text(raw)
+        return schema_text + "\n\n---\n\n" + rows_text if rows_text else schema_text
     else:
         raise ValueError(f"지원하지 않는 파일 형식입니다: {filename}")
 
@@ -103,6 +106,32 @@ def _csv_schema_to_text(schema: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _csv_rows_to_text(raw_text: str, max_rows: int = CSV_MAX_EMBED_ROWS) -> str:
+    """각 CSV 행을 'col: val, col: val' 형태 단락으로 변환합니다 (RAG 검색용).
+
+    스키마 요약만 저장하던 기존 방식과 달리, 실제 데이터 값을 벡터 검색 가능하게 합니다.
+    단락 구분자(\\n\\n)로 분리되어 chunk_text()가 행 단위 청크를 만들 수 있습니다.
+    """
+    reader = csv.DictReader(io.StringIO(raw_text))
+    headers = list(reader.fieldnames or [])
+    if not headers:
+        return ""
+
+    parts: List[str] = []
+    for i, row in enumerate(reader):
+        if i >= max_rows:
+            break
+        line = ", ".join(
+            f"{h}: {row.get(h, '').strip()}"
+            for h in headers
+            if row.get(h, "").strip()
+        )
+        if line:
+            parts.append(line)
+
+    return "\n\n".join(parts)
+
+
 # ── Python AST 파싱 ────────────────────────────────────────────────────────────
 
 def extract_python_graph_data(source: str, filename: str) -> Dict[str, Any]:
@@ -165,31 +194,64 @@ def _parse_docx(file) -> str:
     return "\n".join(para.text for para in doc.paragraphs)
 
 
-def chunk_text(text: str, chunk_size: int = 800, overlap: int = 150) -> List[str]:
-    """텍스트를 오버랩이 있는 청크로 분할합니다."""
+def chunk_text(
+    text: str,
+    max_size: int = CHUNK_SIZE,
+    min_size: int = CHUNK_SIZE_MIN,
+    overlap: int = CHUNK_OVERLAP,
+) -> List[str]:
+    """단락/문장 경계 기반 청킹 (한국어 문장 중간 절단 방지).
+
+    전략:
+      1. \\n\\n 단락 분리 → 없으면 \\n 줄 분리
+      2. max_size 초과 단락은 문장 경계(. ! ? 。)에서 추가 분할
+      3. min_size 미만 단락은 다음 단락과 합산
+      4. 연속 청크 간 overlap 문자 접두 삽입
+    """
     text = text.strip()
     if not text:
         return []
 
-    chunks = []
-    start = 0
+    # Step 1: 단락 분리
+    raw_paras = re.split(r"\n\s*\n", text) if "\n\n" in text else text.split("\n")
+    paragraphs = [p.strip() for p in raw_paras if p.strip()]
 
-    while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end]
+    # Step 2: 너무 긴 단락은 문장 경계에서 재분할
+    split_paras: List[str] = []
+    for para in paragraphs:
+        if len(para) <= max_size:
+            split_paras.append(para)
+            continue
+        sentences = re.split(r"(?<=[.!?。])\s+", para)
+        buf = ""
+        for sent in sentences:
+            if len(buf) + len(sent) + 1 > max_size and buf:
+                split_paras.append(buf.strip())
+                buf = sent
+            else:
+                buf = (buf + " " + sent).strip() if buf else sent
+        if buf:
+            split_paras.append(buf.strip())
 
-        # 문장/단락 경계에서 자르기
-        if end < len(text):
-            for sep in ["\n\n", "\n", ". ", "。", " "]:
-                idx = chunk.rfind(sep)
-                if idx > chunk_size // 2:
-                    chunk = chunk[: idx + len(sep)]
-                    end = start + idx + len(sep)
-                    break
+    # Step 3: 작은 단락을 합산하여 청크 구성
+    chunks: List[str] = []
+    current = ""
+    for para in split_paras:
+        candidate = (current + "\n\n" + para).strip() if current else para
+        if len(candidate) > max_size and len(current) >= min_size:
+            chunks.append(current)
+            current = para
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
 
-        chunk = chunk.strip()
-        if chunk:
-            chunks.append(chunk)
-        start = end - overlap
+    # Step 4: 오버랩 적용
+    if overlap <= 0 or len(chunks) <= 1:
+        return chunks
 
-    return chunks
+    overlapped = [chunks[0]]
+    for i in range(1, len(chunks)):
+        tail = chunks[i - 1][-overlap:].lstrip()
+        overlapped.append((tail + "\n\n" + chunks[i]) if tail else chunks[i])
+    return overlapped

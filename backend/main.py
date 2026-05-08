@@ -9,9 +9,14 @@ from backend.routers import domain, upload, briefing, chat, graph
 
 app = FastAPI(title="Ops Copilot API", version="1.0.0")
 
+_ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,https://*.vercel.app",
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://*.vercel.app"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
