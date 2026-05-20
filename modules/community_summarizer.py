@@ -15,10 +15,9 @@ GraphRAG의 핵심 로직을 담당합니다.
 import json
 import logging
 import uuid
-from typing import Optional
 
 import requests
-from modules.embedding import embed
+from modules.embedding import embed, embed_batch
 import modules.supabase_client as _sb
 
 logger = logging.getLogger(__name__)
@@ -65,18 +64,23 @@ def build_community_summaries(kg, claude, collection_name: str) -> int:
             logger.warning("커뮤니티 %d 요약 생성 실패: %s", cid, e)
             continue
 
-        embedding = embed(summary)
         records.append({
             "id":              f"{collection_name}_c{cid}_{uuid.uuid4().hex[:6]}",
             "collection_name": collection_name,
             "community_id":    cid,
             "node_list":       json.dumps(node_list, ensure_ascii=False),
             "summary":         summary,
-            "embedding":       embedding,
+            "embedding":       None,  # populated below
         })
 
     if not records:
         return 0
+
+    # 모든 요약을 한 번의 배치 API 호출로 임베딩 (N개 요약 → 1 HTTP 요청)
+    summaries = [r["summary"] for r in records]
+    embeddings = embed_batch(summaries)
+    for record, emb in zip(records, embeddings):
+        record["embedding"] = emb
 
     headers = {**_sb._headers(), "Prefer": "resolution=merge-duplicates"}
     r = requests.post(
