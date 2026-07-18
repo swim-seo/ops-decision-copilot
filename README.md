@@ -247,7 +247,7 @@ pnpm dev
 ops-decision-copilot/
 ├── config.py                 # 전역 설정 (API 키, 경로, 색상)
 │
-├── frontend/                 # Next.js 15 앱 (git 서브모듈)
+├── frontend/                 # Next.js 15 앱
 │   └── /app: 랜딩·앱 페이지, 플로팅 AI 채팅 위젯 (FAB)
 │
 ├── backend/                  # FastAPI 서버
@@ -266,6 +266,7 @@ ops-decision-copilot/
 │
 ├── modules/                  # 핵심 비즈니스 로직 (프레임워크 독립)
 │   ├── claude_client.py      # Claude API 래퍼 (스트리밍, 재시도)
+│   ├── embedding.py          # HuggingFace 배치 임베딩 (384차원, LRU 캐시)
 │   ├── rag_engine.py         # Supabase pgvector 벡터 검색
 │   ├── knowledge_graph.py    # 엔티티 관계 그래프 + 커뮤니티 탐지 + 3가지 뷰
 │   ├── community_summarizer.py  # GraphRAG 핵심 — 커뮤니티 요약 생성·저장·검색
