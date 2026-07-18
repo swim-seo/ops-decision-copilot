@@ -17,6 +17,10 @@ secrets.toml
 .claude/logs/
 .claude/settings.local.json
 
+# ── 개인 문서 (자소서 등 — public repo 비공개) ───────────────────────────────
+자소서_프로젝트_설명.md
+자소서*.md
+
 # ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 **/__pycache__/
