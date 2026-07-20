@@ -12,3 +12,7 @@ pandas>=2.2.0
 plotly>=5.19.0
 requests>=2.31.0
 openpyxl>=3.1.2
+
+# ── AI orchestration layer (Sprint 1) ──────────────────────────────
+langgraph>=0.2.0      # 상태 그래프 기반 에이전트 (plan→act→reflect→synthesize)
+fastmcp>=2.0.0        # MCP 서버 — 툴을 표준 프로토콜로 노출

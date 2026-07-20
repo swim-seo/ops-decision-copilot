@@ -81,6 +81,31 @@ class ClaudeClient:
             return msg.content[0].text
         return self._call_with_retry(_call)
 
+    def create_message(
+        self,
+        messages: list,
+        tools: list | None = None,
+        system: str | None = None,
+        max_tokens: int = TOKENS["chat"],
+    ):
+        """툴을 넘기고 원본 Message 객체를 그대로 반환합니다 (재시도 포함).
+
+        generate()가 text만 돌려주는 것과 달리, 이 메서드는 tool_use 블록을
+        검사해야 하는 에이전트 루프(modules/agent.py)를 위해 응답 전체를 반환합니다.
+        """
+        def _call():
+            kwargs: dict = {
+                "model":      self.model,
+                "max_tokens": max_tokens,
+                "messages":   messages,
+            }
+            if tools:
+                kwargs["tools"] = tools
+            if system:
+                kwargs["system"] = system
+            return self.client.messages.create(**kwargs)
+        return self._call_with_retry(_call)
+
     def stream(self, prompt: str, max_tokens: int = TOKENS["chat"]):
         """텍스트를 스트리밍으로 생성합니다 (generator).
 
