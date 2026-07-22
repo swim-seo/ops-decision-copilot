@@ -177,21 +177,37 @@ create_all_tables.sql             # 비즈니스 데이터 테이블 (선택)
 
 ### 2. 환경변수 설정
 
-`.env.example`을 복사해 `.env` 파일 생성:
+`.env.example`을 복사해 `.env` 파일 생성 (`.env` 는 git 에 없으므로 환경마다 새로 만든다):
+
+```bash
+cp .env.example .env   # 이후 실제 키로 채운다
+```
 
 ```bash
 ANTHROPIC_API_KEY=your_key_here
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_KEY=your_supabase_anon_key
+HUGGINGFACE_API_KEY=your_hf_key       # RAG 임베딩
+OPS_DEMO_BOOTSTRAP=1                   # 데모: 재시작 시 지식그래프 자동 재구축 (프로덕션은 비움)
 ```
 
 ### 3. Backend 실행 (FastAPI)
 
+> ⚠️ **Python 64비트 필수**: `langgraph`/`fastmcp` 는 32비트 Python 에 휠이 없어 설치 실패한다.
+> uv 로 전용 가상환경(64비트 Python 3.12)을 만든다.
+
 ```bash
-pip install -r backend/requirements.txt
-uvicorn backend.main:app --reload --port 8000
+# 최초 1회 — 가상환경 생성 + 의존성 설치
+uv venv --python 3.12.13 .venv
+uv pip install -r backend/requirements.txt
+
+# 실행
+.venv/Scripts/python -m uvicorn backend.main:app --reload --port 8000   # Windows
+# .venv/bin/python -m uvicorn backend.main:app --reload --port 8000     # macOS/Linux
 # API 문서: http://localhost:8000/docs
 ```
+
+데모 데이터(`data/<도메인>/`)는 저장소에 포함되어 있어, clone 후 바로 부트스트랩·샘플 로드가 동작한다.
 
 ### 4. Frontend 실행 (Next.js)
 
