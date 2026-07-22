@@ -10,8 +10,8 @@
 ```
 [Step 1] Function Calling 툴 4종     ✅ 완료 (modules/agent_tools.py)
 [Step 2] LangGraph 에이전트          ✅ 완료·라이브 검증됨 (modules/agent.py)
-[Step 3] 데모데이터 bootstrap        ⬜ 미착수  ← 다음 재개 지점
-[Step 4] FastMCP 서버                ⬜ 미착수
+[Step 3] 데모데이터 bootstrap        ✅ 완료·검증됨 (modules/kg_store.py)  ← 방금 완료
+[Step 4] FastMCP 서버                ⬜ 미착수  ← 다음 재개 지점
 [wiring] 에이전트를 chat 라우터에 연결 ⬜ 미착수 (현재 agent는 standalone만 검증)
 ```
 
@@ -67,12 +67,20 @@
 
 ---
 
-## 3. 다음 재개 지점 (Step 3부터)
+## 3. 다음 재개 지점 (Step 4부터)
 
-### Step 3 — 데모데이터 bootstrap (Codex 조건)
-- **왜**: in-memory KG(`upload.py` `_graphs`)가 재시작 시 소실 → LangGraph 데모가 빈 그래프로 깨짐.
-- **할 일**: 서버 시작(또는 최초 요청) 시 고정 데모 도메인의 문서/CSV를 자동 재적재하고 KG를 다시 빌드하는 bootstrap 루틴.
-- 참고: `upload.py`의 `_get_or_create_kg()`, `build_community_summaries()`(현재 미호출 — Step에서 함께 연결 검토).
+### Step 3 — 데모데이터 bootstrap ✅ 완료 (2026-07-22)
+- **구현**: `modules/kg_store.py` 신규.
+  - `KnowledgeGraphStore` (ABC) — Sprint 2 Supabase 구현체 교체용 seam. `get()`/`save()`.
+  - `InMemoryKnowledgeGraphStore` — 현재 구현. get() 최초 호출 시 데모 데이터로 결정적 재구축.
+  - 재구축은 **결정적 경로만**: `SCHEMA_DEFINITION.json` + CSV 스키마(2-pass FK). **Claude(LLM) 호출 없음**. LOGIC_DOCUMENT.txt 등 LLM 추출 경로는 스킵.
+  - **2-pass FK**: upload.py 는 `all_table_names` 를 안 넘겨 CSV-only 도메인(beauty)이 엣지 0개였음 → 부트스트랩은 전체 테이블명을 넘겨 관계선 복원. (beauty: 8노드 **8엣지** 확인)
+  - 동시성: `threading.Lock` + double-checked locking (호출부가 sync/async 혼재라 asyncio.Lock 불가).
+  - 프로덕션 안전: `OPS_DEMO_BOOTSTRAP` env 로 게이트, **기본 비활성**. `OPS_DEMO_SAMPLE`(기본 beauty), `OPS_DEMO_COLLECTION`(기본 domain_sample).
+- **wiring**: `upload.py` `_graphs` dict 제거 → `_kg_store` 위임. `_get_or_create_kg()` 시그니처 유지(chat.py/graph.py 안 깨짐). 업로드 핸들러에 `_kg_store.save()` 추가(Sprint 2 seam).
+- **검증**: 재시작 시나리오 end-to-end — 부트스트랩 ON 시 `_get_or_create_kg('domain_sample')` → 8노드/8엣지. OFF 시 0노드(프로덕션 안전). 에이전트 빌드 무결성 확인.
+- **미해결(설계상 의도)**: 멀티 워커 불일치(워커별 `_graphs` 분리)는 부트스트랩으로 못 고침 → **Sprint 2 진짜 영속화(KG→Supabase JSON blob)**가 답. Codex도 이걸 최대 리스크로 지목.
+- **참고**: `build_community_summaries()` 여전히 미호출 — Sprint 2에서 연결 검토.
 
 ### Step 4 — FastMCP 서버
 - `TOOL_SCHEMAS`/`run_tool`을 재사용해 `mcp_server.py`(FastMCP)로 노출 → Cursor/Claude Desktop 데모.

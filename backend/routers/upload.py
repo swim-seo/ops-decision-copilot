@@ -7,12 +7,15 @@ from typing import List
 from modules.document_parser import parse_file, extract_csv_schema
 from modules.rag_engine import RAGEngine
 from modules.knowledge_graph import KnowledgeGraph
+from modules.kg_store import InMemoryKnowledgeGraphStore
 from modules.claude_client import ClaudeClient
 from domains import get_preset
 
 router = APIRouter()
 
-_graphs: dict[str, KnowledgeGraph] = {}
+# KG 저장소 (Sprint 1 Step 3). in-memory dict 를 직접 노출하지 않고 store 로 위임한다.
+# Sprint 2 에서 Supabase 구현체로 교체 예정 — 아래 _get_or_create_kg 호출부는 그대로 유지.
+_kg_store = InMemoryKnowledgeGraphStore()
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
@@ -63,9 +66,8 @@ SAMPLES = {
 
 
 def _get_or_create_kg(collection_name: str) -> KnowledgeGraph:
-    if collection_name not in _graphs:
-        _graphs[collection_name] = KnowledgeGraph()
-    return _graphs[collection_name]
+    # 최초 요청 시 store 가 비어 있으면 데모 데이터로 결정적 재구축(부트스트랩).
+    return _kg_store.get(collection_name)
 
 
 def _domain_context(domain_name: str) -> tuple[str, str]:
@@ -170,6 +172,7 @@ async def upload_files(
         finally:
             os.unlink(tmp_path)
 
+    _kg_store.save(collection_name, kg)  # Sprint 2 seam: 갱신된 KG 를 저장소에 반영
     return {"files": results}
 
 
@@ -202,6 +205,7 @@ async def load_sample(req: SampleRequest):
         except Exception as e:
             results.append({"filename": filepath.name, "error": str(e), "status": "error"})
 
+    _kg_store.save(req.collection_name, kg)  # Sprint 2 seam: 갱신된 KG 를 저장소에 반영
     return {
         "files": results,
         "collection_name": req.collection_name,
