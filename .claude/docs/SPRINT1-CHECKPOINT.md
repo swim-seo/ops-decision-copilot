@@ -103,13 +103,32 @@
 
 ---
 
+## 3.5 Sprint 2 — 영속성 + build_community_summaries ✅ 코드 완료 (2026-07-23)
+
+**설계**: Codex 리뷰 재확인(3개 질문). Q2 KG=도메인별 JSON blob은 기존 확정.
+
+- **KG 영속화** (`modules/kg_store.py`):
+  - `_serialize_kg`/`_deserialize_kg` — networkx `node_link_data`/`node_link_graph(directed=True)`. 노드·엣지·속성·방향성 왕복 보존(실측).
+  - `SupabaseKnowledgeGraphStore` — **read-through(캐시 없음)**. 캐시는 멀티워커 불일치를 재생성(Codex Q1). 전환 기준: 지연/비용 or 노드 수천개↑ → updated_at 버전체크+짧은 TTL.
+  - `get_kg_store()` 팩토리 — **명시적 env `KG_STORE=supabase`**(auto-detect 아님, Codex Q2). 기본 in-memory.
+  - **부트스트랩 save-back(필수)**: supabase 스토어에서 행 부재+`OPS_DEMO_BOOTSTRAP` 시 재구축 후 **DB 저장** → 워커별 재시딩 발산 차단(결정적이라 double-save도 수렴).
+- **Supabase 헬퍼** (`modules/supabase_client.py`): `select_one`(단일행) + `upsert_rows`(dict 리스트 upsert) 추가.
+- **커뮤니티 요약 배선** (`backend/routers/upload.py`): `_build_summaries_safe()` — save() 직후 **동기** 호출, 스토어에서 **재읽기** 후 `build_community_summaries`, try/except 격리(임베딩 불가 시 skip). `upload_files`·`load_sample` 양쪽. → 🔴 "build_community_summaries 미호출" 버그 해소.
+- **마이그레이션**: `scripts/kg_persistence_migration.sql` 신규(`knowledge_graphs` 테이블, DROP 안 함=재실행 안전).
+
+**검증**: 팩토리 선택·직렬화 왕복(beauty 8노드/8엣지, 속성보존)·앱 import·Supabase 스토어 우아한 실패(테이블 부재→빈 그래프, 크래시 없음) 모두 OK.
+
+**⚠️ 남은 실행(사용자)**: Supabase SQL Editor 에서 `scripts/kg_persistence_migration.sql` 실행 → 그 후 `KG_STORE=supabase` 로 실제 DB 왕복 검증 가능(현재 테이블 PGRST205 미존재). DDL 은 REST 로 불가.
+
+**미검증(테이블 생성 후 가능)**: 실제 save→get DB 왕복, 재시작 후 그래프 생존, 멀티워커 수렴.
+
 ## 4. 로드맵 태스크 상태
 
 | # | 태스크 | 상태 |
 |---|--------|------|
 | 1 | Codex 설계 리뷰 | ✅ 완료 |
 | 2 | 스프린트1 AI 오케스트레이션 | ✅ 완료 (Step 1~4 + wiring 전부) |
-| 3 | 스프린트2 영속성 + build_community_summaries | ⬜ |
+| 3 | 스프린트2 영속성 + build_community_summaries | ✅ 코드완료 (⚠️ Supabase 마이그레이션 실행 대기) |
 | 4 | 스프린트3 인증 + 부서 가중치 RAG | ⬜ |
 | 5 | 스프린트4 비동기 큐 + 관측 | ⬜ |
 | 6 | 포폴 재작성(구현 결과 반영) | ⬜ |

@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -7,15 +8,39 @@ from typing import List
 from modules.document_parser import parse_file, extract_csv_schema
 from modules.rag_engine import RAGEngine
 from modules.knowledge_graph import KnowledgeGraph
-from modules.kg_store import InMemoryKnowledgeGraphStore
+from modules.kg_store import get_kg_store
+from modules.community_summarizer import build_community_summaries
 from modules.claude_client import ClaudeClient
 from domains import get_preset
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
-# KG 저장소 (Sprint 1 Step 3). in-memory dict 를 직접 노출하지 않고 store 로 위임한다.
-# Sprint 2 에서 Supabase 구현체로 교체 예정 — 아래 _get_or_create_kg 호출부는 그대로 유지.
-_kg_store = InMemoryKnowledgeGraphStore()
+# KG 저장소 (Sprint 1 Step 3 → Sprint 2 영속화). in-memory dict 를 직접 노출하지 않고
+# store 로 위임한다. 구현(InMemory/Supabase)은 KG_STORE 환경변수로 선택 — 호출부 불변.
+_kg_store = get_kg_store()
+
+
+def _build_summaries_safe(collection_name: str, claude: ClaudeClient) -> None:
+    """KG 저장 후 GraphRAG 커뮤니티 요약을 (재)생성한다 [Sprint 2].
+
+    지금까지 build_community_summaries() 가 어디서도 호출되지 않아 '빌드 단계'와
+    '검색 단계'의 진실이 어긋나 있었다(🔴). 이제 save() 직후 동기 실행한다.
+
+    설계(Codex Q3):
+      - 동기 실행 OK — 비동기 큐는 Sprint 4. (업로드 지연 < 요약 N회 Claude 호출)
+      - 스토어에서 그래프를 **다시 읽어** 영속된 상태 기준으로 요약 → delete-then-
+        rebuild 멱등성을 실제 저장분과 일치시킨다.
+      - 실패해도 업로드는 성공 처리 — 요약은 비필수이며 임베딩 불가(예: dev 샌드박스
+        DNS 차단) 시 조용히 건너뛴다.
+    """
+    try:
+        kg = _kg_store.get(collection_name)
+        count = build_community_summaries(kg, claude, collection_name)
+        logger.info("커뮤니티 요약 %d개 생성 (컬렉션: %s)", count, collection_name)
+    except Exception:
+        logger.exception("커뮤니티 요약 생성 실패 (업로드는 계속): %s", collection_name)
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
@@ -172,7 +197,8 @@ async def upload_files(
         finally:
             os.unlink(tmp_path)
 
-    _kg_store.save(collection_name, kg)  # Sprint 2 seam: 갱신된 KG 를 저장소에 반영
+    _kg_store.save(collection_name, kg)  # 갱신된 KG 를 저장소에 반영(영속)
+    _build_summaries_safe(collection_name, claude)  # GraphRAG 커뮤니티 요약 (재)생성
     return {"files": results}
 
 
@@ -205,7 +231,8 @@ async def load_sample(req: SampleRequest):
         except Exception as e:
             results.append({"filename": filepath.name, "error": str(e), "status": "error"})
 
-    _kg_store.save(req.collection_name, kg)  # Sprint 2 seam: 갱신된 KG 를 저장소에 반영
+    _kg_store.save(req.collection_name, kg)  # 갱신된 KG 를 저장소에 반영(영속)
+    _build_summaries_safe(req.collection_name, claude)  # GraphRAG 커뮤니티 요약 (재)생성
     return {
         "files": results,
         "collection_name": req.collection_name,

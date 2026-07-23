@@ -24,12 +24,19 @@ import logging
 import os
 import threading
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from pathlib import Path
 
+from networkx.readwrite import json_graph
+
+import modules.supabase_client as _sb
 from modules.document_parser import extract_csv_schema
 from modules.knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger(__name__)
+
+# Supabase 영속 테이블 (scripts/kg_persistence_migration.sql)
+_KG_TABLE = "knowledge_graphs"
 
 # 데모 데이터셋 루트 (upload.py의 DATA_DIR과 동일 위치)
 _DATA_DIR = Path(__file__).parent.parent / "data"
@@ -94,6 +101,30 @@ def _rebuild_kg_from_dir(sample_dir: Path) -> KnowledgeGraph:
         kg.build_from_csv_schema(schema, all_table_names=all_names)
 
     return kg
+
+
+# ── KG 직렬화 (networkx ↔ JSON) ────────────────────────────────────────────────
+
+def _serialize_kg(kg: KnowledgeGraph) -> dict:
+    """KnowledgeGraph → JSON 직렬화 가능한 dict (networkx node_link_data).
+
+    노드 속성(label/type/title/columns/col_types/fk_cols)·엣지 속성(relation)·
+    방향성(DiGraph)이 모두 보존된다(왕복 검증 완료).
+    """
+    return json_graph.node_link_data(kg.graph, edges="edges")
+
+
+def _deserialize_kg(data: dict) -> KnowledgeGraph:
+    """node_link_data dict → KnowledgeGraph 복원 (directed 유지)."""
+    kg = KnowledgeGraph()
+    kg.graph = json_graph.node_link_graph(
+        data, directed=True, multigraph=False, edges="edges"
+    )
+    return kg
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class KnowledgeGraphStore(ABC):
@@ -175,3 +206,83 @@ class InMemoryKnowledgeGraphStore(KnowledgeGraphStore):
         except Exception:
             logger.exception("KG bootstrap 실패: '%s' (source=%s)", collection, sample_dir)
             return None
+
+
+class SupabaseKnowledgeGraphStore(KnowledgeGraphStore):
+    """Supabase(JSONB blob) 백엔드 KG 저장소 — **read-through(캐시 없음)**.
+
+    캐시를 두지 않는 이유(Codex Q1): 멀티워커 환경에서 프로세스별 캐시는
+    Sprint 2가 없애려는 바로 그 '교차 워커 불일치'를 다시 만든다(워커 A가
+    업로드해도 워커 B는 낡은 캐시 그래프를 응답). 그래프가 작고(demo 8노드)
+    QPS 낮은 현 단계에선 매 요청 DB 1회 + 역직렬화가 정답이다.
+    전환 기준: p95 지연/비용이 문제되거나 노드 수천 개↑ →
+              updated_at 버전체크 + 짧은 TTL(수 초) 캐시 도입.
+    """
+
+    def get(self, collection: str) -> KnowledgeGraph:
+        row = _sb.select_one(_KG_TABLE, {"collection_name": f"eq.{collection}"})
+        if row and row.get("graph_json"):
+            try:
+                return _deserialize_kg(row["graph_json"])
+            except Exception:
+                logger.exception("KG 역직렬화 실패: '%s' — 빈 그래프로 폴백", collection)
+                return KnowledgeGraph()
+
+        # 행 없음 → 데모 부트스트랩(활성 시)하고 **DB에 저장**한다.
+        # save-back 은 필수(Codex): 안 하면 워커마다 독립적으로 재시딩해 발산.
+        # 결정적 재구축이라 동시 double-save 도 동일 blob → 수렴(멱등).
+        kg = self._maybe_bootstrap(collection)
+        if kg is not None and kg.graph.number_of_nodes() > 0:
+            self.save(collection, kg)
+            return kg
+        return KnowledgeGraph()
+
+    def save(self, collection: str, kg: KnowledgeGraph) -> None:
+        record = {
+            "collection_name": collection,
+            "graph_json":      _serialize_kg(kg),
+            "node_count":      kg.graph.number_of_nodes(),
+            "edge_count":      kg.graph.number_of_edges(),
+            "updated_at":      _now_iso(),
+        }
+        if not _sb.upsert_rows(_KG_TABLE, [record]):
+            logger.error("KG 저장 실패: '%s'", collection)
+
+    def _maybe_bootstrap(self, collection: str) -> KnowledgeGraph | None:
+        """데모 데이터에서 KG 재구축 시도. 비활성/매칭없음/실패면 None.
+
+        (InMemory 와 달리 재시도 1회 제한 불필요 — 성공 시 save-back 으로 다음
+         get() 은 행을 찾고, 매칭 실패는 _resolve_sample_dir 가 즉시 None 반환해 저렴.)
+        """
+        if not _bootstrap_enabled():
+            return None
+        sample_dir = _resolve_sample_dir(collection)
+        if sample_dir is None:
+            logger.info("KG bootstrap: '%s'에 매칭되는 데모 샘플 없음 — 스킵", collection)
+            return None
+        try:
+            kg = _rebuild_kg_from_dir(sample_dir)
+            logger.info(
+                "KG bootstrap(supabase): '%s' 재구축 (source=%s, nodes=%d) — DB 저장",
+                collection, sample_dir.name, kg.graph.number_of_nodes(),
+            )
+            return kg
+        except Exception:
+            logger.exception("KG bootstrap 실패: '%s' (source=%s)", collection, sample_dir)
+            return None
+
+
+def get_kg_store() -> KnowledgeGraphStore:
+    """환경변수 `KG_STORE` 로 저장소 구현을 명시적으로 선택한다(Codex Q2).
+
+    - `KG_STORE=supabase` → SupabaseKnowledgeGraphStore (영속·멀티워커 안전)
+    - 그 외/미설정        → InMemoryKnowledgeGraphStore (개발 기본·재시작 소실)
+
+    auto-detect(is_connected) 대신 명시적 플래그를 쓰는 이유: 연결이 불안정할 때
+    동작이 예측 가능하고 demo/prod 분리가 흐려지지 않는다.
+    """
+    if os.getenv("KG_STORE", "").lower() == "supabase":
+        logger.info("KG store: Supabase (영속)")
+        return SupabaseKnowledgeGraphStore()
+    logger.info("KG store: in-memory (개발 기본)")
+    return InMemoryKnowledgeGraphStore()

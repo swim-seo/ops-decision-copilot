@@ -178,6 +178,59 @@ def count_rows(table_name: str, filters: dict) -> int:
         return 0
 
 
+def select_one(table_name: str, filters: dict) -> Optional[dict]:
+    """단일 행을 조회합니다. filters = {"col": "eq.value"}. 없으면 None.
+
+    query_table()이 테이블 전체를 DataFrame으로 가져오는 것과 달리,
+    PK 등으로 한 행만 필요할 때 쓰는 경량 조회입니다(예: KG blob 로드).
+    """
+    _init()
+    if not _connected:
+        return None
+    try:
+        r = requests.get(
+            f"{_url}/rest/v1/{table_name}",
+            headers=_headers(),
+            params={"select": "*", "limit": "1", **filters},
+            timeout=15,
+        )
+        if r.status_code != 200:
+            return None
+        rows = r.json()
+        return rows[0] if rows else None
+    except Exception as e:
+        logger.debug("Supabase select_one failed for %s: %s", table_name, e)
+        return None
+
+
+def upsert_rows(table_name: str, records: list) -> bool:
+    """레코드(list[dict])를 PK 기준 upsert합니다. 성공 여부를 반환합니다.
+
+    upsert_dataframe()의 dict 버전 — DataFrame 없이 소량의 임의 JSON(중첩
+    jsonb 포함)을 바로 넣을 때 사용합니다(예: KG node_link_data blob).
+    """
+    _init()
+    if not _connected:
+        return False
+    if not records:
+        return True
+    try:
+        headers = {**_headers(), "Prefer": "resolution=merge-duplicates"}
+        r = requests.post(
+            f"{_url}/rest/v1/{table_name}",
+            headers=headers,
+            data=json.dumps(records, ensure_ascii=False, default=str),
+            timeout=30,
+        )
+        if r.status_code in (200, 201, 204):
+            return True
+        logger.error("Supabase upsert 실패 (%s, HTTP %s): %s", table_name, r.status_code, r.text)
+        return False
+    except Exception as e:
+        logger.debug("Supabase upsert_rows failed for %s: %s", table_name, e)
+        return False
+
+
 def upsert_dataframe(table_name: str, df: pd.DataFrame, chunk_size: int = 500) -> int:
     """DataFrame을 Supabase 테이블에 upsert합니다."""
     _init()
