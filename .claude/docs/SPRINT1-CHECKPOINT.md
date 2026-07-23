@@ -137,7 +137,12 @@
 **⚠️ 검증 한계 — 합성 데이터였음 (사용자 지적, 2026-07-23)**: 위 "top 뒤집힘"은 **손으로 만든 합성 커뮤니티 후보**(유사도·node_list 직접 지정)로 rerank_communities 로직만 증명한 것. 실제 파이프라인(질문→임베딩→match_community_summaries RPC→실제 후보→가중)은 **미검증**. 이유: dev 샌드박스 임베딩 DNS 차단 + community_summaries/retrieval_profiles 테이블 부재.
 → **실데이터 검증 TODO** (임베딩 되는 환경 + 마이그레이션 후): ① 샘플 업로드로 community_summaries 실제 생성 → ② retrieval_profiles 시드 → ③ 같은 질문을 department=영업부/재고부로 /chat/agent 호출해 tools_used·근거 커뮤니티가 실제로 다르게 뽑히는지 확인. 노드 타입 분포가 시드 부스트와 맞물려 의미있는 차이를 내는지(데모 신뢰성)까지 점검.
 
-**⚠️ 남은 실행(사용자)**: Supabase 에서 `retrieval_profiles_migration.sql` 실행 → 그 후 실제 프로파일 로드로 라이브 가중 검증 가능(현재는 테이블 부재→DEFAULT 무가중이라 안전).
+**✅ 실데이터 검증 완료 (2026-07-23)**: 마이그레이션 4종(kg_persistence·retrieval_profiles·graphrag) 실행 + **임베딩 fastembed 전환** 후 실측:
+- 실제 community_summaries 생성(c0=매출/반품, c1=공급망/제품) + 실제 질문 임베딩 + 실제 RPC + DB 프로파일 로드.
+- **핵심 발견**: 초기 부스트(fact 1.6/master 0.9)는 커뮤니티 base 유사도 격차보다 약해 top 순위를 못 바꿈 → **강한 스프레드(2.5/0.5)로 시드 튜닝**. 결과: '애매한 질문'(실적+재고)에서 영업부→c0 재고부→c1 **뒤집힘**, '명확한 질문'에선 base 유사도가 정상 지배.
+- **설계 통찰**: `community_weight`는 프로파일 내 모든 커뮤니티에 동일 곱 → 커뮤니티 간 순위 무영향(소스 병합용 스케일). 순위는 오직 node_type_boost 가 가른다.
+
+**⚠️ 지연 TODO (사용자 요청 2026-07-23)**: **합성 데모 데이터(data/*/ CSV) 생성 품질·로직·아이디어 검토** — 데이터가 어떻게 만들어졌는지 흐름을 꼼꼼히 안 봤음. 플랫폼 개발 먼저 진행, 데이터 검토는 나중에.
 
 **다음(Step 2/3)**: Supabase Auth(JWT→user_id/org_id) → org_id 기반 RLS 재작성. resolve_department 를 JWT 클레임 소스로 교체.
 
