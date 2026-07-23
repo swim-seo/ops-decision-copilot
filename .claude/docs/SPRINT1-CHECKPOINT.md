@@ -10,9 +10,11 @@
 ```
 [Step 1] Function Calling 툴 4종     ✅ 완료 (modules/agent_tools.py)
 [Step 2] LangGraph 에이전트          ✅ 완료·라이브 검증됨 (modules/agent.py)
-[Step 3] 데모데이터 bootstrap        ✅ 완료·검증됨 (modules/kg_store.py)  ← 방금 완료
-[Step 4] FastMCP 서버                ⬜ 미착수  ← 다음 재개 지점
-[wiring] 에이전트를 chat 라우터에 연결 ⬜ 미착수 (현재 agent는 standalone만 검증)
+[Step 3] 데모데이터 bootstrap        ✅ 완료·검증됨 (modules/kg_store.py)
+[Step 4] FastMCP 서버                ✅ 완료·부팅 검증됨 (mcp_server.py)  ← 방금 완료
+[wiring] 에이전트를 chat 라우터에 연결 ✅ 완료 (POST /api/chat/agent)      ← 방금 완료
+
+=> Sprint 1 (AI 오케스트레이션 층) 전체 완료. 다음은 Sprint 2 (영속성).
 ```
 
 **진행 방식**: 설명→구현→diff리뷰 루프 (사용자가 학습하며 진행, 코드는 Claude가 작성).
@@ -82,14 +84,22 @@
 - **미해결(설계상 의도)**: 멀티 워커 불일치(워커별 `_graphs` 분리)는 부트스트랩으로 못 고침 → **Sprint 2 진짜 영속화(KG→Supabase JSON blob)**가 답. Codex도 이걸 최대 리스크로 지목.
 - **참고**: `build_community_summaries()` 여전히 미호출 — Sprint 2에서 연결 검토.
 
-### Step 4 — FastMCP 서버
-- `TOOL_SCHEMAS`/`run_tool`을 재사용해 `mcp_server.py`(FastMCP)로 노출 → Cursor/Claude Desktop 데모.
-- 같은 코어(agent_tools) 공유 = HTTP·MCP 두 진입점.
+### Step 4 — FastMCP 서버 ✅ 완료 (2026-07-23)
+- **구현**: `mcp_server.py` 신규 (프로젝트 루트, backend/main.py 와 병렬 진입점).
+  - `agent_tools.run_tool` 로 위임하는 4개 `@mcp.tool` (search_documents/search_graph/analyze_data/get_briefing).
+    → 같은 코어 공유 = HTTP·MCP 두 진입점, 에러 격리 로직 단일화.
+  - FastMCP **3.4.4** API 실측 확정: `@mcp.tool`(괄호 없이) 데코레이터 → docstring=설명·타입힌트=스키마 자동. `mcp.run(transport="http"|"stdio"|"sse"|"streamable-http")`.
+  - `collection_name`/`domain_context` 를 툴 파라미터로 노출(MCP 클라이언트가 도메인 선택). 기본 stdio, `--http` 로 127.0.0.1:8001.
+  - **별도 프로세스라 uvicorn 과 KG 공유 불가** → 자체 `_kg_store` 소유. 데모는 `OPS_DEMO_BOOTSTRAP=1` 로 결정적 재구축. (Sprint 2 Supabase 영속화되면 두 진입점이 같은 그래프 공유 가능.)
+- **검증**: 4개 툴 등록·스키마 확인 + `--http` 부팅 성공(FastMCP 배너·리스닝). tools/list 400 은 세션 핸드셰이크 전이라 정상(크래시 아님).
 
-### wiring — 에이전트를 chat 라우터에 연결
-- 현재 `backend/routers/chat.py`는 여전히 `chat_copilot.respond/respond_stream`(detect_route) 사용.
-- 계획: `POST /chat/agent` 신규 엔드포인트로 `run_agent` 노출(기존 /message 유지 → 안전). tools_used를 응답에 포함해 "근거 배지" 데모.
-- 스트리밍은 추후(현재 agent.invoke는 블로킹).
+### wiring — 에이전트를 chat 라우터에 연결 ✅ 완료 (2026-07-23)
+- **구현**: `backend/routers/chat.py` 에 `POST /agent` 신규(`AgentRequest` → `run_agent`).
+  - 기존 `/message`(chat_copilot.respond, detect_route)는 **그대로 유지** → 안전한 병행 진입점.
+  - 응답에 `tools_used`/`iterations` 포함 → "어떤 근거로 답했나" 배지·관측용.
+  - ToolContext 조립은 `/message` 와 동일 패턴(RAGEngine + `_get_or_create_kg` + ClaudeClient).
+- **검증**: OpenAPI 스키마에 `/api/chat/agent [POST]` 등록 확인 + 앱 import 무결성.
+- **미해결(추후)**: 스트리밍 없음(agent.invoke 블로킹). 프론트엔드 연결(현재 UI 는 /message 사용) 미착수 — Sprint 2/포폴 재작성 때 검토.
 
 ---
 
@@ -98,7 +108,7 @@
 | # | 태스크 | 상태 |
 |---|--------|------|
 | 1 | Codex 설계 리뷰 | ✅ 완료 |
-| 2 | 스프린트1 AI 오케스트레이션 | 🔄 진행중 (Step 1·2 완료, Step 3·4·wiring 남음) |
+| 2 | 스프린트1 AI 오케스트레이션 | ✅ 완료 (Step 1~4 + wiring 전부) |
 | 3 | 스프린트2 영속성 + build_community_summaries | ⬜ |
 | 4 | 스프린트3 인증 + 부서 가중치 RAG | ⬜ |
 | 5 | 스프린트4 비동기 큐 + 관측 | ⬜ |
@@ -115,4 +125,7 @@
    ```bash
    PYTHONUTF8=1 .venv/Scripts/python -c "from modules.agent import build_agent; build_agent(); print('agent ok')"
    ```
-4. 이 문서 읽고 **Step 3(bootstrap)**부터 진행.
+4. Sprint 1 완료 — 다음은 **Sprint 2 (영속성: KG→Supabase JSON blob + build_community_summaries 연결)**.
+   - 스모크: `PYTHONUTF8=1 .venv/Scripts/python -c "import mcp_server; from backend.main import app; print('ok')"`
+   - MCP 데모: `OPS_DEMO_BOOTSTRAP=1 .venv/Scripts/python mcp_server.py --http`
+   - 에이전트 HTTP: 서버 기동 후 `POST /api/chat/agent {"message": "..."}`

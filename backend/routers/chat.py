@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from modules import chat_copilot
 from modules.rag_engine import RAGEngine
 from modules.claude_client import ClaudeClient
+from modules.agent import run_agent
+from modules.agent_tools import ToolContext
 from backend.routers.upload import _get_or_create_kg
 
 router = APIRouter()
@@ -14,6 +16,12 @@ class ChatRequest(BaseModel):
     collection_name: str = "domain_docs"
     domain_context:  str = ""
     stream:          bool = True
+
+
+class AgentRequest(BaseModel):
+    message:         str
+    collection_name: str = "domain_docs"
+    domain_context:  str = ""
 
 
 @router.post("/message")
@@ -37,4 +45,30 @@ def chat_message(req: ChatRequest):
         "text":  result.text,
         "route": result.route,
         "charts": [fig.to_json() for fig in (result.charts or [])],
+    }
+
+
+@router.post("/agent")
+def chat_agent(req: AgentRequest):
+    """LangGraph 에이전트 엔드포인트 (Sprint 1).
+
+    detect_route() 규칙 라우팅 대신 LLM이 툴(search_documents/search_graph/
+    analyze_data/get_briefing)을 스스로 골라 plan→act→reflect 루프를 돈다.
+    기존 /message 는 그대로 유지 — 이 엔드포인트는 안전한 병행 진입점이다.
+
+    응답의 tools_used 는 "어떤 근거로 답했나"를 보여주는 배지용.
+    스트리밍은 추후(agent.invoke 가 현재 블로킹).
+    """
+    ctx = ToolContext(
+        claude=ClaudeClient(),
+        rag=RAGEngine(collection_name=req.collection_name),
+        kg=_get_or_create_kg(req.collection_name),
+        domain_context=req.domain_context,
+        collection_name=req.collection_name,
+    )
+    result = run_agent(req.message, ctx)
+    return {
+        "text":       result["text"],
+        "tools_used": result["tools_used"],
+        "iterations": result["iterations"],
     }
