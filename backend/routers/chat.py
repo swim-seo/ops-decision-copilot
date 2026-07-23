@@ -6,6 +6,7 @@ from modules.rag_engine import RAGEngine
 from modules.claude_client import ClaudeClient
 from modules.agent import run_agent
 from modules.agent_tools import ToolContext
+from modules.retrieval_profiles import resolve_department
 from backend.routers.upload import _get_or_create_kg
 
 router = APIRouter()
@@ -22,6 +23,7 @@ class AgentRequest(BaseModel):
     message:         str
     collection_name: str = "domain_docs"
     domain_context:  str = ""
+    department:      str = ""   # 부서 렌즈 (Sprint 3 Step 1) — Step 2 에서 JWT 로 대체
 
 
 @router.post("/message")
@@ -65,6 +67,7 @@ def chat_agent(req: AgentRequest):
         kg=_get_or_create_kg(req.collection_name),
         domain_context=req.domain_context,
         collection_name=req.collection_name,
+        department=resolve_department(req.department),  # 부서 렌즈 seam (Step 2: JWT)
     )
     result = run_agent(req.message, ctx)
     return {

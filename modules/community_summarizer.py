@@ -99,26 +99,27 @@ def build_community_summaries(kg, claude, collection_name: str) -> int:
 
 # ── 커뮤니티 요약 검색 (채팅 응답 시 호출) ────────────────────────────────────
 
-def retrieve_community_context(question: str, collection_name: str, top_k: int = 3) -> str:
-    """질문과 의미적으로 유사한 커뮤니티 요약을 검색해 컨텍스트 문자열로 반환합니다.
+def fetch_community_candidates(
+    question: str, collection_name: str, match_count: int = 3
+) -> list:
+    """질문과 유사한 커뮤니티 요약 원시 후보를 반환합니다(포맷 전).
 
-    일반 RAG와 달리 '문서 청크'가 아닌 '개념 묶음 요약'을 검색합니다.
-    → 특정 단어가 없어도 관련 개념 그룹을 찾을 수 있습니다.
+    각 후보 dict: {id, community_id, node_list(str), summary, similarity}.
+    부서별 가중치 재랭킹(retrieval_profiles)이 이 원시 후보 위에서 동작하므로,
+    가중 경로는 match_count 를 크게(over-fetch) 넘겨 후보 풀을 넓힌 뒤 재정렬한다.
     """
     if not _sb.is_connected():
-        return ""
-
-    embedding = embed(question)
-
+        return []
     rows = _sb.rpc("match_community_summaries", {
-        "query_embedding": embedding,
+        "query_embedding": embed(question),
         "collection":      collection_name,
-        "match_count":     top_k,
+        "match_count":     match_count,
     })
+    return rows or []
 
-    if not rows:
-        return ""
 
+def format_community_rows(rows: list) -> str:
+    """커뮤니티 요약 행 리스트를 컨텍스트 문자열로 포맷합니다(가중/비가중 공용)."""
     parts = []
     for row in rows:
         try:
@@ -131,8 +132,18 @@ def retrieve_community_context(question: str, collection_name: str, top_k: int =
             f"[그래프 커뮤니티 (유사도 {similarity}) — 관련 개념: {nodes_preview}]\n"
             f"{row['summary']}"
         )
-
     return "\n\n".join(parts)
+
+
+def retrieve_community_context(question: str, collection_name: str, top_k: int = 3) -> str:
+    """질문과 의미적으로 유사한 커뮤니티 요약을 검색해 컨텍스트 문자열로 반환합니다.
+
+    일반 RAG와 달리 '문서 청크'가 아닌 '개념 묶음 요약'을 검색합니다.
+    → 특정 단어가 없어도 관련 개념 그룹을 찾을 수 있습니다.
+    (부서 가중치 없는 기본 경로 — 가중 경로는 retrieval_profiles.rerank_communities 사용)
+    """
+    rows = fetch_community_candidates(question, collection_name, match_count=top_k)
+    return format_community_rows(rows)
 
 
 # ── 내부 헬퍼 ─────────────────────────────────────────────────────────────────

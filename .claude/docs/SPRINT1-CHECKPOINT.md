@@ -122,6 +122,25 @@
 
 **미검증(테이블 생성 후 가능)**: 실제 save→get DB 왕복, 재시작 후 그래프 생존, 멀티워커 수렴.
 
+## 3.6 Sprint 3 Step 1 — 부서별 가중치 RAG ✅ 코드 완료 (2026-07-23)
+
+**설계**: Codex 리뷰 4개 질문. Q1 타입있는 신호만 가중(문서청크 미가중) / Q2 Python 재랭킹(over-fetch→재정렬) / Q3 가중RAG 먼저(인증 뒤) / Q4 `resolve_department` seam(파라미터→Step2 JWT). +Codex 리스크: 소스별 정규화(스케일 상이) → 후보 내 max 정규화 적용.
+
+- **마이그레이션**: `scripts/retrieval_profiles_migration.sql` — `retrieval_profiles(org_id, department, community_weight, node_type_boost jsonb, PK(org_id,dept))` + 데모 시드(영업부: fact 1.6/master 0.9, 재고부: master 1.5/csv 1.2/fact 0.9). org_id=collection_name 임시.
+- **`modules/retrieval_profiles.py`** 신규: `RetrievalProfile`(불변) · `get_profile(org_id,dept)`(없으면 DEFAULT=무가중) · `resolve_department()` seam · `rerank_communities()`(norm_sim×community_weight×mean(node_type_boost[type])) · `_community_type_boost`(kg에서 타입 조회).
+- **`community_summarizer.py`**: `fetch_community_candidates`(원시 후보) + `format_community_rows` 분리, `retrieve_community_context`는 이 둘로 재구성(하위호환).
+- **`agent_tools.py`**: `ToolContext.department` 추가. `_run_search_graph`가 프로파일 로드→후보 over-fetch→`rerank_communities`→포맷(무가중이면 유사도순 그대로).
+- **`chat.py`**: `AgentRequest.department` + `resolve_department()`로 ToolContext 주입.
+
+**검증(로직 수준)**: 앱 import · **부서 렌즈 top 뒤집힘**(영업부→fact커뮤니티 c0, 재고부→master커뮤니티 c1, 기본→유사도순) · seam sanitize · get_profile 테이블부재 시 DEFAULT 폴백. 전부 OK.
+
+**⚠️ 검증 한계 — 합성 데이터였음 (사용자 지적, 2026-07-23)**: 위 "top 뒤집힘"은 **손으로 만든 합성 커뮤니티 후보**(유사도·node_list 직접 지정)로 rerank_communities 로직만 증명한 것. 실제 파이프라인(질문→임베딩→match_community_summaries RPC→실제 후보→가중)은 **미검증**. 이유: dev 샌드박스 임베딩 DNS 차단 + community_summaries/retrieval_profiles 테이블 부재.
+→ **실데이터 검증 TODO** (임베딩 되는 환경 + 마이그레이션 후): ① 샘플 업로드로 community_summaries 실제 생성 → ② retrieval_profiles 시드 → ③ 같은 질문을 department=영업부/재고부로 /chat/agent 호출해 tools_used·근거 커뮤니티가 실제로 다르게 뽑히는지 확인. 노드 타입 분포가 시드 부스트와 맞물려 의미있는 차이를 내는지(데모 신뢰성)까지 점검.
+
+**⚠️ 남은 실행(사용자)**: Supabase 에서 `retrieval_profiles_migration.sql` 실행 → 그 후 실제 프로파일 로드로 라이브 가중 검증 가능(현재는 테이블 부재→DEFAULT 무가중이라 안전).
+
+**다음(Step 2/3)**: Supabase Auth(JWT→user_id/org_id) → org_id 기반 RLS 재작성. resolve_department 를 JWT 클레임 소스로 교체.
+
 ## 4. 로드맵 태스크 상태
 
 | # | 태스크 | 상태 |

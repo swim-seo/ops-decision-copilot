@@ -36,6 +36,7 @@ class ToolContext:
     kg:              Any = None                 # KnowledgeGraph | None
     domain_context:  str = ""
     collection_name: str = "domain_docs"
+    department:      str = ""                    # 부서 렌즈 (Sprint 3 Step 1) — 이미 resolve 됨
 
 
 # ── 툴 스키마 (LLM이 읽는 명세, Anthropic tool-use 형식) ────────────────────────
@@ -108,19 +109,38 @@ def _run_search_documents(ctx: ToolContext, query: str, n_results: int = 4) -> s
     )
 
 
+# GraphRAG 커뮤니티 검색 파라미터
+_COMMUNITY_TOP_K = 3
+_COMMUNITY_OVER_FETCH = 4   # 부서 가중 재랭킹용 후보 풀 배수 (Codex Q2: over-fetch → 재정렬)
+
+
 def _run_search_graph(ctx: ToolContext, query: str) -> str:
     """GraphRAG 래퍼 — 커뮤니티 요약 검색 + 2-hop 멀티홉 탐색을 결합해 반환.
 
+    부서 렌즈(ctx.department)가 있으면 커뮤니티 후보를 넓게 받아 retrieval_profiles
+    로 재랭킹한다("같은 그래프, 부서별 렌즈" — Sprint 3 Step 1). 없으면 유사도순 그대로.
     (chat_copilot._build_graphrag_context 와 동일 로직 — 툴 인터페이스로 재노출)
     """
     if not ctx.kg:
         return "(지식그래프가 없어 관계 탐색 불가)"
-    from modules.community_summarizer import retrieve_community_context
+    from modules.community_summarizer import (
+        fetch_community_candidates,
+        format_community_rows,
+    )
+    from modules.retrieval_profiles import get_profile, rerank_communities
 
     parts = []
 
-    # ① 커뮤니티 요약 검색 — 질문과 의미적으로 유사한 개념 묶음
-    community_ctx = retrieve_community_context(query, ctx.collection_name, top_k=3)
+    # ① 커뮤니티 요약 검색 (+ 부서 가중 재랭킹) — 질문과 유사한 개념 묶음
+    #    org_id 는 Step 1 임시로 collection_name 사용(Step 2: JWT org_id).
+    profile = get_profile(ctx.collection_name, ctx.department)
+    match_count = (
+        _COMMUNITY_TOP_K * _COMMUNITY_OVER_FETCH
+        if not profile.is_default else _COMMUNITY_TOP_K
+    )
+    candidates = fetch_community_candidates(query, ctx.collection_name, match_count=match_count)
+    ranked = rerank_communities(candidates, ctx.kg, profile, top_k=_COMMUNITY_TOP_K)
+    community_ctx = format_community_rows(ranked)
     if community_ctx:
         parts.append(community_ctx)
 
