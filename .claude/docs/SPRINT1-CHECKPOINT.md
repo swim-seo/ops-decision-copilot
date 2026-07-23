@@ -144,7 +144,18 @@
 
 **⚠️ 지연 TODO (사용자 요청 2026-07-23)**: **합성 데모 데이터(data/*/ CSV) 생성 품질·로직·아이디어 검토** — 데이터가 어떻게 만들어졌는지 흐름을 꼼꼼히 안 봤음. 플랫폼 개발 먼저 진행, 데이터 검토는 나중에.
 
-**다음(Step 2/3)**: Supabase Auth(JWT→user_id/org_id) → org_id 기반 RLS 재작성. resolve_department 를 JWT 클레임 소스로 교체.
+## 3.7 Sprint 3 Step 2 — Supabase Auth (데모용 경량) ✅ 코드 완료 (2026-07-23)
+
+**설계**: Codex 4개 질문. Q1 검증=Supabase `GET /auth/v1/user` 위임(시크릿 불필요·JWKS 전환 무관) / Q2 선택적 인증(honor-if-present)+`AUTH_REQUIRED` 토글(기본 데모 OFF) / Q3 app_metadata 신뢰·user_metadata는 allow-list 검증 후 / Q4 `Depends(get_current_user)`(미들웨어 아님). +Codex 함정: service key=RLS 우회 → 서버가 클레임 기반 격리 직접 강제, service key 서버 전용.
+
+- **`backend/auth.py`** 신규: `UserContext`(불변) · `verify_token()`(Supabase 되물어 검증) · `get_current_user()` 의존성(토큰 있으면 클레임, 없으면 익명/401) · `_context_from_user()`(app_metadata 신뢰, user_metadata는 `_validated()` allow-list) · `_extract_bearer()`.
+- **`chat.py`**: `/agent` 에 `Depends(get_current_user)`. 인증 시 collection/department 를 **토큰 클레임**에서(위조 불가), 아니면 파라미터 폴백(데모). 응답에 `identity`(authenticated/department/collection) 시연 필드 추가.
+- **`config.py`**: `AUTH_REQUIRED`(기본 False). **`.env.example`**: 문서화.
+
+**검증**: 앱 import · 익명 폴백(데모) · AUTH_REQUIRED=true 시 토큰없음/무효→401 · verify_token(무효)→None(실제 Supabase 호출) · **신뢰 경계 로직**(app_metadata 추출 / user_metadata 유효→추출 / user_metadata 위조→거부/ 메타없음→빈값). 전부 OK.
+**미검증(실토큰 필요)**: 유효 토큰 happy-path 라이브 왕복(/auth/v1/user 200 + 실제 클레임). 로직은 합성 JSON으로 증명. 실 검증엔 Supabase 로그인 사용자+토큰 필요.
+
+**다음(Step 3)**: org_id 기반 RLS 재작성(service key→사용자 컨텍스트). collection↔org_id 매핑 정식화.
 
 ## 4. 로드맵 태스크 상태
 
@@ -153,7 +164,7 @@
 | 1 | Codex 설계 리뷰 | ✅ 완료 |
 | 2 | 스프린트1 AI 오케스트레이션 | ✅ 완료 (Step 1~4 + wiring 전부) |
 | 3 | 스프린트2 영속성 + build_community_summaries | ✅ 코드완료 (⚠️ Supabase 마이그레이션 실행 대기) |
-| 4 | 스프린트3 인증 + 부서 가중치 RAG | ⬜ |
+| 4 | 스프린트3 인증 + 부서 가중치 RAG | 🔄 Step1 부서가중RAG✅(실데이터검증) · Step2 인증✅(경량) · Step3 org_id RLS⬜ |
 | 5 | 스프린트4 비동기 큐 + 관측 | ⬜ |
 | 6 | 포폴 재작성(구현 결과 반영) | ⬜ |
 

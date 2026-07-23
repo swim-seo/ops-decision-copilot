@@ -19,6 +19,11 @@ MAX_TOKENS = 4096
 SUPABASE_URL = _get_secret("SUPABASE_URL")
 SUPABASE_KEY = _get_secret("SUPABASE_KEY")
 
+# ── Auth (Sprint 3 Step 2, 데모용 경량) ────────────────────────────────────────
+# True 면 유효 토큰 없는 요청을 401 로 거부(프로덕션). 기본 False = 데모 모드
+# (토큰 있으면 검증해 쓰고, 없으면 요청 파라미터로 폴백 — honor-if-present).
+AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "").lower() in ("1", "true", "yes")
+
 # ── Document Processing ───────────────────────────────────────────────────────
 CHUNK_SIZE = 800
 CHUNK_SIZE_MIN = 200
