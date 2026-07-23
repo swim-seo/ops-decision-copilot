@@ -16,3 +16,8 @@ openpyxl>=3.1.2
 # ── AI orchestration layer (Sprint 1) ──────────────────────────────
 langgraph>=0.2.0      # 상태 그래프 기반 에이전트 (plan→act→reflect→synthesize)
 fastmcp>=2.0.0        # MCP 서버 — 툴을 표준 프로토콜로 노출
+
+# ── Embeddings (로컬 ONNX) ──────────────────────────────────────────
+# HF Inference API(api-inference.huggingface.co) 중단으로 로컬 fastembed 전환.
+# 같은 모델(paraphrase-multilingual-MiniLM-L12-v2, 384d) — DB 마이그레이션 불필요.
+fastembed>=0.8.0      # 로컬 임베딩 (onnxruntime 포함, 네트워크·API키 불필요)
