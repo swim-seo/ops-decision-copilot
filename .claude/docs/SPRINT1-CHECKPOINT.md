@@ -170,6 +170,17 @@
 
 => **Sprint 3 (인증 + 부서 가중치 RAG) 전체 코드 완료.** 다음은 Sprint 4(비동기 큐 + 관측) 또는 포폴 재작성.
 
+## 3.9 Sprint 4 ① 관측(Observability) ✅ 코드 완료 (2026-07-24)
+
+사용자 지정 순서: **관측 먼저 → 비동기 큐**. (그 뒤 포폴 재작성 + 데모데이터 품질검토)
+
+- **`backend/observability.py`** 신규: `setup_logging()`(LOG_FORMAT text|json 토글, LOG_LEVEL) + `RequestIdFilter`(모든 로그에 request_id) + `RequestIdMiddleware`(**순수 ASGI** — contextvar 가 엔드포인트까지 전파. BaseHTTPMiddleware 는 별도 컨텍스트라 contextvar 안 흐르는 함정 회피).
+- **`main.py`**: setup_logging() + 미들웨어 배선.
+- **삼켜진 예외 로깅 전환**: `upload.py`(KG 추출 실패)·`query_planner.py`(Claude 정제 실패) `except: pass` → `logger.warning(exc_info=True)`.
+- **검증**: request_id 요청밖 '-'/요청 태깅/미들웨어→엔드포인트 propagation(엔드포인트 로그 id == X-Request-ID 헤더)/클라 id 이어받기/JSON 포맷 전부 OK.
+
+**남음(Sprint 4 ②)**: 비동기 큐 — Supabase `jobs` 테이블(FOR UPDATE SKIP LOCKED) + 워커. 업로드를 잡으로 분리(POST→job_id 즉시반환→워커 처리→상태폴링). 타임아웃 해결+수평확장.
+
 ## 4. 로드맵 태스크 상태
 
 | # | 태스크 | 상태 |
@@ -178,8 +189,9 @@
 | 2 | 스프린트1 AI 오케스트레이션 | ✅ 완료 (Step 1~4 + wiring 전부) |
 | 3 | 스프린트2 영속성 + build_community_summaries | ✅ 코드완료 (⚠️ Supabase 마이그레이션 실행 대기) |
 | 4 | 스프린트3 인증 + 부서 가중치 RAG | ✅ Step1 부서가중RAG(실검증)·Step2 인증(경량)·Step3 테넌트격리+RLS 전부 |
-| 5 | 스프린트4 비동기 큐 + 관측 | ⬜ |
-| 6 | 포폴 재작성(구현 결과 반영) | ⬜ |
+| 5 | 스프린트4 비동기 큐 + 관측 | 🔄 관측✅ · 비동기큐⬜ |
+| 6 | 포폴 재작성(구현 결과 반영) + 백엔드 배포(작동 데모 링크) | ⬜ |
+| 7 | 합성 데모데이터(CSV) 생성 품질·로직 검토 | ⬜ (사용자 지연요청) |
 
 ---
 
