@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from typing import List
 from modules.document_parser import parse_file, extract_csv_schema
@@ -11,6 +11,7 @@ from modules.knowledge_graph import KnowledgeGraph
 from modules.kg_store import get_kg_store
 from modules.community_summarizer import build_community_summaries
 from modules.claude_client import ClaudeClient
+from modules import job_queue, worker
 from domains import get_preset
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,8 @@ def _domain_context(domain_name: str) -> tuple[str, str]:
     return context, etype_desc
 
 
-async def _process_file(path: str, filename: str, rag, kg, claude, domain_name: str):
+def _process_file(path: str, filename: str, rag, kg, claude, domain_name: str):
+    # 동기 함수 — 내부에 await 없음(파일 IO·Claude·임베딩 모두 동기). 워커 스레드에서도 호출.
     suffix = os.path.splitext(filename)[1].lower()
     context_str, etype_desc = _domain_context(domain_name)
 
@@ -191,7 +193,7 @@ async def upload_files(
             tmp_path = tmp.name
 
         try:
-            chunks = await _process_file(tmp_path, file.filename, rag, kg, claude, domain_name)
+            chunks = _process_file(tmp_path, file.filename, rag, kg, claude, domain_name)
             results.append({"filename": file.filename, "chunks": chunks, "status": "ok"})
         except Exception as e:
             results.append({"filename": file.filename, "error": str(e), "status": "error"})
@@ -208,18 +210,22 @@ class SampleRequest(BaseModel):
     collection_name: str = "domain_sample"
 
 
-@router.post("/sample")
-async def load_sample(req: SampleRequest):
-    sample = SAMPLES.get(req.sample_id)
+def process_sample(sample_id: str, collection_name: str) -> dict:
+    """샘플 데이터셋 적재 파이프라인 (동기) — 엔드포인트·워커가 공유.
+
+    파싱 → RAG 임베딩 → KG 구축·저장 → 커뮤니티 요약. 오래 걸리므로 비동기 경로
+    (/sample-async)는 이 함수를 잡 핸들러로 백그라운드 실행한다.
+    Returns: {files, collection_name, domain}
+    """
+    sample = SAMPLES.get(sample_id)
     if not sample:
-        from fastapi import HTTPException
-        raise HTTPException(404, f"샘플 없음: {req.sample_id}")
+        raise ValueError(f"샘플 없음: {sample_id}")
 
     sample_path: Path = sample["path"]
     domain_name: str  = sample["domain"]
 
-    rag    = RAGEngine(collection_name=req.collection_name)
-    kg     = _get_or_create_kg(req.collection_name)
+    rag    = RAGEngine(collection_name=collection_name)
+    kg     = _get_or_create_kg(collection_name)
     claude = ClaudeClient()
     results = []
 
@@ -227,18 +233,48 @@ async def load_sample(req: SampleRequest):
         if not filepath.is_file():
             continue
         try:
-            chunks = await _process_file(str(filepath), filepath.name, rag, kg, claude, domain_name)
+            chunks = _process_file(str(filepath), filepath.name, rag, kg, claude, domain_name)
             results.append({"filename": filepath.name, "chunks": chunks, "status": "ok"})
         except Exception as e:
+            logger.exception("샘플 파일 처리 실패: %s", filepath.name)
             results.append({"filename": filepath.name, "error": str(e), "status": "error"})
 
-    _kg_store.save(req.collection_name, kg)  # 갱신된 KG 를 저장소에 반영(영속)
-    _build_summaries_safe(req.collection_name, claude)  # GraphRAG 커뮤니티 요약 (재)생성
-    return {
-        "files": results,
+    _kg_store.save(collection_name, kg)  # 갱신된 KG 를 저장소에 반영(영속)
+    _build_summaries_safe(collection_name, claude)  # GraphRAG 커뮤니티 요약 (재)생성
+    return {"files": results, "collection_name": collection_name, "domain": domain_name}
+
+
+# 워커 핸들러 등록 — /sample-async 로 큐잉된 잡을 백그라운드에서 process_sample 로 처리.
+worker.register(
+    "load_sample",
+    lambda payload: process_sample(payload["sample_id"], payload["collection_name"]),
+)
+
+
+@router.post("/sample")
+def load_sample(req: SampleRequest):
+    """샘플을 동기 적재(기존 경로 유지). 큰 데이터면 /sample-async 권장."""
+    if req.sample_id not in SAMPLES:
+        raise HTTPException(404, f"샘플 없음: {req.sample_id}")
+    return process_sample(req.sample_id, req.collection_name)
+
+
+@router.post("/sample-async")
+def load_sample_async(req: SampleRequest):
+    """샘플 적재를 잡으로 큐잉하고 즉시 job_id 반환(비동기).
+
+    워커가 백그라운드로 처리 → 클라는 GET /api/jobs/{job_id} 로 상태 폴링.
+    타임아웃 없이 큰 데이터도 처리 가능.
+    """
+    if req.sample_id not in SAMPLES:
+        raise HTTPException(404, f"샘플 없음: {req.sample_id}")
+    job_id = job_queue.enqueue("load_sample", {
+        "sample_id":       req.sample_id,
         "collection_name": req.collection_name,
-        "domain": domain_name,
-    }
+    })
+    if not job_id:
+        raise HTTPException(503, "잡 큐를 사용할 수 없습니다 (Supabase 미연결).")
+    return {"job_id": job_id, "status": "pending"}
 
 
 @router.get("/samples")

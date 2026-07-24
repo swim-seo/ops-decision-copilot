@@ -203,6 +203,31 @@ def select_one(table_name: str, filters: dict) -> Optional[dict]:
         return None
 
 
+def update_rows(table_name: str, filters: dict, patch: dict) -> bool:
+    """조건에 맞는 행을 부분 갱신(PATCH)합니다. filters={"col":"eq.val"}. 성공 여부 반환.
+
+    upsert 와 달리 지정한 컬럼만 갱신하고 나머지는 보존한다(잡 상태 전이 등에 적합).
+    """
+    _init()
+    if not _connected:
+        return False
+    try:
+        r = requests.patch(
+            f"{_url}/rest/v1/{table_name}",
+            headers=_headers(),
+            params=filters,
+            data=json.dumps(patch, ensure_ascii=False, default=str),
+            timeout=30,
+        )
+        if r.status_code in (200, 204):
+            return True
+        logger.error("Supabase update 실패 (%s, HTTP %s): %s", table_name, r.status_code, r.text)
+        return False
+    except Exception as e:
+        logger.debug("Supabase update_rows failed for %s: %s", table_name, e)
+        return False
+
+
 def upsert_rows(table_name: str, records: list) -> bool:
     """레코드(list[dict])를 PK 기준 upsert합니다. 성공 여부를 반환합니다.
 
