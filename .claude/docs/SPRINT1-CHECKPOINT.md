@@ -179,7 +179,21 @@
 - **삼켜진 예외 로깅 전환**: `upload.py`(KG 추출 실패)·`query_planner.py`(Claude 정제 실패) `except: pass` → `logger.warning(exc_info=True)`.
 - **검증**: request_id 요청밖 '-'/요청 태깅/미들웨어→엔드포인트 propagation(엔드포인트 로그 id == X-Request-ID 헤더)/클라 id 이어받기/JSON 포맷 전부 OK.
 
-**남음(Sprint 4 ②)**: 비동기 큐 — Supabase `jobs` 테이블(FOR UPDATE SKIP LOCKED) + 워커. 업로드를 잡으로 분리(POST→job_id 즉시반환→워커 처리→상태폴링). 타임아웃 해결+수평확장.
+## 3.10 Sprint 4 ② 비동기 잡 큐 ✅ 코드 완료 (2026-07-24)
+
+**설계**: Codex Q1 claim RPC(FOR UPDATE SKIP LOCKED) · Q2 embedded+standalone 플래그 · Q3 /sample만 비동기(파일업로드 후속) · Q4 lifecycle+lease 재수거. +함정: 멀티워커+embedded=프로세스마다 폴러→단일 권장.
+
+- **`scripts/jobs_migration.sql`** 신규: `jobs` 테이블(status/attempts/max_attempts/error/result/타임스탬프) + `claim_next_job()` RPC(FOR UPDATE SKIP LOCKED, lease-timeout 재수거). PostgREST 가 SELECT FOR UPDATE 못 해 RPC 로.
+- **`modules/job_queue.py`**: enqueue/claim_next/complete/fail(attempts<max 재시도)/get_job.
+- **`modules/worker.py`**: 핸들러 레지스트리 + poll_loop + `start_embedded_worker`(스레드)/`python -m modules.worker`(독립).
+- **`supabase_client.py`**: `update_rows`(PATCH) 헬퍼.
+- **`upload.py`**: `_process_file` 동기화(내부 await 없음) + `process_sample()` 추출(엔드포인트·워커 공용) + `POST /sample-async`(잡 큐잉) + load_sample 핸들러 등록.
+- **`jobs` 라우터**: `GET /api/jobs/{id}`. **`main.py`**: 라우터 + embedded 워커 startup/shutdown(WORKER_EMBEDDED 기본1).
+
+**검증**: 컴파일·import·라우트·워커핸들러 등록·잡큐 우아한실패(테이블 미존재→None)·워커 dispatch(성공→complete/예외→fail재시도/빈큐→idle) OK.
+**⚠️ 실행 대기(사용자)**: `scripts/jobs_migration.sql` 실행 → 그 후 실 end-to-end(POST /sample-async → 워커 처리 → GET /jobs/{id} done) 검증 가능. 임베딩(fastembed)·Supabase 다 준비됨.
+
+=> **Sprint 4 (관측 + 비동기 큐) 완료. 플랫폼 4대 정거장(인증·테넌시·영속성·기능) + 오케스트레이션 + 비동기 + 관측 전부 코드 완료.** 다음: 포폴 재작성(+백엔드 배포) → 데모데이터 품질검토.
 
 ## 4. 로드맵 태스크 상태
 
@@ -189,7 +203,7 @@
 | 2 | 스프린트1 AI 오케스트레이션 | ✅ 완료 (Step 1~4 + wiring 전부) |
 | 3 | 스프린트2 영속성 + build_community_summaries | ✅ 코드완료 (⚠️ Supabase 마이그레이션 실행 대기) |
 | 4 | 스프린트3 인증 + 부서 가중치 RAG | ✅ Step1 부서가중RAG(실검증)·Step2 인증(경량)·Step3 테넌트격리+RLS 전부 |
-| 5 | 스프린트4 비동기 큐 + 관측 | 🔄 관측✅ · 비동기큐⬜ |
+| 5 | 스프린트4 비동기 큐 + 관측 | ✅ 관측 + 비동기큐 전부 (⚠️ jobs_migration.sql 실행 대기) |
 | 6 | 포폴 재작성(구현 결과 반영) + 백엔드 배포(작동 데모 링크) | ⬜ |
 | 7 | 합성 데모데이터(CSV) 생성 품질·로직 검토 | ⬜ (사용자 지연요청) |
 
