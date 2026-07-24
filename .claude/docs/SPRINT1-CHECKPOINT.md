@@ -155,7 +155,20 @@
 **검증**: 앱 import · 익명 폴백(데모) · AUTH_REQUIRED=true 시 토큰없음/무효→401 · verify_token(무효)→None(실제 Supabase 호출) · **신뢰 경계 로직**(app_metadata 추출 / user_metadata 유효→추출 / user_metadata 위조→거부/ 메타없음→빈값). 전부 OK.
 **미검증(실토큰 필요)**: 유효 토큰 happy-path 라이브 왕복(/auth/v1/user 200 + 실제 클레임). 로직은 합성 JSON으로 증명. 실 검증엔 Supabase 로그인 사용자+토큰 필요.
 
-**다음(Step 3)**: org_id 기반 RLS 재작성(service key→사용자 컨텍스트). collection↔org_id 매핑 정식화.
+## 3.8 Sprint 3 Step 3 — 테넌트 격리 + RLS 하드닝 ✅ 코드 완료 (2026-07-24)
+
+**핵심 사실 확인**: `SUPABASE_KEY`가 **`sb_secret_...`(새 secret key = service_role 급 = RLS 우회)**. → RLS 정책 재작성은 안전(백엔드 안 깨짐), 실제 격리는 서버가 강제해야 함.
+
+**설계**: Codex Q1 서버측 인가=방어선/RLS=문서화의도 · Q2 collection 테넌시 유지+org 매핑(스키마 변경 회피) · Q3 중앙 `authorize_collection`(401/403) · Q4 RLS 미발동 명시. +함정: service-key 경로는 인가 하나만 빠져도 테넌트 누수.
+
+- **`backend/auth.py`**: `_ORG_COLLECTIONS`(org↔collection 매핑) + `allowed_collections()` + `authorize_collection(user, collection)` — 인증 사용자가 org 밖 collection 요청 시 403, 미인증(데모) 통과, AUTH_REQUIRED면 401. **실제 방어선**.
+- **`chat.py`**: `/agent`에서 `authorize_collection` 호출.
+- **`scripts/rls_hardening_migration.sql`** 신규: collection_name/org_id 기반 `tenant_isolation` 정책(Allow all 대체) + 롤백. ⚠️ **secret key 경로에선 미발동** — defense-in-depth·문서화된 의도·향후 사용자 JWT 경로 전환 대비. 실행은 선택(기능 영향 없음).
+
+**검증**: 데모통과 / 인증+허용통과 / 인증+타org→403 / 미프로비저닝→403 / 컴파일·import OK.
+**미완(설계상 의도)**: 격리 게이트가 현재 `/chat/agent`에만. AUTH_REQUIRED=true 프로덕션에선 upload/message/briefing/graph 등 **모든 데이터 경로에 authorize_collection 필요**(Codex 누수 경고). 데모 범위라 후속.
+
+=> **Sprint 3 (인증 + 부서 가중치 RAG) 전체 코드 완료.** 다음은 Sprint 4(비동기 큐 + 관측) 또는 포폴 재작성.
 
 ## 4. 로드맵 태스크 상태
 
@@ -164,7 +177,7 @@
 | 1 | Codex 설계 리뷰 | ✅ 완료 |
 | 2 | 스프린트1 AI 오케스트레이션 | ✅ 완료 (Step 1~4 + wiring 전부) |
 | 3 | 스프린트2 영속성 + build_community_summaries | ✅ 코드완료 (⚠️ Supabase 마이그레이션 실행 대기) |
-| 4 | 스프린트3 인증 + 부서 가중치 RAG | 🔄 Step1 부서가중RAG✅(실데이터검증) · Step2 인증✅(경량) · Step3 org_id RLS⬜ |
+| 4 | 스프린트3 인증 + 부서 가중치 RAG | ✅ Step1 부서가중RAG(실검증)·Step2 인증(경량)·Step3 테넌트격리+RLS 전부 |
 | 5 | 스프린트4 비동기 큐 + 관측 | ⬜ |
 | 6 | 포폴 재작성(구현 결과 반영) | ⬜ |
 
