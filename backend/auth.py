@@ -37,6 +37,13 @@ logger = logging.getLogger(__name__)
 _ALLOWED_ORGS = {"domain_sample"}
 _ALLOWED_DEPARTMENTS = {"영업부", "재고부"}
 
+# org_id → 접근 허용 collection 매핑 (Sprint 3 Step 3, Codex Q2).
+# collection_name 을 테넌시 키로 유지하고, 조직 격리는 이 매핑을 서버에서 검사한다.
+# 프로덕션에선 org_collections 테이블로 대체(조직/컬렉션이 다대다로 분화 가능).
+_ORG_COLLECTIONS: dict[str, set[str]] = {
+    "domain_sample": {"domain_sample"},
+}
+
 
 @dataclass(frozen=True)
 class UserContext:
@@ -73,6 +80,35 @@ def verify_token(token: str) -> Optional[dict]:
     except Exception as e:  # noqa: BLE001 — 검증 실패는 인증 거부로 흡수
         logger.warning("토큰 검증 중 오류: %s", e)
         return None
+
+
+def allowed_collections(org_id: str) -> set[str]:
+    """org 이 접근 가능한 collection 집합. 매핑에 없으면 빈 집합(=접근 불가)."""
+    return _ORG_COLLECTIONS.get(org_id, set())
+
+
+def authorize_collection(user: UserContext, collection_name: str) -> None:
+    """인증 사용자가 요청 collection 에 접근 가능한지 강제한다 [조직 격리, Sprint 3 Step 3].
+
+    ⚠️ service key(sb_secret)가 RLS 를 우회하므로 이 서버측 체크가 **실제 방어선**이다
+    (Codex 지적). 데이터에 닿는 모든 경로는 이 함수를 거쳐야 한다 — 하나라도 빠지면
+    테넌트 누수. (현 데모는 /chat/agent 에 적용, 나머지 엔드포인트는 후속 롤아웃.)
+
+    - 미인증(데모 모드): 통과. AUTH_REQUIRED 면 get_current_user 가 이미 401 처리.
+    - 인증됨: org 매핑에 없는 collection → 403.
+    """
+    if not user.is_authenticated:
+        if AUTH_REQUIRED:
+            raise HTTPException(status_code=401, detail="인증이 필요합니다.")
+        return
+    if collection_name not in allowed_collections(user.org_id):
+        logger.warning(
+            "조직 격리 차단: user=%s org=%s → collection=%s",
+            user.user_id, user.org_id, collection_name,
+        )
+        raise HTTPException(
+            status_code=403, detail="이 조직은 해당 컬렉션에 접근할 수 없습니다."
+        )
 
 
 def get_current_user(authorization: Optional[str] = Header(default=None)) -> UserContext:

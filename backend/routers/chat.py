@@ -7,7 +7,7 @@ from modules.claude_client import ClaudeClient
 from modules.agent import run_agent
 from modules.agent_tools import ToolContext
 from modules.retrieval_profiles import resolve_department
-from backend.auth import UserContext, get_current_user
+from backend.auth import UserContext, authorize_collection, get_current_user
 from backend.routers.upload import _get_or_create_kg
 
 router = APIRouter()
@@ -64,13 +64,13 @@ def chat_agent(req: AgentRequest, user: UserContext = Depends(get_current_user))
     응답의 tools_used 는 근거 배지, identity 는 어떤 신원으로 처리됐는지 시연용.
     스트리밍은 추후(agent.invoke 가 현재 블로킹).
     """
-    if user.is_authenticated:
-        # 토큰 클레임 우선 — 클라가 못 속임. org_id 는 Step 1 처럼 collection 로 매핑.
-        collection_name = user.org_id or req.collection_name
-        department = user.department
-    else:
-        collection_name = req.collection_name
-        department = resolve_department(req.department)
+    # 부서: 인증 시 토큰 클레임(위조 불가), 아니면 파라미터(데모).
+    department = user.department if user.is_authenticated else resolve_department(req.department)
+    collection_name = req.collection_name
+
+    # 조직 격리(Step 3): 인증 사용자가 자기 org 밖 collection 을 요청하면 403.
+    # service key 가 RLS 를 우회하므로 이 서버측 체크가 실제 방어선이다.
+    authorize_collection(user, collection_name)
 
     ctx = ToolContext(
         claude=ClaudeClient(),
