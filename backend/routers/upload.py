@@ -164,7 +164,8 @@ async def _process_file(path: str, filename: str, rag, kg, claude, domain_name: 
                 data = json.loads(raw[raw.find("{"):raw.rfind("}")+1])
                 kg.build_from_claude_json(data)
             except Exception:
-                pass
+                # KG 엔티티 추출은 best-effort 보강 — 실패해도 RAG/스키마 경로는 진행.
+                logger.warning("KG 엔티티 추출 실패 (계속 진행): %s", filename, exc_info=True)
 
     chunks = 0
     if text:

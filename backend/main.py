@@ -5,9 +5,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.observability import RequestIdMiddleware, setup_logging
 from backend.routers import domain, upload, briefing, chat, graph
 
+# 구조화 로깅 설정 — 라우터/모듈 import 전에 루트 로거를 잡아둔다.
+setup_logging()
+
 app = FastAPI(title="Ops Copilot API", version="1.0.0")
+
+# 요청 ID 미들웨어 — 요청당 id 발급, 모든 로그에 태깅 + X-Request-ID 응답 헤더.
+app.add_middleware(RequestIdMiddleware)
 
 _ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",

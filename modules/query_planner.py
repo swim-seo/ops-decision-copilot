@@ -9,9 +9,12 @@
 모든 비즈니스 도메인(마케팅/커머스/공급망/글로벌/운영)에 적용 가능하도록
 키워드 + 도메인 태그 기반으로 설계되어 있습니다.
 """
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -356,7 +359,8 @@ JSON만 출력하세요."""
         if json_match:
             return _json.loads(json_match.group())
     except Exception:
-        pass
+        # Claude 정제는 best-effort — 실패 시 규칙 기반 결과로 폴백(빈 dict).
+        logger.warning("쿼리 플래너 Claude 정제 실패 (규칙 폴백)", exc_info=True)
     return {}
 
 
