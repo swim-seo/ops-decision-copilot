@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.observability import RequestIdMiddleware, setup_logging
+from backend.ratelimit import RateLimitMiddleware
 from backend.routers import domain, upload, briefing, chat, graph, jobs
 
 # 구조화 로깅 설정 — 라우터/모듈 import 전에 루트 로거를 잡아둔다.
@@ -15,6 +16,9 @@ app = FastAPI(title="Ops Copilot API", version="1.0.0")
 
 # 요청 ID 미들웨어 — 요청당 id 발급, 모든 로그에 태깅 + X-Request-ID 응답 헤더.
 app.add_middleware(RequestIdMiddleware)
+
+# 레이트리밋 — 공개 데모 비용/남용 보호(IP별 분당 요청 수 제한, 429).
+app.add_middleware(RateLimitMiddleware)
 
 _ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",

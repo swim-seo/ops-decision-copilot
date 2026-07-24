@@ -1,0 +1,12 @@
+# Railway 배포 설정 (Sprint 4 배포)
+# nixpacks 가 루트 requirements.txt 로 Python 을 감지 → backend/requirements.txt 설치.
+# 앱은 리포 루트에서 실행(main.py 가 sys.path 에 상위 추가). 모델(fastembed)은
+# 첫 요청 시 Qdrant CDN 에서 1회 다운로드 후 로컬 실행.
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
