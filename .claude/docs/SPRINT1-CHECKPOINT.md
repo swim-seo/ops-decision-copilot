@@ -195,6 +195,28 @@
 
 => **Sprint 4 (관측 + 비동기 큐) 완료. 플랫폼 4대 정거장(인증·테넌시·영속성·기능) + 오케스트레이션 + 비동기 + 관측 전부 코드 완료.** 다음: 포폴 재작성(+백엔드 배포) → 데모데이터 품질검토.
 
+## 3.11 배포 (진행중) — 2026-07-29 세션 중단, 재개 지점 ⚠️
+
+**목표**: 작동하는 데모 링크(백엔드 Railway + 프론트 Vercel).
+
+### ✅ 완료
+- **백엔드 Railway 배포 성공 & 라이브**: `https://ops-decision-copilot-production.up.railway.app`
+  - Railway 프로젝트명 `artistic-trust`(자동생성), 서비스 `ops-decision-copilot`, 워크스페이스 swim_'s Projects.
+  - 검증: `/api/health`→200 `{"status":"ok"}`, `/api/upload/samples`→정상, `X-Request-ID` 헤더(관측 미들웨어 작동), 로그에 embedded 워커 스레드 시작 확인. 앱은 `0.0.0.0:8080`.
+  - 공개 도메인 Generate Domain + **target port 8080** 지정 완료(안 하면 "train not arrived").
+  - env 변수 사용자가 넣음(ANTHROPIC_API_KEY/SUPABASE_URL/SUPABASE_KEY + KG_STORE=supabase/OPS_DEMO_BOOTSTRAP=1/WORKER_EMBEDDED=1/RATE_LIMIT_PER_MIN=30/ALLOWED_ORIGINS).
+  - 배포 설정 파일(리포): `railway.toml`(nixpacks+uvicorn startCommand), 루트 `requirements.txt`(-r backend/), `.python-version`(3.12), `backend/ratelimit.py`(IP별 분당 제한).
+
+### ⬜ 재개 시 다음 단계 (Vercel 프론트 연결)
+1. Vercel `ops-decision-copilot` → Settings → Environment Variables 에 `NEXT_PUBLIC_API_URL=https://ops-decision-copilot-production.up.railway.app` **추가 완료**.
+2. **⚠️ 남음: Vercel Redeploy** (env 반영하려면 재배포 필요). Deployments → 최신 → ⋯ → Redeploy. (사용자가 "auto-update failed" 봤다고 함 — 재개 시 Vercel 배포 로그 확인.)
+3. 재배포 후 `https://ops-decision-copilot.vercel.app` 접속 → 프론트→백엔드 e2e 확인(도메인 설정→샘플 로드→채팅). CORS 는 ALLOWED_ORIGINS 에 vercel 도메인 포함해 OK.
+
+### 참고 / 잔여
+- **Railway MCP 인증 불안정**: 이 세션 내내 `Unauthorized` 반복(조회 1~2회 후 드롭). `railway login` 해도 MCP 토큰 갱신 안 됨 → 재개 시 MCP 재연결 필요(그래야 로그/재배포를 Claude 가 직접 조작). 안 되면 대시보드 수동.
+- **잉여 Railway 프로젝트 2개**(`impartial-serenity`·`diligent-reflection`, 빈 껍데기) 삭제 대기 — Railway 는 소프트삭제 없음(즉시영구), 프로젝트 Settings→Danger→Delete 로 이름 입력해야. 급하지 않음.
+- **사용자 실행 대기 마이그레이션**: 전부 실행 완료(kg_persistence·retrieval_profiles·graphrag·jobs). rls_hardening 은 선택.
+
 ## 4. 로드맵 태스크 상태
 
 | # | 태스크 | 상태 |
@@ -204,8 +226,10 @@
 | 3 | 스프린트2 영속성 + build_community_summaries | ✅ 코드완료 (⚠️ Supabase 마이그레이션 실행 대기) |
 | 4 | 스프린트3 인증 + 부서 가중치 RAG | ✅ Step1 부서가중RAG(실검증)·Step2 인증(경량)·Step3 테넌트격리+RLS 전부 |
 | 5 | 스프린트4 비동기 큐 + 관측 | ✅ 관측 + 비동기큐 전부 (⚠️ jobs_migration.sql 실행 대기) |
-| 6 | 포폴 재작성(구현 결과 반영) + 백엔드 배포(작동 데모 링크) | ⬜ |
-| 7 | 합성 데모데이터(CSV) 생성 품질·로직 검토 | ⬜ (사용자 지연요청) |
+| 6a | 백엔드 배포(Railway) | ✅ 라이브 (ops-decision-copilot-production.up.railway.app) |
+| 6b | 프론트 연결(Vercel NEXT_PUBLIC_API_URL) | 🔄 env 추가함 · **Redeploy 대기** |
+| 6c | 포폴 재작성(구현 결과 반영) | ⬜ (배포 e2e 후) |
+| 7 | 합성 데모데이터(CSV) 생성 품질·로직 재정의 | ⬜ (사용자 지연요청) |
 
 ---
 
