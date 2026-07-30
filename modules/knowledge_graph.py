@@ -244,10 +244,11 @@ class KnowledgeGraph:
         {
           "physics": {
             "forceAtlas2Based": {
-              "gravitationalConstant": -80,
-              "centralGravity": 0.008,
-              "springLength": 200,
-              "springConstant": 0.05
+              "gravitationalConstant": -160,
+              "centralGravity": 0.006,
+              "springLength": 280,
+              "springConstant": 0.04,
+              "avoidOverlap": 0.6
             },
             "solver": "forceAtlas2Based",
             "stabilization": {"iterations": 200}
@@ -403,7 +404,10 @@ class KnowledgeGraph:
 <div id="kht"></div>
 """
 
-        JS_TEMPLATE = """<script>
+        # raw 문자열이어야 한다. 일반 문자열이면 '\n' 이 파이썬 단계에서 실제 개행으로
+        # 바뀌어 JS 문자열 리터럴이 깨지고(SyntaxError) 주입 스크립트 전체가 죽는다.
+        # '🔑' 같은 서로게이트 이스케이프도 파이썬이 먹어 이모지가 깨진다.
+        JS_TEMPLATE = r"""<script>
 /* ════ 상태 ════ */
 var LV=1, FG=null, DD=null;
 
@@ -475,91 +479,30 @@ function setND(nds,eds){
 }
 
 /* ════ 뷰 전환 ════ */
-var GN={MST:'마스터 테이블',FACT:'팩트 테이블',OTHER:'기타'};
-var GC={MST:'#7C3AED',FACT:'#2563EB',OTHER:'#6B7280'};
-var GX={MST:'📦',FACT:'📊',OTHER:'⚙️'};
-
 function setV(lv,g){
   LV=lv; FG=g;
   document.getElementById('np').style.display='none';
   var nds=[],eds=[];
 
-  if(lv===1){
-    /* Level 1: 그룹 수퍼노드 */
-    Object.keys(DD.gs).forEach(function(k){
-      var cnt=(DD.gs[k]||[]).length;
-      if(!cnt)return;
-      nds.push({
-        id:'_G_'+k,
-        label:(GX[k]||'')+'  '+(GN[k]||k)+'\n('+cnt+'개 테이블)',
-        color:{background:GC[k]||'#6B7280',border:'#00000033',
-               highlight:{background:GC[k]||'#6B7280',border:'#0f172a'}},
-        size:Math.max(62,46+cnt*5),
-        shape:'ellipse',
-        borderWidth:3,
-        font:{size:15,strokeWidth:4,strokeColor:'#ffffff',bold:true,multi:true,color:'#0f172a'},
-        shadow:{enabled:true,size:12,color:(GC[k]||'#555')+'66'},
-        title:(DD.gs[k]||[]).join('\n'),
-        _grp:k, _isG:true,
-      });
-    });
-    /* 그룹 간 집계 에지 */
-    var ge={};
-    DD.ae.forEach(function(e){
-      var gf=grp(e.from),gt=grp(e.to);
-      if(gf!==gt){
-        var k='_G_'+gf+'>>_G_'+gt;
-        if(!ge[k])ge[k]={from:'_G_'+gf,to:'_G_'+gt,n:0};
-        ge[k].n++;
-      }
-    });
-    Object.keys(ge).forEach(function(k){
-      var e=ge[k];
-      eds.push({from:e.from,to:e.to,label:'',title:e.n+'개 연결',
-        width:Math.min(2+Math.floor(e.n/2),10),
-        color:{color:'#475569'},arrows:'to',smooth:{type:'curvedCW',roundness:.2}});
-    });
-    setBr('전체 조감도',1,false);
-    hint('그룹을 클릭하면 테이블 목록이 펼쳐집니다',3000);
-
-  } else {
-    /* Level 2: 그룹 내 테이블 + ghost 이웃 */
-    var mem=DD.gs[g]||[],ms={};
-    mem.forEach(function(id){ms[id]=true;});
-    /* 다른 그룹 이웃 찾기 */
-    var gh={};
-    DD.ae.forEach(function(e){
-      if(ms[e.from]&&!ms[e.to])gh[e.to]=true;
-      if(ms[e.to]&&!ms[e.from])gh[e.from]=true;
-    });
-    /* 그룹 멤버 노드 (선명) */
-    mem.forEach(function(id){
-      var m=NM[id]||{},v=gv(m.type);
-      nds.push({id:id,label:id,
-        color:{background:v.c,border:v.c+'cc',highlight:{background:v.c,border:'#0f172a'}},
-        size:v.z,shape:v.s,borderWidth:2,
-        font:fnt(13),title:'컬럼 수: '+(m.columns||[]).length+'개'});
-    });
-    /* Ghost 이웃 노드 (흐림) */
-    Object.keys(gh).forEach(function(id){
-      var m=NM[id]||{},v=gv(m.type);
-      nds.push({id:id,label:id,
-        color:{background:v.c+'44',border:v.c+'33'},
-        size:v.z*.6,shape:v.s,borderWidth:1,opacity:.38,
-        font:fnt(10,'#475569'),title:'외부 연결 테이블'});
-    });
-    /* 에지 (가시 노드 간만) */
-    var vs={};nds.forEach(function(n){vs[n.id]=true;});
-    eds=DD.ae.filter(function(e){return vs[e.from]&&vs[e.to];})
-      .map(function(e){
-        return{from:e.from,to:e.to,label:'',title:e.rel||'',
-          arrows:'to',color:{color:'#64748b'},
-          smooth:{type:'curvedCW',roundness:.1}};
-      });
-    setBr((GN[g]||g),2,true);
-    hint('테이블을 클릭하면 상세 정보를 볼 수 있습니다',2800);
-  }
-
+  /* 전체 스키마 한 화면 — 어떤 테이블이 어떤 FK 로 이어지는지 라벨로 보여준다.
+     이전에는 마스터/팩트 수퍼노드 2개만 보여줘 관계를 읽을 수 없었다. */
+  Object.keys(NM).forEach(function(id){
+    var m=NM[id]||{},v=gv(m.type);
+    nds.push({id:id,label:id,
+      color:{background:v.c,border:v.c+'cc',highlight:{background:v.c,border:'#0f172a'}},
+      size:v.z,shape:v.s,borderWidth:2,font:fnt(13),
+      title:'컬럼 '+(m.columns||[]).length+'개 · 클릭하면 상세'});
+  });
+  eds=DD.ae.map(function(e){
+    return{from:e.from,to:e.to,
+      label:e.rel||'',title:e.rel||'',
+      arrows:{to:{enabled:true,scaleFactor:.9}},
+      color:{color:'#94a3b8',highlight:'#0f172a'},
+      font:{size:11,color:'#334155',strokeWidth:5,strokeColor:'#ffffff',align:'horizontal'},
+      smooth:{type:'curvedCW',roundness:.12}};
+  });
+  setBr('전체 스키마',1,false);
+  hint('선은 외래키(FK)입니다. 테이블을 클릭하면 컬럼과 연결 관계를 볼 수 있습니다',4200);
   setND(nds,eds);
 }
 
@@ -639,17 +582,7 @@ function showD(id){
     });
     /* 클릭 핸들러 */
     network.on('click',function(p){
-      if(!p.nodes.length)return;
-      var id=p.nodes[0];
-      if(LV===1){
-        /* Level1 → Level2: 그룹 클릭 */
-        var nd=network.body.data.nodes.get(id);
-        if(nd&&nd._isG){setV(2,nd._grp);return;}
-      }
-      if(LV===2){
-        /* Level2 → Level3: 테이블 클릭 → 상세 패널 */
-        showD(id);
-      }
+      if(p.nodes.length)showD(p.nodes[0]);
     });
     /* 초기화 후 Level1 렌더 */
     initDD();
