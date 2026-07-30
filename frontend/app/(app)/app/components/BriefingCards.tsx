@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import Markdown from "./Markdown";
+
 interface Card { id: string; label: string; color: string; answer: string; }
 interface Props { collectionName: string; domainContext: string; }
 
@@ -79,9 +81,10 @@ export default function BriefingCards({ collectionName, domainContext }: Props) 
                 {style.icon}
                 <span className="text-xs font-semibold uppercase tracking-wider">{card.label}</span>
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-400">
-                {card.answer}
-              </p>
+              <Markdown
+                text={card.answer}
+                className="text-sm leading-relaxed text-slate-400"
+              />
             </div>
           );
         })}

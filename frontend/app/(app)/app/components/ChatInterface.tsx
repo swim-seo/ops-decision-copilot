@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, FormEvent } from "react";
 
+import Markdown from "./Markdown";
+
 interface Message { role: "user" | "assistant"; content: string; }
 interface Props { collectionName: string; domainContext: string; }
 
@@ -81,7 +83,11 @@ export default function ChatInterface({ collectionName, domainContext }: Props) 
                 {m.role === "user" ? "나" : "AI"}
               </div>
               <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role === "user" ? "rounded-tr-sm bg-amber-500/10 text-amber-100 border border-amber-500/20" : "rounded-tl-sm bg-white/[0.04] text-slate-300 border border-white/[0.06]"}`}>
-                <p className="whitespace-pre-wrap">{m.content}</p>
+                {m.role === "assistant" && !(streaming && i === messages.length - 1) ? (
+                  <Markdown text={m.content} />
+                ) : (
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                )}
                 {m.role === "assistant" && streaming && i === messages.length - 1 && (
                   <span className="ml-0.5 inline-block h-[14px] w-[2px] translate-y-[2px] animate-pulse bg-amber-400" />
                 )}

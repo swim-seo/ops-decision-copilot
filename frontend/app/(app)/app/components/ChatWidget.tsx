@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, FormEvent } from "react";
 
+import Markdown from "./Markdown";
+
 interface Message { role: "user" | "assistant"; content: string; }
 interface Props { collectionName: string; domainContext: string; }
 
@@ -126,7 +128,11 @@ export default function ChatWidget({ collectionName, domainContext }: Props) {
                       ? "rounded-br-sm bg-amber-500/10 text-amber-100 border border-amber-500/20"
                       : "rounded-bl-sm bg-white/[0.05] text-slate-300 border border-white/[0.06]"
                   }`}>
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+                    {m.role === "assistant" && !(streaming && i === messages.length - 1) ? (
+                      <Markdown text={m.content} />
+                    ) : (
+                      <p className="whitespace-pre-wrap">{m.content}</p>
+                    )}
                     {m.role === "assistant" && streaming && i === messages.length - 1 && (
                       <span className="ml-0.5 inline-block h-3 w-[2px] translate-y-[1px] animate-pulse bg-amber-400" />
                     )}

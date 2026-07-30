@@ -11,12 +11,47 @@
 import json
 import os
 import re
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 import networkx as nx
 from pyvis.network import Network
 
 from config import DEFAULT_ENTITY_COLORS, GRAPH_OUTPUT_PATH
+
+# FK 후보 컬럼명에서 잘라낼 접미사 (PRODUCT_ID → product)
+FK_SUFFIXES = ("_id", "_no", "_code", "_cd", "_num", "_key", "_seq", "_pk", "번호", "코드")
+
+# CSV 업로드로 만들어지는 테이블 노드 타입
+TABLE_NODE_TYPES = frozenset({"csv_table", "master_table", "fact_table"})
+
+
+def _match_fk_reference(fk_col: str, all_names: Dict[str, str]) -> Optional[str]:
+    """FK 후보 컬럼명이 가리키는 테이블명을 추론합니다. (PRODUCT_ID → MST_PRODUCT)
+
+    all_names: {소문자 테이블명: 원본 테이블명}
+    """
+    for suffix in FK_SUFFIXES:
+        if not fk_col.lower().endswith(suffix):
+            continue
+
+        ref_candidate = fk_col[: -len(suffix)].lower()
+        if not ref_candidate:
+            return None
+        # 1) 정확 매칭
+        if ref_candidate in all_names:
+            return all_names[ref_candidate]
+        # 2) 복수형(s)
+        if ref_candidate + "s" in all_names:
+            return all_names[ref_candidate + "s"]
+        # 3) 부분 포함 (MST_PRODUCT ⊃ product) 또는 역방향
+        for tname_lower, tname in all_names.items():
+            if (ref_candidate in tname_lower
+                    or tname_lower.startswith(ref_candidate)
+                    or ref_candidate.startswith(tname_lower)):
+                return tname
+        return None
+
+    return None
 
 
 class KnowledgeGraph:
@@ -681,35 +716,50 @@ function showD(id){
         )
 
         # FK 후보 컬럼을 다른 테이블과 연결
+        # 주의: all_table_names 가 없으면 "지금까지 추가된" 노드만 보이므로,
+        #      아직 업로드되지 않은 테이블로 향하는 FK 는 여기서 연결되지 않는다.
+        #      업로드 루프가 끝난 뒤 link_csv_tables() 로 보강한다.
         all_names = {n.lower(): n for n in (all_table_names or list(self.graph.nodes))}
         for fk_col in fk_candidates:
-            # fk_col 이름에서 참조 테이블 추론: PRODUCT_ID → product → MST_PRODUCT
-            for suffix in ("_id", "_no", "_code", "_cd", "_num", "_key", "_seq", "_pk",
-                           "번호", "코드"):
-                if fk_col.lower().endswith(suffix):
-                    ref_candidate = fk_col[: -len(suffix)].lower()
-                    if not ref_candidate:
-                        break
-                    # 1) 정확 매칭
-                    # 2) 복수형(s)
-                    # 3) 테이블명이 후보를 포함하거나(MST_PRODUCT ⊃ product) 역방향
-                    matched_ref = None
-                    if ref_candidate in all_names:
-                        matched_ref = all_names[ref_candidate]
-                    elif ref_candidate + "s" in all_names:
-                        matched_ref = all_names[ref_candidate + "s"]
-                    else:
-                        for tname_lower, tname in all_names.items():
-                            if (ref_candidate in tname_lower
-                                    or tname_lower.startswith(ref_candidate)
-                                    or ref_candidate.startswith(tname_lower)):
-                                matched_ref = tname
-                                break
-                    if matched_ref and matched_ref != table_name:
-                        self.graph.add_edge(table_name, matched_ref, relation=fk_col)
-                    break
+            matched_ref = _match_fk_reference(fk_col, all_names)
+            if matched_ref and matched_ref != table_name:
+                self.graph.add_edge(table_name, matched_ref, relation=fk_col)
 
         return True
+
+    def link_csv_tables(self) -> int:
+        """테이블 노드들의 FK 후보를 전체 노드와 다시 대조해 누락된 엣지를 채웁니다.
+
+        build_from_csv_schema() 는 호출 시점까지 그래프에 들어온 테이블만 볼 수 있어,
+        나중에 처리된 파일로 향하는 FK 는 엣지가 만들어지지 않는다(파일 처리 순서에 의존).
+        예: FACT_MONTHLY_SALES 를 먼저 처리하면 PRODUCT_ID → MST_PRODUCT 가 연결되지 않아
+            그래프가 고립된 노드들로 보인다.
+        업로드가 모두 끝난 뒤 한 번 호출하면 순서와 무관하게 연결이 완성된다.
+
+        반환: 새로 추가된 엣지 수
+        """
+        tables = {
+            node: data
+            for node, data in self.graph.nodes(data=True)
+            if data.get("type") in TABLE_NODE_TYPES
+        }
+        if len(tables) < 2:
+            return 0
+
+        all_names = {name.lower(): name for name in tables}
+        added = 0
+
+        for table_name, data in tables.items():
+            for fk_col in data.get("fk_cols", []):
+                matched_ref = _match_fk_reference(fk_col, all_names)
+                if not matched_ref or matched_ref == table_name:
+                    continue
+                if self.graph.has_edge(table_name, matched_ref):
+                    continue
+                self.graph.add_edge(table_name, matched_ref, relation=fk_col)
+                added += 1
+
+        return added
 
     def detect_communities(self) -> List[List[str]]:
         """Louvain 알고리즘으로 노드 커뮤니티(연관 개념 묶음)를 탐지합니다.

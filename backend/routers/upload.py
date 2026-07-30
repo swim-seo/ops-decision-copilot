@@ -200,6 +200,8 @@ async def upload_files(
         finally:
             os.unlink(tmp_path)
 
+    linked = kg.link_csv_tables()  # 파일 처리 순서 때문에 놓친 FK 엣지 보강
+    logger.info("KG FK 엣지 보강: %d개 추가", linked)
     _kg_store.save(collection_name, kg)  # 갱신된 KG 를 저장소에 반영(영속)
     _build_summaries_safe(collection_name, claude)  # GraphRAG 커뮤니티 요약 (재)생성
     return {"files": results}
@@ -239,6 +241,8 @@ def process_sample(sample_id: str, collection_name: str) -> dict:
             logger.exception("샘플 파일 처리 실패: %s", filepath.name)
             results.append({"filename": filepath.name, "error": str(e), "status": "error"})
 
+    linked = kg.link_csv_tables()  # 파일 처리 순서 때문에 놓친 FK 엣지 보강
+    logger.info("KG FK 엣지 보강: %d개 추가", linked)
     _kg_store.save(collection_name, kg)  # 갱신된 KG 를 저장소에 반영(영속)
     _build_summaries_safe(collection_name, claude)  # GraphRAG 커뮤니티 요약 (재)생성
     return {"files": results, "collection_name": collection_name, "domain": domain_name}
