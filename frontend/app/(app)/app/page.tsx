@@ -51,16 +51,16 @@ export default function AppPage() {
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0a0a0f]">
+    <div className="flex min-h-screen flex-col bg-white">
       {/* Header */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-6">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-6">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500">
             <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4 text-slate-900">
               <path d="M5.52.359A.75.75 0 016.106 0h3.788a.75.75 0 01.74.871l-.83 4.875h3.045a.75.75 0 01.595 1.207l-6.25 8.25a.75.75 0 01-1.304-.65l1.175-5.893H3.25a.75.75 0 01-.596-1.207L5.52.359z"/>
             </svg>
           </div>
-          <span className="text-sm font-semibold text-white">Ops Copilot</span>
+          <span className="text-sm font-semibold text-slate-900">Ops Copilot</span>
         </Link>
 
         {/* Stepper */}
@@ -71,15 +71,15 @@ export default function AppPage() {
               const active = i === stepIndex;
               return (
                 <div key={s.id} className="flex items-center gap-1">
-                  {i > 0 && <div className={`h-px w-8 transition-colors ${done ? "bg-amber-500/60" : "bg-white/10"}`} />}
+                  {i > 0 && <div className={`h-px w-8 transition-colors ${done ? "bg-amber-500" : "bg-slate-200"}`} />}
                   <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-all ${
                     active ? "bg-amber-500 text-slate-900" :
-                    done ? "bg-amber-500/20 text-amber-500" :
-                    "bg-white/5 text-slate-600"
+                    done ? "bg-amber-200 text-amber-600" :
+                    "bg-slate-100 text-slate-700"
                   }`}>
                     {done ? "✓" : s.num}
                   </div>
-                  <span className={`hidden text-xs sm:block transition-colors ${active ? "text-white" : done ? "text-slate-500" : "text-slate-700"}`}>
+                  <span className={`hidden text-xs sm:block transition-colors ${active ? "text-slate-900" : done ? "text-slate-700" : "text-slate-800"}`}>
                     {s.label}
                   </span>
                 </div>
@@ -92,7 +92,7 @@ export default function AppPage() {
           {step === "results" && (
             <button
               onClick={() => setStep("upload")}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-400 transition hover:border-white/20 hover:text-white"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
             >
               + 파일 추가
             </button>
@@ -117,9 +117,9 @@ export default function AppPage() {
       ) : (
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <aside className="flex w-52 shrink-0 flex-col border-r border-white/[0.06] bg-[#0d0d14] p-3">
+          <aside className="flex w-52 shrink-0 flex-col border-r border-slate-200 bg-slate-50 p-3">
             <div className="mb-4 px-2 pt-2">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">분석 뷰</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-700">분석 뷰</p>
             </div>
             <nav className="space-y-0.5">
               {NAV.map((item) => (
@@ -128,11 +128,11 @@ export default function AppPage() {
                   onClick={() => setActiveTab(item.id)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all ${
                     activeTab === item.id
-                      ? "bg-amber-500/10 text-amber-400"
-                      : "text-slate-500 hover:bg-white/[0.04] hover:text-slate-300"
+                      ? "bg-amber-100 text-amber-600"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-800"
                   }`}
                 >
-                  <span className={activeTab === item.id ? "text-amber-400" : "text-slate-600"}>
+                  <span className={activeTab === item.id ? "text-amber-600" : "text-slate-700"}>
                     {item.icon}
                   </span>
                   {item.label}
@@ -140,10 +140,10 @@ export default function AppPage() {
               ))}
             </nav>
 
-            <div className="mt-auto border-t border-white/[0.06] pt-4">
-              <div className="rounded-lg bg-white/[0.03] p-3">
-                <p className="text-[10px] text-slate-600">컬렉션</p>
-                <p className="mt-0.5 truncate text-xs font-medium text-slate-400">{collectionName}</p>
+            <div className="mt-auto border-t border-slate-200 pt-4">
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="text-[10px] text-slate-700">컬렉션</p>
+                <p className="mt-0.5 truncate text-xs font-medium text-slate-700">{collectionName}</p>
               </div>
             </div>
           </aside>

@@ -236,8 +236,8 @@ class KnowledgeGraph:
         net = Network(
             height="580px",
             width="100%",
-            bgcolor="#1a1a2e",
-            font_color="#ffffff",
+            bgcolor="#ffffff",
+            font_color="#0f172a",
             directed=True,
         )
         net.set_options("""
@@ -254,11 +254,11 @@ class KnowledgeGraph:
           },
           "edges": {
             "arrows": {"to": {"enabled": true, "scaleFactor": 0.8}},
-            "color": {"color": "#888888"},
+            "color": {"color": "#64748b"},
             "smooth": {"type": "curvedCW", "roundness": 0.1}
           },
           "nodes": {
-            "font": {"size": 14, "strokeWidth": 3, "strokeColor": "#1a1a2e"},
+            "font": {"size": 14, "strokeWidth": 3, "strokeColor": "#ffffff"},
             "borderWidth": 2
           },
           "interaction": {
@@ -341,45 +341,45 @@ class KnowledgeGraph:
 /* ── 상단 툴바 ── */
 #kbar{position:fixed;top:0;left:0;right:0;height:44px;z-index:9999;
   display:flex;align-items:center;gap:8px;padding:0 12px;
-  background:rgba(6,6,20,.95);border-bottom:1px solid #1e293b;font-family:sans-serif;}
-#kbk{background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:6px;
+  background:rgba(255,255,255,.96);border-bottom:1px solid #e2e8f0;font-family:sans-serif;}
+#kbk{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;
   padding:3px 10px;font-size:12px;cursor:pointer;display:none;align-items:center;gap:4px;}
-#kbk:hover{background:#334155;color:#e2e8f0;}
-#kbc{color:#64748b;font-size:12px;flex:1;}
-#kbc b{color:#e2e8f0;}
+#kbk:hover{background:#e2e8f0;color:#0f172a;}
+#kbc{color:#475569;font-size:12px;flex:1;}
+#kbc b{color:#0f172a;}
 #klv{font-size:10px;padding:2px 8px;border-radius:10px;
-  background:#0f172a;color:#475569;border:1px solid #1e293b;white-space:nowrap;}
+  background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;white-space:nowrap;}
 #kzm{display:flex;align-items:center;gap:4px;}
-#kzm button{background:#1e293b;color:#e2e8f0;border:1px solid #334155;
+#kzm button{background:#f1f5f9;color:#0f172a;border:1px solid #cbd5e1;
   border-radius:5px;width:26px;height:26px;font-size:15px;cursor:pointer;line-height:1;}
-#kzm button:hover:not(:disabled){background:#334155;}
+#kzm button:hover:not(:disabled){background:#e2e8f0;}
 #kzm button:disabled{opacity:.3;cursor:default;}
-#kzm span{color:#94a3b8;font-size:11px;min-width:34px;text-align:center;}
+#kzm span{color:#475569;font-size:11px;min-width:34px;text-align:center;}
 /* ── 상세 패널 ── */
 #np{position:fixed;top:52px;right:8px;width:255px;
   max-height:calc(100% - 60px);overflow-y:auto;
-  background:rgba(6,6,22,.97);border:1px solid #1e293b;border-radius:10px;
-  padding:13px;z-index:9990;display:none;font-family:sans-serif;color:#e2e8f0;font-size:12px;}
-#np h3{color:#fff;font-size:13px;margin:0 0 5px;word-break:break-all;padding-right:18px;}
+  background:rgba(255,255,255,.98);border:1px solid #cbd5e1;border-radius:10px;
+  padding:13px;z-index:9990;display:none;font-family:sans-serif;color:#0f172a;font-size:12px;}
+#np h3{color:#0f172a;font-size:13px;margin:0 0 5px;word-break:break-all;padding-right:18px;}
 .ntag{display:inline-block;padding:2px 8px;border-radius:4px;
   font-size:10px;margin-bottom:8px;color:#fff;font-weight:700;}
-.nsec{color:#475569;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
-  margin:9px 0 3px;font-weight:700;border-top:1px solid #0f172a;padding-top:7px;}
-.ncol{padding:1px 0;font-size:11px;color:#cbd5e1;
+.nsec{color:#334155;font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+  margin:9px 0 3px;font-weight:700;border-top:1px solid #e2e8f0;padding-top:7px;}
+.ncol{padding:1px 0;font-size:11px;color:#1e293b;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ncol.fk{color:#fbbf24;}
+.ncol.fk{color:#b45309;}
 .nedg{padding:2px 0;font-size:11px;}
-.no{color:#6ee7b7;}.ni{color:#93c5fd;}
-.nr{color:#334155;font-size:10px;}
-.nn{color:#334155;font-size:11px;font-style:italic;}
-.ndoc{padding:2px 0;font-size:11px;color:#7dd3fc;}
+.no{color:#047857;}.ni{color:#1d4ed8;}
+.nr{color:#64748b;font-size:10px;}
+.nn{color:#64748b;font-size:11px;font-style:italic;}
+.ndoc{padding:2px 0;font-size:11px;color:#0369a1;}
 #npx{position:absolute;top:7px;right:9px;background:none;border:none;
-  color:#475569;cursor:pointer;font-size:17px;line-height:1;padding:0;}
-#npx:hover{color:#e2e8f0;}
+  color:#64748b;cursor:pointer;font-size:17px;line-height:1;padding:0;}
+#npx:hover{color:#0f172a;}
 /* ── 힌트 ── */
 #kht{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:9998;
-  background:rgba(15,23,42,.92);border:1px solid #334155;border-radius:20px;
-  padding:5px 16px;font-size:11px;color:#64748b;font-family:sans-serif;
+  background:rgba(255,255,255,.94);border:1px solid #cbd5e1;border-radius:20px;
+  padding:5px 16px;font-size:11px;color:#475569;font-family:sans-serif;
   pointer-events:none;opacity:0;transition:opacity .4s;white-space:nowrap;}
 </style>
 <div id="kbar">
@@ -429,7 +429,7 @@ var TV={
 };
 function gv(type){return TV[type]||{s:'dot',c:'#6B7280',z:20};}
 function fnt(sz,col){
-  return {size:sz||14,strokeWidth:3,strokeColor:'#06060e',color:col||'#ffffff'};
+  return {size:sz||14,strokeWidth:3,strokeColor:'#ffffff',color:col||'#0f172a'};
 }
 
 /* ════ 줌 ════ */
@@ -492,12 +492,12 @@ function setV(lv,g){
       nds.push({
         id:'_G_'+k,
         label:(GX[k]||'')+'  '+(GN[k]||k)+'\n('+cnt+'개 테이블)',
-        color:{background:GC[k]||'#6B7280',border:'#ffffff33',
-               highlight:{background:GC[k]||'#6B7280',border:'#fff'}},
+        color:{background:GC[k]||'#6B7280',border:'#00000033',
+               highlight:{background:GC[k]||'#6B7280',border:'#0f172a'}},
         size:Math.max(62,46+cnt*5),
         shape:'ellipse',
         borderWidth:3,
-        font:{size:15,strokeWidth:4,strokeColor:'#06060e',bold:true,multi:true,color:'#ffffff'},
+        font:{size:15,strokeWidth:4,strokeColor:'#ffffff',bold:true,multi:true,color:'#0f172a'},
         shadow:{enabled:true,size:12,color:(GC[k]||'#555')+'66'},
         title:(DD.gs[k]||[]).join('\n'),
         _grp:k, _isG:true,
@@ -536,7 +536,7 @@ function setV(lv,g){
     mem.forEach(function(id){
       var m=NM[id]||{},v=gv(m.type);
       nds.push({id:id,label:id,
-        color:{background:v.c,border:v.c+'cc',highlight:{background:v.c,border:'#fff'}},
+        color:{background:v.c,border:v.c+'cc',highlight:{background:v.c,border:'#0f172a'}},
         size:v.z,shape:v.s,borderWidth:2,
         font:fnt(13),title:'컬럼 수: '+(m.columns||[]).length+'개'});
     });

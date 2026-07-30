@@ -37,7 +37,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
 
     if (match[1] !== undefined) {
       nodes.push(
-        <strong key={key} className="font-semibold text-slate-100">
+        <strong key={key} className="font-semibold text-slate-900">
           {match[1]}
         </strong>
       );
@@ -45,7 +45,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       nodes.push(
         <code
           key={key}
-          className="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.85em] text-amber-200"
+          className="rounded bg-slate-200 px-1 py-0.5 font-mono text-[0.85em] text-amber-800"
         >
           {match[2]}
         </code>
@@ -116,9 +116,9 @@ function parseBlocks(src: string): Block[] {
 }
 
 const HEADING_SIZE: Record<number, string> = {
-  1: "text-base font-semibold text-slate-100",
-  2: "text-sm font-semibold text-slate-100",
-  3: "text-sm font-semibold text-slate-200",
+  1: "text-base font-semibold text-slate-900",
+  2: "text-sm font-semibold text-slate-900",
+  3: "text-sm font-semibold text-slate-900",
 };
 
 interface Props {
@@ -144,7 +144,7 @@ export default function Markdown({ text, className = "" }: Props) {
 
         if (block.type === "ul") {
           return (
-            <ul key={key} className="list-disc space-y-1 pl-5 marker:text-slate-500">
+            <ul key={key} className="list-disc space-y-1 pl-5 marker:text-slate-700">
               {block.items.map((item, j) => (
                 <li key={`${key}-${j}`}>{renderInline(item, `${key}-${j}`)}</li>
               ))}
@@ -154,7 +154,7 @@ export default function Markdown({ text, className = "" }: Props) {
 
         if (block.type === "ol") {
           return (
-            <ol key={key} className="list-decimal space-y-1 pl-5 marker:text-slate-500">
+            <ol key={key} className="list-decimal space-y-1 pl-5 marker:text-slate-700">
               {block.items.map((item, j) => (
                 <li key={`${key}-${j}`}>{renderInline(item, `${key}-${j}`)}</li>
               ))}

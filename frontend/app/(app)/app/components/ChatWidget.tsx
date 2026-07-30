@@ -73,26 +73,26 @@ export default function ChatWidget({ collectionName, domainContext }: Props) {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
       {/* Chat panel */}
       {open && (
-        <div className="flex h-[520px] w-[360px] flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0d0d14] shadow-2xl shadow-black/60">
+        <div className="flex h-[520px] w-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl shadow-black/60">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10">
-                <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4 text-amber-400">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100">
+                <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4 text-amber-600">
                   <path d="M3.505 2.365A41.369 41.369 0 019 2c1.863 0 3.601.124 5.495.365 1.247.167 2.18 1.108 2.435 2.268a4.45 4.45 0 00-.577-.069 43.141 43.141 0 00-4.706 0C9.229 4.696 7.5 6.727 7.5 8.998v2.24c0 1.413.67 2.735 1.76 3.562l-2.98 2.98A.75.75 0 015 17.25v-3.443c-.501-.048-1-.106-1.495-.172C2.033 13.438 1 12.162 1 10.72V5.28c0-1.441 1.033-2.717 2.505-2.914z"/>
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">AI 어시스턴트</p>
+                <p className="text-sm font-semibold text-slate-900">AI 어시스턴트</p>
                 <div className="flex items-center gap-1">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-[10px] text-slate-500">온라인</span>
+                  <span className="text-[10px] text-slate-700">온라인</span>
                 </div>
               </div>
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 transition hover:bg-white/[0.06] hover:text-slate-300"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100 hover:text-slate-800"
             >
               <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
                 <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
@@ -104,13 +104,13 @@ export default function ChatWidget({ collectionName, domainContext }: Props) {
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center gap-4 pt-6 text-center">
-                <p className="text-sm text-slate-500">데이터에 대해 무엇이든 물어보세요</p>
+                <p className="text-sm text-slate-700">데이터에 대해 무엇이든 물어보세요</p>
                 <div className="flex flex-col gap-1.5 w-full">
                   {SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => send(s)}
-                      className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-left text-xs text-slate-500 transition hover:border-white/[0.1] hover:text-slate-300"
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-700 transition hover:border-slate-300 hover:text-slate-800"
                     >
                       {s}
                     </button>
@@ -120,13 +120,13 @@ export default function ChatWidget({ collectionName, domainContext }: Props) {
             ) : (
               messages.map((m, i) => (
                 <div key={i} className={`flex items-end gap-2 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${m.role === "user" ? "bg-amber-500 text-slate-900" : "bg-white/[0.06] text-slate-400"}`}>
+                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${m.role === "user" ? "bg-amber-500 text-slate-900" : "bg-slate-100 text-slate-700"}`}>
                     {m.role === "user" ? "나" : "AI"}
                   </div>
                   <div className={`max-w-[82%] rounded-2xl px-3 py-2.5 text-xs leading-relaxed ${
                     m.role === "user"
-                      ? "rounded-br-sm bg-amber-500/10 text-amber-100 border border-amber-500/20"
-                      : "rounded-bl-sm bg-white/[0.05] text-slate-300 border border-white/[0.06]"
+                      ? "rounded-br-sm bg-amber-100 text-amber-900 border border-amber-300"
+                      : "rounded-bl-sm bg-slate-100 text-slate-800 border border-slate-200"
                   }`}>
                     {m.role === "assistant" && !(streaming && i === messages.length - 1) ? (
                       <Markdown text={m.content} />
@@ -134,7 +134,7 @@ export default function ChatWidget({ collectionName, domainContext }: Props) {
                       <p className="whitespace-pre-wrap">{m.content}</p>
                     )}
                     {m.role === "assistant" && streaming && i === messages.length - 1 && (
-                      <span className="ml-0.5 inline-block h-3 w-[2px] translate-y-[1px] animate-pulse bg-amber-400" />
+                      <span className="ml-0.5 inline-block h-3 w-[2px] translate-y-[1px] animate-pulse bg-amber-600" />
                     )}
                   </div>
                 </div>
@@ -146,7 +146,7 @@ export default function ChatWidget({ collectionName, domainContext }: Props) {
           {/* Input */}
           <form
             onSubmit={(e: FormEvent) => { e.preventDefault(); send(); }}
-            className="flex items-center gap-2 border-t border-white/[0.06] p-3"
+            className="flex items-center gap-2 border-t border-slate-200 p-3"
           >
             <input
               ref={inputRef}
@@ -155,7 +155,7 @@ export default function ChatWidget({ collectionName, domainContext }: Props) {
               onChange={(e) => setInput(e.target.value)}
               placeholder="질문 입력..."
               disabled={streaming}
-              className="flex-1 rounded-lg border border-white/[0.07] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-600 outline-none transition focus:border-amber-500/40 disabled:opacity-50"
+              className="flex-1 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-900 placeholder-slate-600 outline-none transition focus:border-amber-500 disabled:opacity-50"
             />
             <button
               type="submit"
