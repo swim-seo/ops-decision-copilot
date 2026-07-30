@@ -11,7 +11,7 @@
 import json
 import os
 import re
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 import networkx as nx
 from pyvis.network import Network
@@ -25,31 +25,59 @@ FK_SUFFIXES = ("_id", "_no", "_code", "_cd", "_num", "_key", "_seq", "_pk", "번
 TABLE_NODE_TYPES = frozenset({"csv_table", "master_table", "fact_table"})
 
 
-def _match_fk_reference(fk_col: str, all_names: Dict[str, str]) -> Optional[str]:
+def _match_fk_reference(fk_col: str, all_names: Dict[str, str],
+                        self_name: Optional[str] = None) -> Optional[str]:
     """FK 후보 컬럼명이 가리키는 테이블명을 추론합니다. (PRODUCT_ID → MST_PRODUCT)
 
     all_names: {소문자 테이블명: 원본 테이블명}
+    self_name: FK 컬럼을 가진 테이블. 자기 자신은 후보에서 제외되고,
+               컬럼이 그 테이블의 기본키로 보이면 FK 로 취급하지 않습니다.
+               (예: FACT_ORDER.ORDER_ID 는 PK 이므로 엣지를 만들지 않는다)
+
+    후보가 여럿이면 이름이 더 정확하게 대응하는 쪽을 고릅니다. 단순히 "포함"만
+    보면 PROMOTION_ID 가 MST_PROMOTION 대신 FACT_PROMOTION_RESULT 로 붙어
+    마스터→팩트 역방향 엣지가 생깁니다.
     """
     for suffix in FK_SUFFIXES:
         if not fk_col.lower().endswith(suffix):
             continue
 
-        ref_candidate = fk_col[: -len(suffix)].lower()
-        if not ref_candidate:
+        ref = fk_col[: -len(suffix)].lower()
+        if not ref:
             return None
-        # 1) 정확 매칭
-        if ref_candidate in all_names:
-            return all_names[ref_candidate]
-        # 2) 복수형(s)
-        if ref_candidate + "s" in all_names:
-            return all_names[ref_candidate + "s"]
-        # 3) 부분 포함 (MST_PRODUCT ⊃ product) 또는 역방향
+
+        # 자기 테이블을 가리키는 컬럼 = 기본키. FK 가 아니다.
+        if self_name is not None:
+            own = self_name.lower()
+            if own == ref or own.endswith("_" + ref) or own.startswith(ref):
+                return None
+
+        best: Optional[Tuple[int, int, str]] = None
         for tname_lower, tname in all_names.items():
-            if (ref_candidate in tname_lower
-                    or tname_lower.startswith(ref_candidate)
-                    or ref_candidate.startswith(tname_lower)):
-                return tname
-        return None
+            if tname == self_name:
+                continue
+
+            if tname_lower == ref:
+                priority = 0                                  # product == product
+            elif tname_lower == ref + "s":
+                priority = 1                                  # 복수형
+            elif tname_lower.endswith("_" + ref):
+                priority = 2                                  # mst_product ← product
+            elif tname_lower.startswith(ref):
+                priority = 3
+            elif ref in tname_lower:
+                priority = 4
+            elif ref.startswith(tname_lower):
+                priority = 5
+            else:
+                continue
+
+            # 같은 우선순위면 짧은 이름(= 군더더기 적은 대응)을 택한다.
+            candidate = (priority, len(tname_lower), tname)
+            if best is None or candidate < best:
+                best = candidate
+
+        return best[2] if best else None
 
     return None
 
@@ -721,7 +749,7 @@ function showD(id){
         #      업로드 루프가 끝난 뒤 link_csv_tables() 로 보강한다.
         all_names = {n.lower(): n for n in (all_table_names or list(self.graph.nodes))}
         for fk_col in fk_candidates:
-            matched_ref = _match_fk_reference(fk_col, all_names)
+            matched_ref = _match_fk_reference(fk_col, all_names, self_name=table_name)
             if matched_ref and matched_ref != table_name:
                 self.graph.add_edge(table_name, matched_ref, relation=fk_col)
 
@@ -751,7 +779,7 @@ function showD(id){
 
         for table_name, data in tables.items():
             for fk_col in data.get("fk_cols", []):
-                matched_ref = _match_fk_reference(fk_col, all_names)
+                matched_ref = _match_fk_reference(fk_col, all_names, self_name=table_name)
                 if not matched_ref or matched_ref == table_name:
                     continue
                 if self.graph.has_edge(table_name, matched_ref):
