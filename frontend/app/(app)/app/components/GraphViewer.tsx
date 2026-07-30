@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 
-interface Props { collectionName: string; }
+interface Props { collectionName: string }
+
+/** 그래프는 백엔드(pyvis)가 렌더한 HTML을 iframe으로 싣는다.
+ *  범례의 색·도형은 서버가 실제로 그리는 값과 같아야 하므로 hex를 그대로 적는다. */
+const LEGEND: Array<{ shape: "diamond" | "ellipse"; color: string; label: string }> = [
+  { shape: "diamond", color: "#7C3AED", label: "마스터 테이블" },
+  { shape: "ellipse", color: "#2563EB", label: "팩트 테이블" },
+];
 
 export default function GraphViewer({ collectionName }: Props) {
   const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -10,29 +17,48 @@ export default function GraphViewer({ collectionName }: Props) {
   const [key, setKey] = useState(0);
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">지식 그래프</h2>
-          <p className="text-xs text-slate-600">업로드된 문서의 구조와 관계를 시각화합니다</p>
+          <h2 className="font-display text-[17px] font-medium text-ink">테이블 연결 구조</h2>
+          <p className="mt-1 max-w-[52ch] break-keep text-[12px] text-ink2">
+            선은 외래키입니다. 테이블을 클릭하면 컬럼과 연결 관계가 열립니다.
+          </p>
         </div>
         <button
+          type="button"
           onClick={() => setKey((k) => k + 1)}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 transition hover:border-slate-300 hover:text-slate-800"
+          className="border border-rule px-3 py-1.5 font-data text-[11px] text-ink2 transition hover:border-ink3 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-watch"
         >
-          <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
-            <path fillRule="evenodd" d="M8 2.5a5.487 5.487 0 00-4.131 1.869l1.204 1.204A.25.25 0 014.896 6H1.75A.25.25 0 011.5 5.75V2.604a.25.25 0 01.427-.177l1.38 1.38A7.001 7.001 0 0114.95 7.16a.75.75 0 11-1.49.178A5.501 5.501 0 008 2.5zM1.705 8.005a.75.75 0 01.834.656 5.501 5.501 0 009.592 2.97l-1.204-1.204a.25.25 0 01.177-.427h3.146a.25.25 0 01.25.25v3.146a.25.25 0 01-.427.177l-1.38-1.38A7.001 7.001 0 011.05 8.84a.75.75 0 01.656-.834z" clipRule="evenodd"/>
-          </svg>
-          새로고침
+          다시 그리기
         </button>
       </div>
 
-      <div className="flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        {LEGEND.map((item) => (
+          <li key={item.label} className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className={`h-2.5 w-2.5 ${item.shape === "diamond" ? "rotate-45" : "rounded-full"}`}
+              style={{ backgroundColor: item.color }}
+            />
+            <span className="font-data text-[11px] text-ink2">{item.label}</span>
+          </li>
+        ))}
+        <li className="flex items-center gap-2">
+          <span aria-hidden="true" className="font-data text-[13px] leading-none text-ink3">
+            &rarr;
+          </span>
+          <span className="font-data text-[11px] text-ink2">참조 방향 (팩트 &rarr; 마스터)</span>
+        </li>
+      </ul>
+
+      <div className="flex-1 overflow-hidden border border-rule bg-sheet">
         <iframe
           key={key}
           src={url}
           className="h-full w-full"
-          title="Knowledge Graph"
+          title="테이블 연결 구조"
           sandbox="allow-scripts allow-same-origin"
         />
       </div>

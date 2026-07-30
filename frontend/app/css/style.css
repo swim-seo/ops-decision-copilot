@@ -12,6 +12,24 @@
   --font-inter: Inter, sans-serif;
   --font-mono: Roboto Mono, monospace;
 
+  /* 폰트 패밀리는 @theme 로 두면 값이 var() 참조라 Tailwind 가 :root 에
+     변수를 내보내지 않아 유틸리티가 죽는다. 파일 끝에서 직접 정의한다. */
+
+  /* 중립색은 회색이 아니라 청색으로 살짝 기울인 종이색 — 운영 콘솔의 계측기 느낌 */
+  --color-paper: #f5f7f9;
+  --color-sheet: #ffffff;
+  --color-ink: #0e1519;
+  --color-ink2: #4c5c67;
+  --color-ink3: #7c8b96;
+  --color-rule: #d5dde3;
+  --color-rule2: #e8edf1;
+
+  /* 앰버는 브랜드·행동 전용. 상태색과 겹치지 않게 분리한다. */
+  --color-signal: #d97706;
+  --color-crit: #b3261e;
+  --color-watch: #1f4fa8;
+  --color-ok: #0f7b4f;
+
   --text-xs: 0.75rem;
   --text-xs--line-height: 1.5;
   --text-sm: 0.875rem;
@@ -203,5 +221,56 @@
   ::backdrop,
   ::file-selector-button {
     border-color: var(--color-gray-200, currentColor);
+  }
+}
+/* ── /app 로드 시퀀스 ─────────────────────────────────────────────
+   한 번만, 순서대로: 괘선이 그려지고 → 사양값이 올라오고 → 카드가 뜬다.
+   흩뿌려진 효과 대신 한 번의 연출. */
+@keyframes rule-draw {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes lift {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(var(--bar, 1)); }
+}
+
+.seq-rule {
+  transform-origin: left center;
+  animation: rule-draw 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.seq-lift {
+  animation: lift 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+.seq-bar {
+  transform-origin: left center;
+  transform: scaleX(var(--bar, 1));
+  animation: bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seq-rule, .seq-lift, .seq-bar { animation: none; }
+  .seq-rule { transform: none; }
+  .seq-lift { opacity: 1; transform: none; }
+}
+
+/* ── 폰트 패밀리 유틸리티 ─────────────────────────────────────────
+   --ff-* 는 next/font 가 <body> 에 주입한다. @theme 를 거치지 않고
+   여기서 직접 선언해야 실제로 적용된다. */
+@layer utilities {
+  .font-display {
+    font-family: var(--ff-display), 'Nanum Myeongjo', Georgia, serif;
+  }
+  .font-ui {
+    font-family: var(--ff-ui), 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  }
+  .font-data {
+    font-family: var(--ff-data), ui-monospace, SFMono-Regular, monospace;
   }
 }
