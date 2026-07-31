@@ -227,9 +227,47 @@
 | 4 | 스프린트3 인증 + 부서 가중치 RAG | ✅ Step1 부서가중RAG(실검증)·Step2 인증(경량)·Step3 테넌트격리+RLS 전부 |
 | 5 | 스프린트4 비동기 큐 + 관측 | ✅ 관측 + 비동기큐 전부 (⚠️ jobs_migration.sql 실행 대기) |
 | 6a | 백엔드 배포(Railway) | ✅ 라이브 (ops-decision-copilot-production.up.railway.app) |
-| 6b | 프론트 연결(Vercel NEXT_PUBLIC_API_URL) | 🔄 env 추가함 · **Redeploy 대기** |
-| 6c | 포폴 재작성(구현 결과 반영) | ⬜ (배포 e2e 후) |
-| 7 | 합성 데모데이터(CSV) 생성 품질·로직 재정의 | ⬜ (사용자 지연요청) |
+| 6b | 프론트 연결(Vercel NEXT_PUBLIC_API_URL) | ✅ 완료 (2026-07-29, 재빌드 필요했음) |
+| 6c | 포폴 재작성(구현 결과 반영) | ⬜ **다음 후보** |
+| 7 | 합성 데모데이터(CSV) 생성 품질·로직 재정의 | ✅ 재생성 완료 (2026-07-30, `scripts/generate_beauty.py`) |
+| 8 | 디자인 패스 + 결과화면 검증 | ✅ 완료·배포 (2026-07-31, `b2d3435`) |
+| 9 | 브리핑 RAG recall 복구 | ✅ 코드완료 · 마이그레이션 실행됨 · 4카드 정상 확인 |
+| 10 | 스키마 그래프 가독성(조인키 매트릭스) | ✅ 코드완료 (①백엔드 ②매트릭스 ③계층배치) |
+
+---
+
+## 4-1. 2026-07-31 세션 재개 메모
+
+**끝난 것**
+
+- 조인 키가 `/api/graph/data` 의 1급 필드(`join_key`·`join_keys`)로 나간다.
+  `join_key` 가 없던 시절에 저장된 그래프는 `relation` 에서 끌어오므로 재적재 불필요.
+- 브리핑 탭에 조인 키 매트릭스(행=참조하는 테이블, 열=참조받는 테이블, 칸=FK).
+  참조 허브 리스트는 그 아래 유지.
+- 스키마 그래프는 "군집 보기" 로 강등 + 방향 기준 계층 배치(physics off).
+- 브리핑 4개 카드 전부 실데이터 답변 확인 — 심어둔 시나리오(PRD006 결품
+  CRITICAL, PRD016 품질불량 반품)를 실제로 짚는다.
+
+**아직 안 한 것**
+
+- 스키마 그래프 변경분 **배포 안 됨**. Railway 는 push 하면 자동, Vercel 은
+  `cd frontend && npx vercel --prod --yes` 수동.
+- 허브(MST_PRODUCT) **중앙 고정은 미적용**. `sortMethod:'directed'` 가 팩트/마스터
+  단 구분을 만드는 쪽이 더 값어치 있다고 보고 그대로 뒀다. 중앙 고정을 원하면
+  `sortMethod:'hubsize'` 로 바꿔야 하는데 그러면 단 구분이 깨진다.
+- 🐛 `backend/routers/domain.py` `_collection_name()` 이 한글을 전부 지워
+  모든 한글 도메인이 `domain_default` 로 충돌하는 버그 — 미수정. 그 탓에
+  현재 `domain_default` 컬렉션에 과거 도메인 파일(`MST_PART`,
+  `FACT_MONTHLY_DEMAND`, `BEAUTY_*`)이 섞여 있고 브리핑 근거에도 끼어든다.
+- venv 에 `pytest`·`ruff` 없음 — 검증은 임시 스크립트로 했다.
+
+**검증 요령(비용 0)**
+
+- 결과 화면은 `frontend/app/(app)/app/page.tsx` 의 초기 state 를
+  `step:"results"`, `collectionName:"domain_default"` 로 잠깐 고정하면
+  샘플 재적재(91초 + Claude 비용) 없이 바로 볼 수 있다. **확인 뒤 반드시 원복.**
+- 주입 JS 를 만졌으면 `JS_TEMPLATE` 을 뽑아 `node --check`. `set_options` 문자열은
+  `json.loads` 로. 예전에 주입 JS 가 통째로 죽은 채 정상처럼 보인 적이 있다.
 
 ---
 

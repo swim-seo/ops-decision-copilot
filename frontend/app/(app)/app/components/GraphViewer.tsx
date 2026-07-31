@@ -20,9 +20,10 @@ export default function GraphViewer({ collectionName }: Props) {
     <div className="flex h-full flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          <h2 className="font-display text-[17px] font-medium text-ink">테이블 연결 구조</h2>
+          <h2 className="font-display text-[17px] font-medium text-ink">군집 보기</h2>
           <p className="mt-1 max-w-[52ch] break-keep text-[12px] text-ink2">
-            선은 외래키입니다. 테이블을 클릭하면 컬럼과 연결 관계가 열립니다.
+            위가 팩트, 아래가 참조받는 마스터입니다. 선 위 이름이 조인 키이고,
+            테이블을 클릭하면 컬럼과 연결 관계가 열립니다.
           </p>
         </div>
         <button

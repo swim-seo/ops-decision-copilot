@@ -25,6 +25,18 @@ FK_SUFFIXES = ("_id", "_no", "_code", "_cd", "_num", "_key", "_seq", "_pk", "번
 TABLE_NODE_TYPES = frozenset({"csv_table", "master_table", "fact_table"})
 
 
+def _edge_join_key(attrs: Dict[str, Any]) -> str:
+    """엣지 속성에서 조인 키 표시 문자열을 뽑는다.
+
+    join_keys 가 정식 필드지만, 그 필드가 생기기 전에 저장된 그래프에는 없다.
+    그런 엣지는 relation 에 조인 키가 들어 있으므로 거기서 받아온다.
+    """
+    keys = attrs.get("join_keys")
+    if keys:
+        return ", ".join(keys)
+    return attrs.get("join_key") or attrs.get("relation") or ""
+
+
 def _match_fk_reference(fk_col: str, all_names: Dict[str, str],
                         self_name: Optional[str] = None) -> Optional[str]:
     """FK 후보 컬럼명이 가리키는 테이블명을 추론합니다. (PRODUCT_ID → MST_PRODUCT)
@@ -160,7 +172,7 @@ class KnowledgeGraph:
             if not join_key and "." in raw_src:
                 join_key = raw_src.split(".", 1)[1]
             if src and tgt:
-                self.graph.add_edge(src, tgt, relation=join_key)
+                self._add_fk_edge(src, tgt, join_key)
 
         return True
 
@@ -240,18 +252,23 @@ class KnowledgeGraph:
             font_color="#0f172a",
             directed=True,
         )
+        # 힘기반 배치는 노드가 열 개만 넘어가도 엉킨 실뭉치가 되고, 매번 다른 그림이
+        # 나와서 "어제 본 그 자리"가 없다. 조인 키 매트릭스가 조회 역할을 맡았으니
+        # 그래프는 묶음 구조만 보여주면 된다 — 방향 기준 계층 배치로 고정하고
+        # physics 는 끈다(팩트가 위, 참조받는 마스터가 아래로 내려간다).
         net.set_options("""
         {
-          "physics": {
-            "forceAtlas2Based": {
-              "gravitationalConstant": -160,
-              "centralGravity": 0.006,
-              "springLength": 280,
-              "springConstant": 0.04,
-              "avoidOverlap": 0.6
-            },
-            "solver": "forceAtlas2Based",
-            "stabilization": {"iterations": 200}
+          "physics": {"enabled": false},
+          "layout": {
+            "hierarchical": {
+              "enabled": true,
+              "direction": "UD",
+              "sortMethod": "directed",
+              "shakeTowards": "roots",
+              "levelSeparation": 190,
+              "nodeSpacing": 220,
+              "treeSpacing": 240
+            }
           },
           "edges": {
             "arrows": {"to": {"enabled": true, "scaleFactor": 0.8}},
@@ -297,19 +314,20 @@ class KnowledgeGraph:
                 "col_types": attrs.get("col_types", {}),
                 "fk_cols":   attrs.get("fk_cols", []),
                 "out_edges": [
-                    {"to": t,  "rel": self.graph[node_id][t].get("relation", "")}
+                    {"to": t, "rel": _edge_join_key(self.graph[node_id][t])}
                     for t in self.graph.successors(node_id)
                 ],
                 "in_edges": [
-                    {"from": s, "rel": self.graph[s][node_id].get("relation", "")}
+                    {"from": s, "rel": _edge_join_key(self.graph[s][node_id])}
                     for s in self.graph.predecessors(node_id)
                 ],
             }
 
         for src, tgt, attrs in self.graph.edges(data=True):
-            relation = attrs.get("relation", "")
-            # label은 비워두고 title(hover 툴팁)에만 관계명 표시 → 글씨 겹침 방지
-            net.add_edge(src, tgt, label="", title=relation)
+            join_key = _edge_join_key(attrs)
+            # label은 비워두고 title(hover 툴팁)에만 조인 키 표시 → 글씨 겹침 방지.
+            # 주입 JS 가 데이터셋을 갈아끼우면서 라벨을 다시 붙인다.
+            net.add_edge(src, tgt, label="", title=join_key)
 
         os.makedirs(os.path.dirname(GRAPH_OUTPUT_PATH), exist_ok=True)
         # save_graph()는 인코딩을 지정하지 않아 Windows에서 cp949로 저장 → UnicodeEncodeError
@@ -515,11 +533,12 @@ function setND(nds,eds){
   var ed=network.body.data.edges;
   nd.clear();ed.clear();
   nd.add(nds);ed.add(eds);
-  /* 좌표는 안정화가 끝나야 확정된다 — 그 전에 fit 하면 초기 난수 배치에 맞춰진다.
-     이벤트가 안 오는 경우를 대비해 타이머로도 한 번 더 맞춘다. */
+  /* 계층 배치는 좌표가 즉시 확정되므로 바로 맞춘다. physics 를 다시 켜는 경우엔
+     안정화가 끝나야 좌표가 정해지므로 이벤트로도 한 번 더 맞추고, 이벤트가 안 오는
+     경우를 대비해 타이머까지 둔다. */
+  fitAll();
   network.once('stabilizationIterationsDone',fitAll);
-  network.stabilize(120);
-  setTimeout(fitAll,1500);
+  setTimeout(fitAll,1200);
 }
 
 /* ════ 뷰 전환 ════ */
@@ -686,6 +705,30 @@ function showD(id){
 
         return True
 
+    def _add_fk_edge(self, src: str, tgt: str, fk_col: str) -> bool:
+        """스키마 FK 엣지를 추가한다. 이미 있으면 조인 키만 보탠다.
+
+        그래프가 DiGraph 라 같은 두 테이블 사이에는 엣지가 하나뿐이다. 한 팩트가
+        같은 마스터를 두 컬럼으로 참조하면(복합키·역할 구분 FK) 나중 것이 앞의 것을
+        덮어써 조인 키가 소리 없이 사라졌다 — 그래서 키를 join_keys 에 모은다.
+        relation 은 기존 소비자(pyvis 라벨·프론트)를 위해 유지한다.
+
+        반환: 엣지를 새로 만들었으면 True.
+        """
+        if self.graph.has_edge(src, tgt):
+            data = self.graph.edges[src, tgt]
+            keys = list(data.get("join_keys") or ([data["join_key"]] if data.get("join_key") else []))
+            if fk_col and fk_col not in keys:
+                keys.append(fk_col)
+                data["join_keys"] = keys
+                data["join_key"] = keys[0]
+                data["relation"] = ", ".join(keys)
+            return False
+
+        keys = [fk_col] if fk_col else []
+        self.graph.add_edge(src, tgt, relation=fk_col, join_key=fk_col, join_keys=keys)
+        return True
+
     def build_from_csv_schema(self, schema: dict, all_table_names: list = None) -> bool:
         """CSV 스키마에서 테이블 노드와 FK 관계 엣지를 추가합니다."""
         table_name = schema.get("table_name", "")
@@ -729,7 +772,7 @@ function showD(id){
         for fk_col in fk_candidates:
             matched_ref = _match_fk_reference(fk_col, all_names, self_name=table_name)
             if matched_ref and matched_ref != table_name:
-                self.graph.add_edge(table_name, matched_ref, relation=fk_col)
+                self._add_fk_edge(table_name, matched_ref, fk_col)
 
         return True
 
@@ -760,10 +803,8 @@ function showD(id){
                 matched_ref = _match_fk_reference(fk_col, all_names, self_name=table_name)
                 if not matched_ref or matched_ref == table_name:
                     continue
-                if self.graph.has_edge(table_name, matched_ref):
-                    continue
-                self.graph.add_edge(table_name, matched_ref, relation=fk_col)
-                added += 1
+                if self._add_fk_edge(table_name, matched_ref, fk_col):
+                    added += 1
 
         return added
 

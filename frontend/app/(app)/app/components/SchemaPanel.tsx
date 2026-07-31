@@ -11,7 +11,13 @@ import { useEffect, useMemo, useState } from "react";
  */
 
 interface GraphNode { id: string; type?: string }
-interface GraphEdge { source: string; target: string; relation?: string }
+interface GraphEdge {
+  source: string;
+  target: string;
+  relation?: string;
+  join_key?: string;
+  join_keys?: string[];
+}
 interface Props {
   collectionName: string;
   domainContext: string;
@@ -95,6 +101,52 @@ export default function SchemaPanel({ collectionName, domainContext, onSelectTab
     };
   }, [nodes, edges]);
 
+  /**
+   * 조인 키 매트릭스 — 행은 참조하는 쪽(주로 팩트), 열은 참조받는 쪽(주로 마스터),
+   * 칸은 그 둘을 잇는 외래키다.
+   *
+   * 노드-링크 그래프로는 "이 팩트를 저 마스터에 무슨 키로 붙이지?" 를 한 번에 못 읽는다.
+   * 조회형 질문이라 표가 맞다. 열은 참조 많은 순이라 첫 열이 곧 이 스키마의 축이다.
+   *
+   * 행을 팩트로만 제한하지는 않는다 — MST_PRODUCT→MST_SUPPLIER 처럼 마스터끼리
+   * 물리는 FK 가 실제로 있고, 그걸 빼면 표가 스키마를 온전히 설명하지 못한다.
+   */
+  const matrix = useMemo(() => {
+    const keyOf = (e: GraphEdge): string => {
+      const keys = e.join_keys?.length ? e.join_keys : e.join_key ? [e.join_key] : [];
+      return keys.join(", ");
+    };
+
+    // 행 → (열 → 조인키). 두 이름을 한 문자열로 이어 붙여 키를 만들면 구분자가
+    // 조용히 어긋났을 때 표 전체가 빈 칸으로 나오고 원인이 보이지 않는다.
+    const cells = new Map<string, Map<string, string>>();
+    const inboundCount = new Map<string, number>();
+
+    for (const edge of edges) {
+      if (!edge.source || !edge.target) continue;
+      const key = keyOf(edge);
+      // 키를 모르는 연결은 칸을 채우지 않는다. 빈 칸이 "연결 없음" 을 뜻해야
+      // 표가 읽히는데, 키 없는 연결까지 칠하면 그 구분이 무너진다.
+      if (!key) continue;
+      const row = cells.get(edge.source) ?? new Map<string, string>();
+      row.set(edge.target, key);
+      cells.set(edge.source, row);
+      inboundCount.set(edge.target, (inboundCount.get(edge.target) ?? 0) + 1);
+    }
+
+    const cols = Array.from(inboundCount.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([id]) => id);
+
+    // 팩트를 위로 올린다. 읽는 사람은 "무엇을 무엇에 붙이나" 를 팩트 기준으로 본다.
+    const rank = (id: string) => (id.startsWith("FACT_") ? 0 : 1);
+    const rows = Array.from(cells.keys()).sort(
+      (a, b) => rank(a) - rank(b) || a.localeCompare(b)
+    );
+
+    return { rows, cols, cells };
+  }, [edges]);
+
   // mono 는 ASCII 값에만 쓴다. 도메인명은 한글이라 mono 로 두면 글리프가 없어
   // 공백 폭만 mono 를 따라가고 자간이 벌어진다.
   const specs: Array<{ label: string; value: string; mono: boolean }> = [
@@ -125,6 +177,83 @@ export default function SchemaPanel({ collectionName, domainContext, onSelectTab
       </dl>
 
       <div className="seq-rule h-px bg-rule" />
+
+      {/* 조인 키 매트릭스 */}
+      {state === "ready" && matrix.rows.length > 0 && (
+        <div className="px-6 py-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">
+              조인 키
+            </h2>
+            <p className="break-keep text-[11px] text-ink2">
+              행을 열에 붙일 때 쓰는 외래키
+            </p>
+          </div>
+
+          {/* 열이 늘어나면 표만 가로로 흐르게 한다 — 페이지가 밀리면 안 된다. */}
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr>
+                  <th scope="col" className="sr-only">
+                    참조하는 테이블
+                  </th>
+                  {matrix.cols.map((col, i) => (
+                    <th
+                      key={col}
+                      scope="col"
+                      className={`whitespace-nowrap border-b border-rule px-3 py-2 font-data text-[12px] font-normal ${
+                        i === 0 ? "bg-rule2 text-ink" : "text-ink2"
+                      }`}
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {matrix.rows.map((row, r) => (
+                  <tr
+                    key={row}
+                    className="seq-lift"
+                    style={{ "--d": `${120 + r * 40}ms` } as React.CSSProperties}
+                  >
+                    <th
+                      scope="row"
+                      className="whitespace-nowrap border-b border-rule2 py-2 pr-4 font-data text-[13px] font-normal text-ink"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onSelectTable?.(row)}
+                        className="underline-offset-4 transition hover:text-watch hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-watch"
+                      >
+                        {row}
+                      </button>
+                    </th>
+                    {matrix.cols.map((col, i) => {
+                      const key = matrix.cells.get(row)?.get(col);
+                      return (
+                        <td
+                          key={col}
+                          className={`whitespace-nowrap border-b border-rule2 px-3 py-2 font-data text-[12px] ${
+                            i === 0 ? "bg-rule2" : ""
+                          } ${key ? "text-ink2" : "text-ink3"}`}
+                        >
+                          {key || <span aria-label="연결 없음">·</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {state === "ready" && matrix.rows.length > 0 && (
+        <div className="seq-rule h-px bg-rule" />
+      )}
 
       {/* 참조 허브 */}
       <div className="px-6 py-5">

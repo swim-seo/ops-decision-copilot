@@ -14,7 +14,8 @@ type ResultTab = "briefing" | "graph";
 
 const NAV: Array<{ id: ResultTab; label: string; note: string; mark: string }> = [
   { id: "briefing", label: "브리핑", note: "오늘 확인할 것", mark: "B" },
-  { id: "graph", label: "지식 그래프", note: "테이블 연결 구조", mark: "G" },
+  // 조인 키 조회는 브리핑 탭의 매트릭스가 맡는다. 그래프는 묶음 구조를 보는 보조 뷰다.
+  { id: "graph", label: "군집 보기", note: "테이블이 묶이는 모양", mark: "G" },
 ];
 
 const STEPS: Array<{ id: Step; label: string; num: number }> = [
