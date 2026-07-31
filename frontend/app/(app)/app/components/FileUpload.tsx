@@ -57,7 +57,7 @@ export default function FileUpload({ collectionName, domainName, onComplete }: P
   return (
     <div>
       <div className="mb-8">
-        <div className="inline-flex items-center gap-2 border border-signal/30 bg-signal/5 px-2.5 py-1 font-data text-[10px] tracking-[0.02em] text-signal">
+        <div className="inline-flex items-center gap-2 border border-signal/30 bg-signal/5 px-2.5 py-1 font-ui text-[11px] font-medium tracking-[0.02em] text-signal">
           <span className="h-1.5 w-1.5 bg-signal" />
           2단계 · 업로드
         </div>
@@ -68,7 +68,7 @@ export default function FileUpload({ collectionName, domainName, onComplete }: P
       {/* Matched sample */}
       {matched && (
         <div className="mb-5">
-          <p className="mb-2 font-data text-[10px] tracking-[0.02em] text-ink3">추천 샘플</p>
+          <p className="mb-2 font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">추천 샘플</p>
           <button
             onClick={() => handleSample(matched.id)}
             disabled={loading}
@@ -90,7 +90,7 @@ export default function FileUpload({ collectionName, domainName, onComplete }: P
       {/* Other samples */}
       {others.length > 0 && (
         <div className="mb-6">
-          <p className="mb-2 font-data text-[10px] tracking-[0.02em] text-ink3">
+          <p className="mb-2 font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">
             {matched ? "다른 샘플" : "샘플 데이터"}
           </p>
           <div className="grid grid-cols-3 gap-2">
@@ -111,7 +111,7 @@ export default function FileUpload({ collectionName, domainName, onComplete }: P
 
       <div className="relative my-5 flex items-center gap-3">
         <div className="h-px flex-1 bg-rule" />
-        <span className="font-data text-[10px] tracking-[0.02em] text-ink3">또는 직접 업로드</span>
+        <span className="font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">또는 직접 업로드</span>
         <div className="h-px flex-1 bg-rule" />
       </div>
 

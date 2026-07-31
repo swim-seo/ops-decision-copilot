@@ -24,6 +24,14 @@ const ORDERED_RE = /^\s*\d+[.)]\s+(.*)$/;
 // **bold** first, then `code`, then *italic* — order matters so ** is not eaten by *.
 const INLINE_RE = /\*\*([^*]+)\*\*|`([^`]+)`|\*([^*\n]+)\*/g;
 
+// Claude escapes markdown punctuation in identifiers — FACT\_RETURN, PRD\_001.
+// Without this the backslash is printed verbatim.
+const ESCAPE_RE = /\\([\\`*_{}[\]()#+\-.!>~|])/g;
+
+function unescapeMd(text: string): string {
+  return text.replace(ESCAPE_RE, "$1");
+}
+
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   let cursor = 0;
@@ -32,13 +40,13 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
 
   let match = INLINE_RE.exec(text);
   while (match !== null) {
-    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
+    if (match.index > cursor) nodes.push(unescapeMd(text.slice(cursor, match.index)));
     const key = `${keyPrefix}-i${n++}`;
 
     if (match[1] !== undefined) {
       nodes.push(
         <strong key={key} className="font-semibold text-ink">
-          {match[1]}
+          {unescapeMd(match[1])}
         </strong>
       );
     } else if (match[2] !== undefined) {
@@ -53,7 +61,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     } else {
       nodes.push(
         <em key={key} className="italic">
-          {match[3]}
+          {unescapeMd(match[3])}
         </em>
       );
     }
@@ -62,7 +70,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     match = INLINE_RE.exec(text);
   }
 
-  if (cursor < text.length) nodes.push(text.slice(cursor));
+  if (cursor < text.length) nodes.push(unescapeMd(text.slice(cursor)));
   return nodes;
 }
 

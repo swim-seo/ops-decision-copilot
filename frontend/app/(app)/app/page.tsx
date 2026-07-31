@@ -115,7 +115,7 @@ export default function AppPage() {
       ) : (
         <div className="flex flex-1 overflow-hidden">
           <aside className="flex w-56 shrink-0 flex-col px-3 py-4 max-lg:w-14 max-lg:px-1.5">
-            <p className="px-2 font-data text-[10px] tracking-[0.02em] text-ink3 max-lg:sr-only">
+            <p className="px-2 font-ui text-[11px] font-medium tracking-[0.02em] text-ink3 max-lg:sr-only">
               분석 뷰
             </p>
             <nav className="mt-3 flex flex-col gap-0.5">
@@ -135,7 +135,7 @@ export default function AppPage() {
                     <span className={`text-[13px] max-lg:sr-only ${active ? "text-ink" : "text-ink2"}`}>
                       {item.label}
                     </span>
-                    <span className="font-data text-[10px] text-ink3 max-lg:hidden">{item.note}</span>
+                    <span className="font-ui text-[11px] text-ink3 max-lg:hidden">{item.note}</span>
                     <span
                       className="hidden font-data text-[11px] text-ink2 max-lg:block"
                       aria-hidden="true"
@@ -148,7 +148,7 @@ export default function AppPage() {
             </nav>
 
             <div className="mt-auto border-t border-rule pt-3 max-lg:hidden">
-              <p className="font-data text-[10px] tracking-[0.02em] text-ink3">컬렉션</p>
+              <p className="font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">컬렉션</p>
               <p className="mt-1 truncate font-data text-[12px] text-ink2" title={collectionName}>
                 {collectionName}
               </p>

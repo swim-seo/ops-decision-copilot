@@ -28,7 +28,7 @@ export default function GraphViewer({ collectionName }: Props) {
         <button
           type="button"
           onClick={() => setKey((k) => k + 1)}
-          className="border border-rule px-3 py-1.5 font-data text-[11px] text-ink2 transition hover:border-ink3 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-watch"
+          className="border border-rule px-3 py-1.5 font-ui text-[11px] text-ink2 transition hover:border-ink3 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-watch"
         >
           다시 그리기
         </button>
@@ -42,14 +42,14 @@ export default function GraphViewer({ collectionName }: Props) {
               className={`h-2.5 w-2.5 ${item.shape === "diamond" ? "rotate-45" : "rounded-full"}`}
               style={{ backgroundColor: item.color }}
             />
-            <span className="font-data text-[11px] text-ink2">{item.label}</span>
+            <span className="font-ui text-[11px] text-ink2">{item.label}</span>
           </li>
         ))}
         <li className="flex items-center gap-2">
           <span aria-hidden="true" className="font-data text-[13px] leading-none text-ink3">
             &rarr;
           </span>
-          <span className="font-data text-[11px] text-ink2">참조 방향 (팩트 &rarr; 마스터)</span>
+          <span className="font-ui text-[11px] text-ink2">참조 방향 (팩트 &rarr; 마스터)</span>
         </li>
       </ul>
 

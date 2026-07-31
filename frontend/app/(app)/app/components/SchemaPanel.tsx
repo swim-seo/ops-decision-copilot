@@ -95,24 +95,29 @@ export default function SchemaPanel({ collectionName, domainContext, onSelectTab
     };
   }, [nodes, edges]);
 
-  const specs: Array<[string, string]> = [
-    ["도메인", firstLineValue(domainContext) || "미지정"],
-    ["컬렉션", collectionName],
-    ["테이블", state === "ready" ? `${nodes.length}` : "—"],
-    ["조인", state === "ready" ? `${edges.length}` : "—"],
-    ["기준", asOf || "—"],
+  // mono 는 ASCII 값에만 쓴다. 도메인명은 한글이라 mono 로 두면 글리프가 없어
+  // 공백 폭만 mono 를 따라가고 자간이 벌어진다.
+  const specs: Array<{ label: string; value: string; mono: boolean }> = [
+    { label: "도메인", value: firstLineValue(domainContext) || "미지정", mono: false },
+    { label: "컬렉션", value: collectionName, mono: true },
+    { label: "테이블", value: state === "ready" ? `${nodes.length}` : "—", mono: true },
+    { label: "조인", value: state === "ready" ? `${edges.length}` : "—", mono: true },
+    { label: "기준", value: asOf || "—", mono: true },
   ];
 
   return (
     <section className="border border-rule bg-sheet">
       {/* 사양 블록 — 라벨/값 한 줄. 장식이 아니라 실제 적재 결과다. */}
       <dl className="grid grid-cols-2 gap-x-8 gap-y-3 px-6 py-5 sm:grid-cols-3 lg:grid-cols-5">
-        {specs.map(([label, value], i) => (
+        {specs.map(({ label, value, mono }, i) => (
           <div key={label} className="seq-lift min-w-0" style={{ "--d": `${i * 45}ms` } as React.CSSProperties}>
-            <dt className="font-data text-[10px] tracking-[0.02em] text-ink3">
+            <dt className="font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">
               {label}
             </dt>
-            <dd className="mt-1 truncate font-data text-[13px] tabular-nums text-ink" title={value}>
+            <dd
+              className={`mt-1 truncate text-[13px] tabular-nums text-ink ${mono ? "font-data" : "font-ui"}`}
+              title={value}
+            >
               {value}
             </dd>
           </div>
@@ -124,7 +129,7 @@ export default function SchemaPanel({ collectionName, domainContext, onSelectTab
       {/* 참조 허브 */}
       <div className="px-6 py-5">
         <div className="flex items-baseline justify-between gap-4">
-          <h2 className="font-data text-[10px] tracking-[0.02em] text-ink3">
+          <h2 className="font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">
             참조 허브
           </h2>
           <p className="break-keep text-[11px] text-ink2">

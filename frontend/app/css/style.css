@@ -270,7 +270,11 @@
   .font-ui {
     font-family: var(--ff-ui), 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
   }
+  /* Plex Mono 는 latin 서브셋만 받으므로 한글이 오면 글리프가 없다. 그대로 두면
+     시스템 mono 로 떨어져 한글이 전각 칸에 갇힌 채 자간이 벌어진다 — 라벨에
+     한글이 섞이는 화면이라 --ff-ui 를 mono 앞에 끼워 한글만 본문서체로 받는다. */
   .font-data {
-    font-family: var(--ff-data), ui-monospace, SFMono-Regular, monospace;
+    font-family: var(--ff-data), var(--ff-ui), 'Malgun Gothic', ui-monospace,
+      SFMono-Regular, monospace;
   }
 }

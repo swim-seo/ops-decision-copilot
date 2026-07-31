@@ -337,8 +337,13 @@ class KnowledgeGraph:
         node_meta_json = json.dumps(node_meta, ensure_ascii=True)
 
         CSS_HTML = """<style>
-/* 네트워크 캔버스를 툴바 높이만큼 아래로 밀기 */
-#mynetwork{margin-top:44px!important;}
+/* 네트워크 캔버스를 툴바 높이만큼 아래로 밀고, 남는 높이를 전부 쓰게 한다.
+   pyvis 기본값은 580px 고정이라 iframe 이 더 크면 아래가 남고, 그만큼 fit 배율이
+   낮아져 라벨이 읽히지 않았다. */
+html,body{height:100%;margin:0;}
+.card{height:100%;border:0!important;}
+#mynetwork{margin-top:44px!important;height:calc(100% - 44px)!important;
+  border:0!important;}
 /* ── 상단 툴바 ── */
 #kbar{position:fixed;top:0;left:0;right:0;height:44px;z-index:9999;
   display:flex;align-items:center;gap:8px;padding:0 12px;
@@ -448,6 +453,41 @@ function kgZ(d){
   document.getElementById('kzo').disabled=(ZI<=0);
 }
 
+/* 실제 스케일을 줌 컨트롤에 되돌려 넣는다. fit 이 만든 배율과 라벨이 어긋나면
+   +/- 를 처음 누르는 순간 화면이 엉뚱한 배율로 튄다. */
+function syncZ(){
+  var s=network.getScale(),best=0;
+  for(var i=1;i<ZL.length;i++)
+    if(Math.abs(ZL[i]-s)<Math.abs(ZL[best]-s))best=i;
+  ZI=best;
+  document.getElementById('kzl').textContent=Math.round(s*100)+'%';
+  document.getElementById('kzi').disabled=(ZI>=ZL.length-1);
+  document.getElementById('kzo').disabled=(ZI<=0);
+}
+
+/* 전체 그래프를 컨테이너에 맞춘다. 이게 없으면 vis 기본 배율로 열려서
+   노드가 화면 밖으로 잘려 나간다 — 11개 중 3개만 보이던 원인. */
+function fitAll(){
+  if(typeof network==='undefined')return;
+  network.fit({animation:false});
+  syncZ();
+}
+
+/* 그래프 탭은 display:none 안에서 먼저 마운트된다 — 그 상태의 캔버스는 크기가 0 이라
+   fit 이 엉뚱한 배율을 잡고, 탭을 열어도 그 배율 그대로 남아 노드가 잘려 보였다.
+   컨테이너 크기가 실제로 바뀔 때 다시 맞춘다. */
+function watchSize(){
+  var el=document.getElementById('mynetwork');
+  if(!el||typeof ResizeObserver==='undefined')return;
+  var w=0,h=0;
+  new ResizeObserver(function(){
+    var r=el.getBoundingClientRect();
+    if(Math.abs(r.width-w)<2&&Math.abs(r.height-h)<2)return;
+    w=r.width;h=r.height;
+    if(w>0&&h>0){network.redraw();fitAll();}
+  }).observe(el);
+}
+
 /* ════ 드릴다운 초기화 ════ */
 function initDD(){
   /* 그룹별 노드 분류 */
@@ -475,7 +515,11 @@ function setND(nds,eds){
   var ed=network.body.data.edges;
   nd.clear();ed.clear();
   nd.add(nds);ed.add(eds);
+  /* 좌표는 안정화가 끝나야 확정된다 — 그 전에 fit 하면 초기 난수 배치에 맞춰진다.
+     이벤트가 안 오는 경우를 대비해 타이머로도 한 번 더 맞춘다. */
+  network.once('stabilizationIterationsDone',fitAll);
   network.stabilize(120);
+  setTimeout(fitAll,1500);
 }
 
 /* ════ 뷰 전환 ════ */
@@ -586,6 +630,7 @@ function showD(id){
     });
     /* 초기화 후 Level1 렌더 */
     initDD();
+    watchSize();
   } else {
     setTimeout(poll,150);
   }

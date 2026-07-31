@@ -44,7 +44,7 @@ export default function DomainSelector({ onComplete }: Props) {
   return (
     <div>
       <div className="mb-8">
-        <div className="inline-flex items-center gap-2 border border-signal/30 bg-signal/5 px-2.5 py-1 font-data text-[10px] tracking-[0.02em] text-signal">
+        <div className="inline-flex items-center gap-2 border border-signal/30 bg-signal/5 px-2.5 py-1 font-ui text-[11px] font-medium tracking-[0.02em] text-signal">
           <span className="h-1.5 w-1.5 bg-signal" />
           1단계 · 도메인
         </div>

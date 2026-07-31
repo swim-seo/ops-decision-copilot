@@ -62,7 +62,7 @@ export default function BriefingCards({ collectionName, domainContext }: Props) 
   if (loading) {
     return (
       <section className="border border-rule bg-sheet px-6 py-16">
-        <p className="font-data text-[10px] tracking-[0.02em] text-ink3">분석 중</p>
+        <p className="font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">분석 중</p>
         <p className="mt-3 max-w-[46ch] break-keep font-display text-[19px] leading-relaxed text-ink">
           업로드한 데이터를 읽고 오늘 확인할 것을 정리하고 있습니다.
         </p>
@@ -82,7 +82,7 @@ export default function BriefingCards({ collectionName, domainContext }: Props) 
   if (error) {
     return (
       <section className="border border-rule bg-sheet px-6 py-8">
-        <p className="font-data text-[10px] tracking-[0.02em] text-crit">브리핑 실패</p>
+        <p className="font-ui text-[11px] font-medium tracking-[0.02em] text-crit">브리핑 실패</p>
         <p className="mt-2 break-keep text-[13px] text-ink">
           브리핑을 만들지 못했습니다. 파일이 적재됐는지 확인한 뒤 다시 시도하세요.
         </p>
@@ -100,7 +100,7 @@ export default function BriefingCards({ collectionName, domainContext }: Props) 
   if (!hero && rest.length === 0) {
     return (
       <section className="border border-rule bg-sheet px-6 py-8">
-        <p className="font-data text-[10px] tracking-[0.02em] text-ink3">브리핑 없음</p>
+        <p className="font-ui text-[11px] font-medium tracking-[0.02em] text-ink3">브리핑 없음</p>
         <p className="mt-2 text-[13px] text-ink">
           분석할 내용이 없습니다. 파일을 추가하면 브리핑이 다시 만들어집니다.
         </p>
@@ -116,7 +116,7 @@ export default function BriefingCards({ collectionName, domainContext }: Props) 
             className={`absolute left-0 top-0 h-full w-[3px] ${accentOf(hero.id).stripe}`}
             aria-hidden="true"
           />
-          <p className={`font-data text-[10px] tracking-[0.02em] ${accentOf(hero.id).text}`}>
+          <p className={`font-ui text-[11px] font-medium tracking-[0.02em] ${accentOf(hero.id).text}`}>
             {hero.label} · 먼저 확인
           </p>
           <Markdown
@@ -137,7 +137,7 @@ export default function BriefingCards({ collectionName, domainContext }: Props) 
             >
               <div className="flex items-center gap-2">
                 <span className={`h-2 w-2 ${accent.mark}`} aria-hidden="true" />
-                <h3 className="font-data text-[10px] tracking-[0.02em] text-ink2">
+                <h3 className="font-ui text-[11px] font-medium tracking-[0.02em] text-ink2">
                   {card.label}
                 </h3>
               </div>

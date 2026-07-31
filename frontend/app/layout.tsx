@@ -45,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="ko" className="scroll-smooth">
       <body
         className={`${inter.variable} ${hahmlet.variable} ${plexSansKr.variable} ${plexMono.variable} bg-gray-50 font-inter tracking-tight text-gray-900 antialiased`}
       >
