@@ -272,7 +272,7 @@ export default function SchemaPanel({ collectionName, domainContext, onSelectTab
 
         {state === "failed" && (
           <p className="mt-4 max-w-[56ch] break-keep text-[13px] text-crit">
-            스키마를 불러오지 못했습니다. 지식 그래프 탭에서 새로고침을 눌러 다시 시도하세요.
+            스키마를 불러오지 못했습니다. 군집 보기 탭에서 다시 그리기를 눌러 재시도하세요.
           </p>
         )}
 
