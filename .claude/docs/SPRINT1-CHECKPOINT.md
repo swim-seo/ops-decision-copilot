@@ -255,10 +255,11 @@
 - 허브(MST_PRODUCT) **중앙 고정은 미적용**. `sortMethod:'directed'` 가 팩트/마스터
   단 구분을 만드는 쪽이 더 값어치 있다고 보고 그대로 뒀다. 중앙 고정을 원하면
   `sortMethod:'hubsize'` 로 바꿔야 하는데 그러면 단 구분이 깨진다.
-- 🐛 `backend/routers/domain.py` `_collection_name()` 이 한글을 전부 지워
-  모든 한글 도메인이 `domain_default` 로 충돌하는 버그 — 미수정. 그 탓에
-  현재 `domain_default` 컬렉션에 과거 도메인 파일(`MST_PART`,
-  `FACT_MONTHLY_DEMAND`, `BEAUTY_*`)이 섞여 있고 브리핑 근거에도 끼어든다.
+- ~~🐛 `_collection_name()` 한글 슬러그 버그~~ → **2026-08-03 수정 완료.**
+  뷰티 데모는 `domain_뷰티_브랜드_재고_관리`(500청크/12파일/11노드/15엣지)에
+  깨끗하게 재적재했고, 검색 근거에서 오염이 사라진 것을 확인했다(20건 중 4→0).
+  **옛 컬렉션은 안 지웠다** — `domain_default`(521) · `domain_beauty`(36) ·
+  `domain_docs`(44). 삭제는 파괴적이라 사용자 확인이 필요하다.
 - venv 에 `pytest`·`ruff` 없음 — 검증은 임시 스크립트로 했다.
 
 **검증 요령(비용 0)**
